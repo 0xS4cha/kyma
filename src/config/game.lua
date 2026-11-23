@@ -27,9 +27,18 @@ local CONFIG = {
         step = 320,
         throw = 380,
         clank = 420,
+        slide = 380,
         stepTicks = 20,
         stepSpeed = 110,
         quietSpeed = 0.45
+    },
+
+    slide = {
+        ticks = 28,
+        speed = 760,
+        endSpeed = 140,
+        invulnerable = 8,
+        runSpeed = 0.8
     },
 
     dash = {

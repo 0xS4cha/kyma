@@ -39,6 +39,9 @@ function Player.new(slot, name, spawn)
         cooldown = 0,
         dashX = 0,
         dashY = 0,
+        slide = 0,
+        slideX = 0,
+        slideY = 0,
         hp = Config.health,
         dead = 0,
         trigger = false
@@ -51,7 +54,7 @@ end
 --- @param spawn table
 function Player.respawn(p, spawn)
     p.x, p.y = spawn.x, spawn.y
-    p.vx, p.vy, p.dash, p.cooldown = 0, 0, 0, 0
+    p.vx, p.vy, p.dash, p.cooldown, p.slide = 0, 0, 0, 0, 0
     p.hp, p.dead = Config.health, 0
     Weapons.give(p, "pistol")
 end
@@ -65,8 +68,24 @@ function Player.copy(from, to)
     to.x, to.y, to.angle, to.vx, to.vy = from.x, from.y, from.angle, from.vx, from.vy
     to.dash, to.cooldown, to.dashX, to.dashY = from.dash, from.cooldown, from.dashX, from.dashY
     to.hp, to.dead, to.trigger = from.hp, from.dead, from.trigger
+    to.slide, to.slideX, to.slideY = from.slide, from.slideX, from.slideY
     to.weapon, to.ammo, to.reserve, to.reload, to.fireCooldown = from.weapon, from.ammo, from.reserve, from.reload, from.fireCooldown
     return to
+end
+
+--- @param p table
+--- @param input table
+--- @return boolean
+function Player.running(p, input)
+    if input.f ~= 1 or input.k == 1 then return false end
+    local speed = sqrt(p.vx * p.vx + p.vy * p.vy)
+    return speed >= Config.player.speed * Config.slide.runSpeed
+end
+
+--- @param p table
+--- @return boolean
+function Player.evading(p)
+    return p.dash > 0 or p.slide > Config.slide.ticks - Config.slide.invulnerable
 end
 
 --- @param p table
@@ -81,7 +100,7 @@ function Player.step(p, input, arena, dt)
 
     if p.dead > 0 then
         p.dead = p.dead - 1
-        p.vx, p.vy, p.dash = 0, 0, 0
+        p.vx, p.vy, p.dash, p.slide = 0, 0, 0, 0
         p.trigger = input.b == 1
         return false
     end
@@ -104,20 +123,32 @@ function Player.step(p, input, arena, dt)
     if p.cooldown > 0 then
         p.cooldown = p.cooldown - 1
     end
-    if input.d == 1 and p.cooldown == 0 and p.dash == 0 then
-        local dx, dy = wx, wy
-        len = sqrt(dx * dx + dy * dy)
-        if len < 1e-6 then
-            dx, dy, len = ca, sa, 1
+    local slide = Config.slide
+    if input.d == 1 and p.cooldown == 0 and p.dash == 0 and p.slide == 0 then
+        if Player.running(p, input) then
+            local speed = sqrt(p.vx * p.vx + p.vy * p.vy)
+            p.slideX, p.slideY = p.vx / speed, p.vy / speed
+            p.slide = slide.ticks
+        else
+            local dx, dy = wx, wy
+            len = sqrt(dx * dx + dy * dy)
+            if len < 1e-6 then
+                dx, dy, len = ca, sa, 1
+            end
+            p.dashX, p.dashY = dx / len, dy / len
+            p.dash = dash.ticks
         end
-        p.dashX, p.dashY = dx / len, dy / len
-        p.dash = dash.ticks
         p.cooldown = dash.cooldown
     end
 
     if p.dash > 0 then
         p.dash = p.dash - 1
         p.vx, p.vy = p.dashX * dash.speed, p.dashY * dash.speed
+    elseif p.slide > 0 then
+        p.slide = p.slide - 1
+        local t = p.slide / slide.ticks
+        local speed = slide.endSpeed + (slide.speed - slide.endSpeed) * t
+        p.vx, p.vy = p.slideX * speed, p.slideY * speed
     else
         local blend = def.acceleration * dt
         if blend > 1 then blend = 1 end
