@@ -105,7 +105,7 @@ end
 --- @return table
 function GM.Session:sample()
     local world = self.world
-    local forward, strafe, fire = 0, 0, false
+    local forward, strafe, fire, quiet = 0, 0, false, false
     if self.autoplay then
         if world.sequence % 120 == 0 then
             world.autoplayTurn = -world.autoplayTurn
@@ -124,6 +124,7 @@ function GM.Session:sample()
         if down("left") then world.aim = world.aim - Config.turnSpeed * DT end
         if down("right") then world.aim = world.aim + Config.turnSpeed * DT end
         fire = self.captured and love.mouse.isDown(1)
+        quiet = down("c") or down("lctrl")
     end
     local requests = world.requests
     world.requests = {}
@@ -134,8 +135,10 @@ function GM.Session:sample()
         b = fire and 1 or 0,
         l = requests.reload and 1 or 0,
         t = requests.throw and 1 or 0,
-        e = requests.pickup and 1 or 0
+        e = requests.pickup and 1 or 0,
+        k = quiet and 1 or 0
     }
+    world.quiet = quiet
     if fire then
         command.v = math.max(0, math.floor(world.clock - Config.interpolationTicks + 0.5))
     end
@@ -217,6 +220,10 @@ function GM.Session:receive(data)
     world.items = type(data.d) == "table" and data.d or {}
     for _, entry in ipairs(data.sc or {}) do
         world.score[entry.i] = entry.k
+    end
+    for _, noise in ipairs(data.n or {}) do
+        self.effects:echo(noise.x, noise.y, noise.k)
+        self.hud:noise(noise.x, noise.y, noise.k)
     end
     for _, shot in ipairs(data.s or {}) do
         if shot.o ~= world.slot then

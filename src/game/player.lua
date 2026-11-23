@@ -95,6 +95,10 @@ function Player.step(p, input, arena, dt)
     if len > 1 then
         wx, wy = wx / len, wy / len
     end
+    if input.k == 1 then
+        local quiet = Config.noise.quietSpeed
+        wx, wy = wx * quiet, wy * quiet
+    end
 
     local dash = Config.dash
     if p.cooldown > 0 then

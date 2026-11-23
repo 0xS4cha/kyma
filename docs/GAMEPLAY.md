@@ -12,6 +12,7 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 | Strafe | `A` / `D` (`Q` / `D` on AZERTY) |
 | Turn | Mouse, or arrow left / right |
 | Dash | `Space`, `Shift` or right click |
+| Walk quietly | Hold `C` or `Ctrl` |
 | Fire | Left click (hold for the rifle) |
 | Reload | `R` |
 | Throw your weapon | `G` or middle click |
@@ -36,6 +37,12 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 - Throwing your weapon (`G`) sends it flying: it deals 45 damage to the opponent it hits, then lands with its remaining ammo, ready to be picked up by anyone. With empty hands you pick up a weapon just by walking on it; `E` swaps the weapon you hold for the one on the floor.
 - While dashing you can't shoot, but bullets and thrown weapons go through you: time it to dodge.
 - You only see what is in front of you (a cone of about 110 degrees) and a small circle around you, and walls block the view. Everything else is greyed out, and the opponent is invisible there.
+
+## Noise
+
+- Everything loud leaves an echo for an opponent who can't see you: a shot (heard from far away), a dash, footsteps while running, a thrown weapon and the clank of a weapon hitting a wall.
+- The echo is a ring on the floor, visible through the grey area outside your view; when it is off screen, an arrow on the edge of the screen points to it. Shots are red, the rest is dark.
+- Holding `C` (or `Ctrl`) makes you walk at less than half speed without footsteps. Throwing an empty weapon somewhere makes a noise there: use it to lure the opponent.
 
 ## Screen
 

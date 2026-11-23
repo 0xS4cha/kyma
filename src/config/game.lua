@@ -21,6 +21,17 @@ local CONFIG = {
         serverNearRadius = 130
     },
 
+    noise = {
+        shot = 1100,
+        dash = 420,
+        step = 320,
+        throw = 380,
+        clank = 420,
+        stepTicks = 20,
+        stepSpeed = 110,
+        quietSpeed = 0.45
+    },
+
     dash = {
         speed = 900,
         ticks = 9,

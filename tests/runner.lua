@@ -6,7 +6,8 @@ local SUITES = {
     "tests.net_test",
     "tests.session_test",
     "tests.dash_test",
-    "tests.combat_test"
+    "tests.combat_test",
+    "tests.noise_test"
 }
 
 local function run(filter)

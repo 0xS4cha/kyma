@@ -51,6 +51,7 @@ function World:apply(player, command)
     if Player.step(player, command, self.arena, self.dt) then
         Combat.fire(self, player, command)
     end
+    self:footsteps(player, command)
     if command.t == 1 then
         Combat.throw(self, player)
     elseif command.e == 1 then
@@ -95,11 +96,44 @@ function World:step()
     Combat.record(self)
 end
 
---- @return table[]
+--- @param player table
+--- @param command table
+function World:footsteps(player, command)
+    local noise = Config.noise
+    if player.dead > 0 then return end
+    if player.dash == Config.dash.ticks - 1 then
+        Combat.noise(self, "dash", player.x, player.y, player.slot)
+        return
+    end
+    if command.k == 1 then return end
+    player.stride = (player.stride or 0) + 1
+    local speed = math.sqrt(player.vx * player.vx + player.vy * player.vy)
+    if speed < noise.stepSpeed then
+        player.stride = 0
+    elseif player.stride >= noise.stepTicks then
+        player.stride = 0
+        Combat.noise(self, "step", player.x, player.y, player.slot)
+    end
+end
+
+--- @param listener number
+--- @param noise table
+--- @return boolean
+function World:hears(listener, noise)
+    if noise.source == listener then return false end
+    local p = self.players[listener]
+    if not p or p.dead > 0 then return false end
+    local dx, dy = noise.x - p.x, noise.y - p.y
+    if dx * dx + dy * dy > noise.radius * noise.radius then return false end
+    if noise.source and self.players[noise.source] and self:visible(listener, noise.source) then return false end
+    return true
+end
+
+--- @return table[], table[], table[]
 function World:drain()
-    local events, shots = self.events, self.shots
-    self.events, self.shots = {}, {}
-    return events, shots
+    local events, shots, noises = self.events, self.shots, self.noises
+    self.events, self.shots, self.noises = {}, {}, {}
+    return events, shots, noises
 end
 
 --- @param slot number

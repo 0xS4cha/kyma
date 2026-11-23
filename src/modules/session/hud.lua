@@ -19,6 +19,7 @@ local RADIUS = 12
 local FEED_LIFE = 4.5
 local HELP_SECONDS = 7
 local DAMAGE_LIFE = 1.1
+local NOISE_LIFE = 1.4
 
 local fonts = {}
 
@@ -165,6 +166,7 @@ function Hud.new()
         joinedAt = -10,
         feed = {},
         damage = {},
+        noises = {},
         connecting = 1
     }, Hud)
 end
@@ -197,6 +199,14 @@ function Hud:damageFrom(px, py, sx, sy)
     self.damage[#self.damage + 1] = { angle = math.atan2(sy - py, sx - px), time = love.timer.getTime() }
 end
 
+--- @param x number
+--- @param y number
+--- @param kind string
+function Hud:noise(x, y, kind)
+    self.noises[#self.noises + 1] = { x = x, y = y, kind = kind, time = love.timer.getTime() }
+    if #self.noises > 12 then table.remove(self.noises, 1) end
+end
+
 --- @param session table
 --- @param dt number
 function Hud:update(session, dt)
@@ -208,6 +218,9 @@ function Hud:update(session, dt)
     end
     for k = #self.damage, 1, -1 do
         if now - self.damage[k].time > DAMAGE_LIFE then table.remove(self.damage, k) end
+    end
+    for k = #self.noises, 1, -1 do
+        if now - self.noises[k].time > NOISE_LIFE then table.remove(self.noises, k) end
     end
     if not world then return end
     local me = world.me
@@ -343,6 +356,12 @@ function Hud:drawVitals(session)
     text(value, 30, x + w - 18, y + 6, c, 1, "right")
     local pulse = low and me.hp > 0 and (0.75 + 0.25 * sin(love.timer.getTime() * 8)) or 1
     bar(x + 18, y + 44, w - 36, 10, hp, low and RED or INK, pulse, self.ghost / Config.health)
+
+    if session.world.quiet then
+        local qw = font(12):getWidth("Quiet") + 20
+        card(x + w - qw, y - 32, qw, 24, 1, 12)
+        text("Quiet", 12, x + w - qw + 10, y - 27, INK, 0.7)
+    end
 
     local ready = self.charge >= 1
     text("Dash", 13, x + 18, y + 70, INK, 0.5)
@@ -481,6 +500,38 @@ function Hud:drawDamage(session)
     lg.setLineWidth(1)
 end
 
+function Hud:drawNoises(session)
+    if #self.noises == 0 then return end
+    local W, H = love.graphics.getDimensions()
+    local camera = session.camera
+    local ax, ay = camera:anchor()
+    local now = love.timer.getTime()
+    local inset = 56
+    local lg = love.graphics
+    for _, noise in ipairs(self.noises) do
+        local sx, sy = camera:toScreen(noise.x, noise.y)
+        if sx < inset or sx > W - inset or sy < inset or sy > H - inset then
+            local dx, dy = sx - ax, sy - ay
+            local scale = math.huge
+            if dx > 0 then scale = min(scale, (W - inset - ax) / dx) end
+            if dx < 0 then scale = min(scale, (inset - ax) / dx) end
+            if dy > 0 then scale = min(scale, (H - inset - ay) / dy) end
+            if dy < 0 then scale = min(scale, (inset - ay) / dy) end
+            local px, py = ax + dx * scale, ay + dy * scale
+            local angle = math.atan2(dy, dx)
+            local t = (now - noise.time) / NOISE_LIFE
+            local c = noise.kind == "shot" and RED or INK
+            local size = noise.kind == "shot" and 12 or 9
+            lg.push()
+            lg.translate(px, py)
+            lg.rotate(angle)
+            color(c, (1 - t) * 0.85)
+            lg.polygon("fill", size, 0, -size * 0.7, size * 0.75, -size * 0.3, 0, -size * 0.7, -size * 0.75)
+            lg.pop()
+        end
+    end
+end
+
 function Hud:drawDeath(session)
     if self.death < 0.01 then return end
     local W, H = love.graphics.getDimensions()
@@ -509,6 +560,7 @@ function Hud:drawHelp()
         { "Mouse", "Aim and turn" },
         { "Left click", "Fire" },
         { "Space", "Dash, dodges bullets" },
+        { "C", "Walk quietly" },
         { "R", "Reload" },
         { "G", "Throw your weapon" },
         { "E", "Swap with a weapon on the floor" },
@@ -572,6 +624,7 @@ end
 function Hud:draw(session)
     if session.world then
         self:drawDamage(session)
+        self:drawNoises(session)
         self:drawScore(session)
         self:drawVitals(session)
         self:drawWeapon(session)
