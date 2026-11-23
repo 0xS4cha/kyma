@@ -12,6 +12,8 @@ LOVE_BUILD_OS := linux
 BUILD_TOOL ?= $(BUILD_TOOL_DIR)/AppRun
 endif
 APPIMAGETOOL ?= appimagetool.AppImage
+SERVER_NAME ?= kyma_server
+SERVER_DIR ?= server
 DIST_DIR ?= dist
 BUILD_DIR ?= build
 VERSION := $(shell sed -n "s/^ *version *= *'\([^']*\)'.*/\1/p" build.lua | head -n 1)
@@ -49,9 +51,35 @@ standalone: fclean build $(APPIMAGETOOL)
 	@chmod a+rx $(BUILD_DIR)/$(PROJECT_NAME).AppDir/AppRun $(BUILD_DIR)/$(PROJECT_NAME).AppDir/bin/*
 	@ARCH=x86_64 ./$(APPIMAGETOOL) $(BUILD_DIR)/$(PROJECT_NAME).AppDir ./$(PROJECT_NAME)
 	@chmod +x ./$(PROJECT_NAME)
+	@$(MAKE) --no-print-directory standalone-server
+
+standalone-server: $(APPIMAGETOOL)
+	@rm -rf $(BUILD_DIR)/$(SERVER_NAME) $(BUILD_DIR)/$(SERVER_NAME).AppDir
+	@mkdir -p $(BUILD_DIR)/$(SERVER_NAME)
+	@cp -r $(SERVER_DIR)/. $(BUILD_DIR)/$(SERVER_NAME)/
+	@cp -r src $(BUILD_DIR)/$(SERVER_NAME)/
+	@cp -r libs $(BUILD_DIR)/$(SERVER_NAME)/
+	@cd $(BUILD_DIR)/$(SERVER_NAME) && zip -q -9 -r ../$(SERVER_NAME).love .
+	@cp -r $(BUILD_DIR)/$(PROJECT_NAME).AppDir $(BUILD_DIR)/$(SERVER_NAME).AppDir
+	@rm -f $(BUILD_DIR)/$(SERVER_NAME).AppDir/bin/$(APP_NAME)
+	@head -c $$(( $$(stat -c %s $(BUILD_DIR)/$(PROJECT_NAME).AppDir/bin/$(APP_NAME)) - $$(stat -c %s $(DIST_DIR)/$(VERSION)/$(APP_NAME).love) )) \
+		$(BUILD_DIR)/$(PROJECT_NAME).AppDir/bin/$(APP_NAME) > $(BUILD_DIR)/$(SERVER_NAME).AppDir/bin/$(SERVER_NAME)
+	@cat $(BUILD_DIR)/$(SERVER_NAME).love >> $(BUILD_DIR)/$(SERVER_NAME).AppDir/bin/$(SERVER_NAME)
+	@sed -i 's|bin/$(APP_NAME)"|bin/$(SERVER_NAME)"|' $(BUILD_DIR)/$(SERVER_NAME).AppDir/AppRun
+	@sed -i -e 's|^Name=.*|Name=$(SERVER_NAME)|' -e 's|^Exec=.*|Exec=$(SERVER_NAME) %f|' -e 's|^Terminal=.*|Terminal=true|' $(BUILD_DIR)/$(SERVER_NAME).AppDir/love.desktop
+	@chmod -R u+rwX,go+rX,go-w $(BUILD_DIR)/$(SERVER_NAME).AppDir
+	@chmod a+rx $(BUILD_DIR)/$(SERVER_NAME).AppDir/AppRun $(BUILD_DIR)/$(SERVER_NAME).AppDir/bin/*
+	@ARCH=x86_64 ./$(APPIMAGETOOL) $(BUILD_DIR)/$(SERVER_NAME).AppDir ./$(SERVER_NAME)
+	@chmod +x ./$(SERVER_NAME)
 
 run:
 	@love .
+
+server:
+	@love . --server
+
+host:
+	@love . --host
 
 test:
 	@love . --test
@@ -62,9 +90,9 @@ clean:
 	@find . -name "*.love" -type f -delete
 
 fclean: clean
-	@rm -f ./$(PROJECT_NAME)
+	@rm -f ./$(PROJECT_NAME) ./$(SERVER_NAME)
 
 dist: build
 	@ls -1 $(DIST_DIR)/$(VERSION)/$(APP_NAME)-*.zip
 
-.PHONY: all build build-windows build-macos build-linux run test clean fclean dist standalone
+.PHONY: all build build-windows build-macos build-linux run server host test clean fclean dist standalone standalone-server

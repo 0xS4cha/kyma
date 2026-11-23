@@ -3,4 +3,5 @@ build
 dist
 love-build
 kyma
+kyma_server
 appimagetool.AppImage

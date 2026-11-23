@@ -6,9 +6,11 @@ with a limited field of view, under a timer, and reaches the exit.
 ## Run
 
 ```sh
-make run              # love .
+make run              # solo: local server in a thread + client
+make host             # host a duel on your network (UDP 6789)
+love . --connect 127.0.0.1:6789 --name Bob   # join it
+make server           # headless dedicated server
 make test             # love . --test
-love . --frames 300 --screenshot shot.png   # boot, render, save a screenshot, quit
 ```
 
 ## Layout
@@ -16,7 +18,10 @@ love . --frames 300 --screenshot shot.png   # boot, render, save a screenshot, q
 | Path | Role |
 | --- | --- |
 | `main.lua` | LÖVE callbacks, command-line flags, dispatch to modules |
-| `src/core/` | Engine helpers: class, logger, camera, deterministic random, args, threads |
+| `src/core/` | Engine helpers: class, logger, turning camera, random, args, threads |
+| `src/game/` | Simulation shared by client and server: arena, player movement, world |
+| `src/net/` | Binary codec, protocol, input validation |
+| `src/server/` | Authoritative server: transport, host, duel rooms |
 | `src/modules/` | Game modules, auto-loaded and registered with `GM.Modules:Register(name, priority)` |
 | `src/config/` | Window and game settings |
 | `tests/` | Headless test suites run by `tests/runner.lua` |

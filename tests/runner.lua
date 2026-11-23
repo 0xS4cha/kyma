@@ -2,7 +2,9 @@ require("src.core.logger")
 local ArgParser = require("src.core.args")
 
 local SUITES = {
-    "tests.core_test"
+    "tests.core_test",
+    "tests.net_test",
+    "tests.session_test"
 }
 
 local function run(filter)
@@ -30,6 +32,7 @@ local function run(filter)
     print(string.format("\n%d passed, %d failed in %.1fs", passed, #failed, love.timer.getTime() - started))
     for _, failure in ipairs(failed) do
         print("  failed: " .. failure.name)
+        print("    " .. tostring(failure.err):gsub("\n", "\n    "))
     end
     return #failed == 0
 end

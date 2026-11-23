@@ -3,138 +3,85 @@ local Class = require("src.core.class")
 --- @class Camera
 --- @field x number
 --- @field y number
+--- @field angle number
 --- @field scale number
---- @field isDragging boolean
---- @field lastMouseX number
---- @field lastMouseY number
+--- @field anchorX number
+--- @field anchorY number
 --- @field minScale number
 --- @field maxScale number
---- @field mapW number?
---- @field mapH number?
 local Camera = Class()
 
+local cos, sin, pi = math.cos, math.sin, math.pi
 
---- @return Camera
-function Camera:init()
+--- @param options table?
+function Camera:init(options)
+    options = options or {}
     self.x = 0
     self.y = 0
-    self.scale = 1
-    self.isDragging = false
-    self.lastMouseX = 0
-    self.lastMouseY = 0
-    self.minScale = 0.05
-    self.maxScale = 24.0
+    self.angle = -pi / 2
+    self.scale = options.scale or 1
+    self.anchorX = options.anchorX or 0.5
+    self.anchorY = options.anchorY or 0.5
+    self.minScale = options.minScale or 0.25
+    self.maxScale = options.maxScale or 8
 end
 
-
---- @param dt number?
---- @return void
-function Camera:update(dt)
-    local mouseX, mouseY = love.mouse.getPosition()
-    
-    if love.mouse.isDown(2) then
-        if not self.isDragging then
-            self.isDragging = true
-            self.lastMouseX = mouseX
-            self.lastMouseY = mouseY
-        else
-            local dx = mouseX - self.lastMouseX
-            local dy = mouseY - self.lastMouseY
-            
-            self.x = self.x + dx / self.scale
-            self.y = self.y + dy / self.scale
-            
-            self.lastMouseX = mouseX
-            self.lastMouseY = mouseY
-        end
-    else
-        self.isDragging = false
-    end
-    
-    self:clamp()
+--- @param x number
+--- @param y number
+--- @param angle number
+function Camera:follow(x, y, angle)
+    self.x, self.y, self.angle = x, y, angle
 end
 
+--- @return number
+function Camera:rotation()
+    return -pi / 2 - self.angle
+end
+
+--- @return number, number
+function Camera:anchor()
+    local W, H = love.graphics.getDimensions()
+    return W * self.anchorX, H * self.anchorY
+end
 
 --- @param factor number
---- @param mouseX number?
---- @param mouseY number?
---- @return void
-function Camera:zoom(factor, mouseX, mouseY)
-    if self.mapW and self.mapH then
-        local W, H = love.graphics.getDimensions()
-        self.minScale = math.max(W / self.mapW, H / self.mapH)
-    end
-
-    local oldScale = self.scale
+function Camera:zoom(factor)
     self.scale = math.max(self.minScale, math.min(self.maxScale, self.scale * factor))
-    
-    if mouseX and mouseY then
-        local worldX = mouseX - self.x * oldScale
-        local worldY = mouseY - self.y * oldScale
-        
-        self.x = (mouseX - worldX * (self.scale / oldScale)) / self.scale
-        self.y = (mouseY - worldY * (self.scale / oldScale)) / self.scale
-    end
-    
-    self:clamp()
 end
 
-
---- @return void
-function Camera:clamp()
-    if not self.mapW or not self.mapH then return end
-    
-    local W, H = love.graphics.getDimensions()
-    
-    local minScale = math.max(W / self.mapW, H / self.mapH)
-    self.minScale = minScale
-    if self.scale < minScale then
-        self.scale = minScale
-    end
-    
-    local minX = W / self.scale - self.mapW
-    local minY = H / self.scale - self.mapH
-    
-    self.x = math.max(minX, math.min(0, self.x))
-    self.y = math.max(minY, math.min(0, self.y))
+function Camera:apply()
+    local ax, ay = self:anchor()
+    love.graphics.push()
+    love.graphics.translate(ax, ay)
+    love.graphics.scale(self.scale)
+    love.graphics.rotate(self:rotation())
+    love.graphics.translate(-self.x, -self.y)
 end
 
-
---- @param sx number
---- @param sy number
---- @return number, number
-function Camera:toWorld(sx, sy)
-    return sx / self.scale - self.x, sy / self.scale - self.y
+function Camera:clear()
+    love.graphics.pop()
 end
 
 --- @param wx number
 --- @param wy number
 --- @return number, number
 function Camera:toScreen(wx, wy)
-    return (wx + self.x) * self.scale, (wy + self.y) * self.scale
+    local r = self:rotation()
+    local c, s = cos(r), sin(r)
+    local dx, dy = wx - self.x, wy - self.y
+    local ax, ay = self:anchor()
+    return ax + (dx * c - dy * s) * self.scale, ay + (dx * s + dy * c) * self.scale
 end
 
---- @param wx number
---- @param wy number
---- @return void
-function Camera:centerOn(wx, wy)
-    local W, H = love.graphics.getDimensions()
-    self.x = W / (2 * self.scale) - wx
-    self.y = H / (2 * self.scale) - wy
-    self:clamp()
-end
-
---- @return void
-function Camera:apply()
-    love.graphics.push()
-    love.graphics.scale(self.scale, self.scale)
-    love.graphics.translate(self.x, self.y)
-end
-
-
---- @return void
-function Camera:clear()
-    love.graphics.pop()
+--- @param sx number
+--- @param sy number
+--- @return number, number
+function Camera:toWorld(sx, sy)
+    local r = self:rotation()
+    local c, s = cos(r), sin(r)
+    local ax, ay = self:anchor()
+    local dx, dy = (sx - ax) / self.scale, (sy - ay) / self.scale
+    return self.x + dx * c + dy * s, self.y - dx * s + dy * c
 end
 
 return Camera

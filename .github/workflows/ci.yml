@@ -26,7 +26,7 @@ jobs:
 
     - name: Verify the game boots
       run: |
-        xvfb-run love . --frames 300
+        xvfb-run love . --autoplay --frames 3000
 
     - name: Lua Diagnostics (LuaLS)
       uses: mrcjkb/lua-typecheck-action@v0
