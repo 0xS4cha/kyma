@@ -101,6 +101,7 @@ local WEAPONS = {
     },
 
     ammoReserveCap = 2,
+    healAmount = 50,
     pickupRadius = 34,
     itemLifetime = 45 * 60,
     padRespawn = 600,

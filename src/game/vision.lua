@@ -12,7 +12,7 @@ local function clear(arena, x1, y1, x2, y2)
     local dx, dy = x2 - x1, y2 - y1
     local d = sqrt(dx * dx + dy * dy)
     if d < 1e-6 then return true end
-    return arena:raycast(x1, y1, dx / d, dy / d, d) >= d - 1e-6
+    return arena:raycast(x1, y1, dx / d, dy / d, d, "vision") >= d - 1e-6
 end
 
 --- @param arena table
@@ -49,7 +49,7 @@ function Vision.fans(arena, x, y, angle)
     for k = 0, steps do
         local a = angle - def.halfAngle + 2 * def.halfAngle * k / steps
         local dx, dy = cos(a), sin(a)
-        local length = arena:raycast(x, y, dx, dy, def.range)
+        local length = arena:raycast(x, y, dx, dy, def.range, "vision")
         cone[#cone + 1] = x + dx * length
         cone[#cone + 1] = y + dy * length
     end
@@ -57,7 +57,7 @@ function Vision.fans(arena, x, y, angle)
     for k = 0, 48 do
         local a = k / 48 * 2 * pi
         local dx, dy = cos(a), sin(a)
-        local length = arena:raycast(x, y, dx, dy, def.nearRadius)
+        local length = arena:raycast(x, y, dx, dy, def.nearRadius, "vision")
         near[#near + 1] = x + dx * length
         near[#near + 1] = y + dy * length
     end

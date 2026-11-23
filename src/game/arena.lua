@@ -3,7 +3,12 @@ Arena.__index = Arena
 
 local max, min, sqrt, abs = math.max, math.min, math.sqrt, math.abs
 
+local DOOR_RADIUS = 78
+local DOOR_CLOSE_TICKS = 45
+local GLASS_RESPAWN_TICKS = 60 * 25
+
 local DEFAULT = {
+    name = "Atrium",
     width = 1800,
     height = 1200,
     walls = {
@@ -46,11 +51,34 @@ local DEFAULT = {
     }
 }
 
+Arena.DEFAULT = DEFAULT
+
+local function copy(list, extra)
+    local out = {}
+    for k, r in ipairs(list or {}) do
+        local item = { x = r.x, y = r.y, w = r.w, h = r.h, index = k }
+        for key, value in pairs(extra or {}) do item[key] = value end
+        out[k] = item
+    end
+    return out
+end
+
 --- @param def table?
 --- @return table
 function Arena.new(def)
     def = def or DEFAULT
-    return setmetatable({ width = def.width, height = def.height, walls = def.walls, spawns = def.spawns, loot = def.loot or {} }, Arena)
+    return setmetatable({
+        id = def.id,
+        name = def.name,
+        width = def.width,
+        height = def.height,
+        walls = def.walls,
+        cover = def.cover or {},
+        doors = copy(def.doors, { open = false, timer = 0, kind = "door" }),
+        glass = copy(def.glass, { broken = false, timer = 0, kind = "glass" }),
+        spawns = def.spawns,
+        loot = def.loot or {}
+    }, Arena)
 end
 
 --- @param slot number
@@ -59,12 +87,35 @@ function Arena:spawn(slot)
     return self.spawns[(slot - 1) % #self.spawns + 1]
 end
 
+--- @param mode string
+--- @param fn function
+function Arena:each(mode, fn)
+    for _, wall in ipairs(self.walls) do
+        if fn(wall) then return end
+    end
+    if mode ~= "nav" then
+        for _, door in ipairs(self.doors) do
+            if not door.open and fn(door) then return end
+        end
+    end
+    if mode ~= "vision" then
+        for _, pane in ipairs(self.glass) do
+            if not pane.broken and fn(pane) then return end
+        end
+    end
+    if mode == "move" or mode == "nav" then
+        for _, block in ipairs(self.cover) do
+            if fn(block) then return end
+        end
+    end
+end
+
 --- @return number, number, number, number
 function Arena:resolve(x, y, radius)
     local nx, ny = 0, 0
     for _ = 1, 2 do
         local hit = false
-        for _, wall in ipairs(self.walls) do
+        self:each("move", function(wall)
             local cx = max(wall.x, min(x, wall.x + wall.w))
             local cy = max(wall.y, min(y, wall.y + wall.h))
             local dx, dy = x - cx, y - cy
@@ -90,35 +141,114 @@ function Arena:resolve(x, y, radius)
                     end
                 end
             end
-        end
+        end)
         if not hit then break end
     end
     return x, y, nx, ny
 end
 
---- @return number
-function Arena:raycast(x, y, dx, dy, maxLength)
-    local best = maxLength
-    for _, wall in ipairs(self.walls) do
-        local tmin, tmax = 0, best
-        local hit = true
-        for axis = 1, 2 do
-            local origin = axis == 1 and x or y
-            local dir = axis == 1 and dx or dy
-            local lo = axis == 1 and wall.x or wall.y
-            local hi = lo + (axis == 1 and wall.w or wall.h)
-            if abs(dir) < 1e-9 then
-                if origin < lo or origin > hi then hit = false break end
-            else
-                local t1, t2 = (lo - origin) / dir, (hi - origin) / dir
-                if t1 > t2 then t1, t2 = t2, t1 end
-                tmin, tmax = max(tmin, t1), min(tmax, t2)
-                if tmin > tmax then hit = false break end
+local function slab(x, y, dx, dy, rect, best)
+    local tmin, tmax = 0, best
+    for axis = 1, 2 do
+        local origin = axis == 1 and x or y
+        local dir = axis == 1 and dx or dy
+        local lo = axis == 1 and rect.x or rect.y
+        local hi = lo + (axis == 1 and rect.w or rect.h)
+        if abs(dir) < 1e-9 then
+            if origin < lo or origin > hi then return nil end
+        else
+            local t1, t2 = (lo - origin) / dir, (hi - origin) / dir
+            if t1 > t2 then t1, t2 = t2, t1 end
+            tmin, tmax = max(tmin, t1), min(tmax, t2)
+            if tmin > tmax then return nil end
+        end
+    end
+    return tmin
+end
+
+--- @param mode string?
+--- @return number, table?
+function Arena:raycast(x, y, dx, dy, maxLength, mode)
+    local best, target = maxLength, nil
+    self:each(mode or "bullet", function(rect)
+        local t = slab(x, y, dx, dy, rect, best)
+        if t and t < best then
+            best, target = t, rect
+        end
+    end)
+    return best, target
+end
+
+local function overlaps(rect, players, radius)
+    for _, p in pairs(players) do
+        if p.hp > 0 and p.dead == 0 then
+            local cx = max(rect.x, min(p.x, rect.x + rect.w))
+            local cy = max(rect.y, min(p.y, rect.y + rect.h))
+            if (p.x - cx) ^ 2 + (p.y - cy) ^ 2 < radius * radius then return p end
+        end
+    end
+    return nil
+end
+
+--- @param players table
+--- @return table[]
+function Arena:updateDoors(players)
+    local opened = {}
+    for _, door in ipairs(self.doors) do
+        local near = overlaps(door, players, DOOR_RADIUS)
+        if near then
+            if not door.open then
+                door.opener = near.slot
+                opened[#opened + 1] = door
+            end
+            door.open = true
+            door.timer = DOOR_CLOSE_TICKS
+        elseif door.open then
+            door.timer = door.timer - 1
+            if door.timer <= 0 and not overlaps(door, players, 20) then
+                door.open = false
             end
         end
-        if hit and tmin < best then best = tmin end
     end
-    return best
+    return opened
+end
+
+--- @param pane table
+function Arena:breakGlass(pane)
+    pane.broken = true
+    pane.timer = GLASS_RESPAWN_TICKS
+end
+
+--- @param players table
+function Arena:updateGlass(players)
+    for _, pane in ipairs(self.glass) do
+        if pane.broken then
+            pane.timer = pane.timer - 1
+            if pane.timer <= 0 and not overlaps(pane, players, 20) then
+                pane.broken = false
+            end
+        end
+    end
+end
+
+--- @return string?, string?
+function Arena:state()
+    if #self.doors == 0 and #self.glass == 0 then return nil, nil end
+    local doors, glass = {}, {}
+    for k, door in ipairs(self.doors) do doors[k] = door.open and "1" or "0" end
+    for k, pane in ipairs(self.glass) do glass[k] = pane.broken and "0" or "1" end
+    return table.concat(doors), table.concat(glass)
+end
+
+--- @param doors string?
+--- @param glass string?
+function Arena:applyState(doors, glass)
+    if type(doors) == "string" then
+        for k, door in ipairs(self.doors) do door.open = doors:sub(k, k) == "1" end
+    end
+    if type(glass) == "string" then
+        for k, pane in ipairs(self.glass) do pane.broken = glass:sub(k, k) == "0" end
+    end
 end
 
 return Arena

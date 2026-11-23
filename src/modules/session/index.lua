@@ -251,6 +251,7 @@ function GM.Session:receive(data)
     end
     world.snapshots[#world.snapshots + 1] = { t = data.t, players = players }
     world.items = type(data.d) == "table" and data.d or {}
+    world.arena:applyState(data.dd, data.gg)
     world.aims = type(data.l) == "table" and data.l or {}
     for _, entry in ipairs(data.sc or {}) do
         world.score[entry.i] = entry.k
@@ -393,7 +394,7 @@ function GM.Session:nearbyItem()
     if not world or world.me.dead > 0 then return nil end
     local best, bestDistance
     for _, item in ipairs(world.items) do
-        if item.f == 0 and item.k ~= 0 then
+        if item.f == 0 and item.k > 0 then
             local d = math.sqrt((item.x - world.me.x) ^ 2 + (item.y - world.me.y) ^ 2)
             if d <= WeaponConfig.pickupRadius and (not bestDistance or d < bestDistance) then
                 best, bestDistance = item, d

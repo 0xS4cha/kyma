@@ -43,6 +43,13 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 - Pressing dash while running forward turns it into a slide: longer (about 210 units), fast at first then slowing down, and you can shoot during it. You are only untouchable during its first 8 ticks, so a slide that ends in the open can be punished. The dash card reads `Slide` when it would slide. It shares the dash cooldown and makes noise.
 - You only see what is in front of you (a cone of about 110 degrees) and a small circle around you, and walls block the view. Everything else is greyed out, and the opponent is invisible there.
 
+## Map elements
+
+- **Doors** slide open when someone comes close and shut a moment after they leave. Closed, they block movement, bullets and the view; opening one makes noise.
+- **Glass** lets the view through but stops movement and the first bullet, which shatters it loudly. Broken panes grow back after 25 seconds.
+- **Low cover** (desks, crates, railings) blocks movement but not bullets or the view.
+- **Health packs** (white box, red cross) heal 50 when you walk over them hurt.
+
 ## Noise
 
 - Everything loud leaves an echo for an opponent who can't see you: a shot (heard from far away), a dash, footsteps while running, a thrown weapon and the clank of a weapon hitting a wall.
