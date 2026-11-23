@@ -118,6 +118,10 @@ function Player.step(p, input, arena, dt)
         local quiet = Config.noise.quietSpeed
         wx, wy = wx * quiet, wy * quiet
     end
+    local held = Weapons.def(p.weapon)
+    if held and held.speed then
+        wx, wy = wx * held.speed, wy * held.speed
+    end
 
     local dash = Config.dash
     if p.cooldown > 0 then

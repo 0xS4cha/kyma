@@ -133,6 +133,14 @@ function World:hears(listener, noise)
     return true
 end
 
+--- @param viewer number
+--- @param shot table
+--- @return boolean
+function World:shows(viewer, shot)
+    if shot.q ~= 1 or shot.o == viewer then return true end
+    return self.players[shot.o] ~= nil and self:visible(viewer, shot.o)
+end
+
 --- @return table[], table[], table[]
 function World:drain()
     local events, shots, noises = self.events, self.shots, self.noises
@@ -179,6 +187,14 @@ function World:snapshot(viewer)
     end
     table.sort(players, function(a, b) return a.i < b.i end)
 
+    local aims = {}
+    for slot, p in pairs(self.players) do
+        local def = Weapons.def(p.weapon)
+        if viewer and slot ~= viewer and def and def.exposed and p.dead == 0 and not self:visible(viewer, slot) then
+            aims[#aims + 1] = { i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), g = Weapons.pack(p.weapon) }
+        end
+    end
+
     local items = {}
     for _, item in ipairs(self.items) do
         items[#items + 1] = {
@@ -193,7 +209,7 @@ function World:snapshot(viewer)
     end
     table.sort(score, function(a, b) return a.i < b.i end)
 
-    return { players = players, items = items, score = score }
+    return { players = players, items = items, score = score, aims = aims }
 end
 
 return World

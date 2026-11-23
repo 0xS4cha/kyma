@@ -1,6 +1,7 @@
 local Config = require("src.config.game")
 local Character = require("src.modules.session.character")
 local Weapons = require("src.game.weapons")
+local Player = require("src.game.player")
 local Vision = require("src.game.vision")
 
 local Renderer = {}
@@ -128,19 +129,40 @@ local function drawTrail(p, palette)
     end
 end
 
+local drawLaser
+
 local function drawPlayer(p, arena, palette)
     local lg = love.graphics
     drawTrail(p, palette)
     Character.draw(p, palette)
     if not p.weapon then return end
 
+    drawLaser(p, arena)
+end
+
+drawLaser = function(p, arena)
+    local lg = love.graphics
+    local def = Weapons.def(p.weapon)
+    local exposed = def and def.exposed
     local ca, sa = cos(p.angle), sin(p.angle)
     local mx, my = Weapons.muzzle(p)
-    local length = arena:raycast(mx, my, ca, sa, Config.laserLength)
-    lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], 0.45)
-    lg.setLineWidth(1)
+    local length = arena:raycast(mx, my, ca, sa, exposed and def.range or Config.laserLength)
+    if exposed then
+        lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], 0.18)
+        lg.setLineWidth(5)
+        lg.line(mx, my, mx + ca * length, my + sa * length)
+    end
+    lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], exposed and 0.85 or 0.45)
+    lg.setLineWidth(exposed and 1.6 or 1)
     lg.line(mx, my, mx + ca * length, my + sa * length)
-    lg.circle("fill", mx + ca * length, my + sa * length, 2)
+    lg.circle("fill", mx + ca * length, my + sa * length, exposed and 3 or 2)
+    lg.setLineWidth(1)
+end
+
+local function drawAims(world)
+    for _, aim in ipairs(world.aims or {}) do
+        drawLaser({ x = aim.x, y = aim.y, angle = Player.unpackAngle(aim.a), weapon = Weapons.unpack(aim.g) }, world.arena)
+    end
 end
 
 local function drawItems(world)
@@ -211,6 +233,7 @@ function Renderer.draw(session)
             drawPlayer(p, world.arena, Character.PALETTES.opponent)
         end
         drawFog(world, me)
+        drawAims(world)
         session.effects:drawWorld()
         drawWalls(world.arena, camera)
         session.effects:drawImpacts()

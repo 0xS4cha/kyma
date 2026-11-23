@@ -1,5 +1,5 @@
 local WEAPONS = {
-    order = { "pistol", "rifle", "shotgun" },
+    order = { "pistol", "rifle", "shotgun", "sniper", "silencer", "lmg" },
 
     pistol = {
         name = "PISTOL",
@@ -41,6 +41,54 @@ local WEAPONS = {
         reserve = 15,
         reloadTicks = 120,
         muzzle = 25
+    },
+
+    sniper = {
+        name = "SNIPER",
+        tag = "One shot kills. Your laser shows through walls",
+        damage = 100,
+        pellets = 1,
+        spread = 0,
+        range = 3000,
+        fireTicks = 75,
+        auto = false,
+        magazine = 4,
+        reserve = 8,
+        reloadTicks = 150,
+        muzzle = 36,
+        exposed = true
+    },
+
+    silencer = {
+        name = "SILENCER",
+        tag = "Silent. Only seen by those who see you",
+        damage = 30,
+        pellets = 1,
+        spread = 0.015,
+        range = 1300,
+        fireTicks = 15,
+        auto = false,
+        magazine = 10,
+        reserve = 30,
+        reloadTicks = 80,
+        muzzle = 26,
+        silent = true
+    },
+
+    lmg = {
+        name = "LMG",
+        tag = "Heavy. Slows you down, no slide",
+        damage = 15,
+        pellets = 1,
+        spread = 0.06,
+        range = 1500,
+        fireTicks = 5,
+        auto = true,
+        magazine = 60,
+        reserve = 60,
+        reloadTicks = 210,
+        muzzle = 32,
+        speed = 0.72
     },
 
     throw = {
