@@ -30,6 +30,11 @@ local DEFAULT = {
     spawns = {
         { x = 160, y = 380, angle = 0 },
         { x = 1640, y = 820, angle = math.pi }
+    },
+    loot = {
+        { x = 900, y = 600, kind = "rifle" },
+        { x = 900, y = 120, kind = "shotgun" },
+        { x = 900, y = 1080, kind = "shotgun" }
     }
 }
 
@@ -37,7 +42,7 @@ local DEFAULT = {
 --- @return table
 function Arena.new(def)
     def = def or DEFAULT
-    return setmetatable({ width = def.width, height = def.height, walls = def.walls, spawns = def.spawns }, Arena)
+    return setmetatable({ width = def.width, height = def.height, walls = def.walls, spawns = def.spawns, loot = def.loot or {} }, Arena)
 end
 
 --- @param slot number

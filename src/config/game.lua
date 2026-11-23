@@ -9,6 +9,18 @@ local CONFIG = {
         acceleration = 14
     },
 
+    health = 100,
+    respawnTicks = 120,
+    rewindTicks = 20,
+
+    vision = {
+        halfAngle = 0.95,
+        nearRadius = 90,
+        range = 1500,
+        serverMargin = 0.2,
+        serverNearRadius = 130
+    },
+
     dash = {
         speed = 900,
         ticks = 9,

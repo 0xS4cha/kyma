@@ -30,9 +30,13 @@ graph LR
 The server is authoritative and simulates at 60 ticks per second. Athena used a lockstep, which suits a strategy game but adds the full network delay to every action; a duel needs instant movement, so Kyma uses client-side prediction instead.
 
 - **Channels**: enet channel 0 is reliable (`hello`, `welcome`, `queue`, `joined`, `room`, `error`), channel 1 is unreliable and sequenced (`input`, `state`): a late packet is useless once a newer one exists.
-- **Inputs**: every client tick produces a command `{ s, f, r, a, d }`: sequence number, forward and strafe axes (-1, 0, 1), the facing angle packed on 16 bits and the dash flag (1 on the tick the dash key was pressed). Each packet carries the last 4 commands so a lost packet costs nothing. The server drops commands it already has (`src/net/inputs.lua` validates them).
+- **Inputs**: every client tick produces a command `{ s, f, r, a, d, b, l, t, e, v }`: sequence number, forward and strafe axes (-1, 0, 1), the facing angle packed on 16 bits, then the action flags (dash, trigger held, reload, throw, pick up) and, while firing, `v`, the server tick of the opponent position the player was looking at. Each packet carries the last 4 commands so a lost packet costs nothing. The server drops commands it already has (`src/net/inputs.lua` validates them).
 - **Input budget**: a player earns one input per tick and can bank up to 4 to absorb jitter. Sending inputs faster does not move faster, and the queue is capped at 12.
-- **Snapshots**: every 2 ticks (30 Hz) each client receives `state { t, k, p }`: the server tick, the last input sequence the server applied for this client, and for every player the position, angle, velocity and dash state (remaining dash ticks, cooldown ticks, dash direction), which the client needs to replay its pending inputs exactly.
+- **Snapshots**: every 2 ticks (30 Hz) each client receives `state { t, k, p, d, sc, s }`: the server tick, the last input sequence the server applied for this client, the players it can see (position, angle, velocity, dash, health, death timer, weapon; plus ammo, reserve, reload and cooldowns for its own player, which it needs to replay its pending inputs exactly), the weapons on the floor or in flight, the score and the shots fired since the previous snapshot (drawn as tracers).
+- **Events**: hits (`hit { a, t, d }`) and eliminations (`kill { k, v }`) are sent on the reliable channel.
+- **Shooting**: firing, ammo, reload and the fire rate run in the shared simulation (`src/game/weapons.lua`), so the client fires and counts ammo instantly. The server decides the hits (`src/game/combat.lua`): it keeps the player positions of the last 64 ticks and checks the bullet against where the target was at the tick `v` the shooter saw, capped at 20 ticks (333 ms) in the past. Shotgun spread comes from a hash of the player and the input sequence, so client tracers and server pellets match.
+- **Vision**: the server only sends an opponent to a client when that client can see it (`src/game/vision.lua`: line of sight past the walls, inside the view cone or close by), with a slightly wider cone than the one drawn so players don't pop in. A modified client cannot reveal a hidden opponent. The client draws the same cone with a stencil and greys out the rest.
+- **Weapons on the floor**: thrown weapons fly, bounce off walls and slow down on the server; they hurt the first opponent they touch and then land. Loot pads (`arena.loot`) respawn their weapon 10 seconds after it is taken. Throwing and picking up are not predicted: they show up after one round trip.
 - **Prediction and reconciliation**: the client moves its own player immediately with the same `Player.step` the server runs (`src/game/player.lua`). When a snapshot arrives it takes the server position, drops the acknowledged inputs and replays the pending ones. The visual difference is absorbed over a few frames instead of snapping.
 - **Interpolation**: the opponent is drawn 6 ticks (100 ms) in the past, between the two snapshots around that time, so it moves smoothly despite the 30 Hz updates.
 - **Matchmaking**: `queue` puts the client in the oldest room waiting for an opponent, or opens a new one. A room holds 2 players and closes when empty.
@@ -78,13 +82,14 @@ docker build -t kyma-server . && docker run -p 6789:6789/udp kyma-server
 ├─ conf.lua
 ├─ server/                  # Entry point used to package the dedicated server
 └─ src/
-   ├─ config/               # Window and gameplay constants
+   ├─ config/               # Window, gameplay and weapon constants
    ├─ core/                 # Class, camera, logger, args, env, random, hash
-   ├─ game/                 # Simulation shared by client and server: arena, player, world
+   ├─ game/                 # Simulation shared by client and server: arena, player, weapons, vision,
+   │                        # world, combat (hits, rewind, items, loot pads, deaths)
    ├─ net/                  # Binary codec, protocol, net config, input validation
    ├─ server/               # Authoritative server: enet transport, host, rooms, thread, runner
    └─ modules/
       ├─ index.lua          # Module loader and callback dispatch
       ├─ multiplayer/       # Connection and local server thread
-      └─ session/           # Prediction, interpolation, input, camera and drawing
+      └─ session/           # Prediction, interpolation, input, camera, effects and drawing
 ```

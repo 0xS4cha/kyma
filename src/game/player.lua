@@ -1,4 +1,5 @@
 local Config = require("src.config.game")
+local Weapons = require("src.game.weapons")
 
 local Player = {}
 
@@ -26,7 +27,7 @@ end
 --- @param spawn table
 --- @return table
 function Player.new(slot, name, spawn)
-    return {
+    local p = {
         slot = slot,
         name = name,
         x = spawn.x,
@@ -37,8 +38,22 @@ function Player.new(slot, name, spawn)
         dash = 0,
         cooldown = 0,
         dashX = 0,
-        dashY = 0
+        dashY = 0,
+        hp = Config.health,
+        dead = 0,
+        trigger = false
     }
+    Weapons.give(p, "pistol")
+    return p
+end
+
+--- @param p table
+--- @param spawn table
+function Player.respawn(p, spawn)
+    p.x, p.y = spawn.x, spawn.y
+    p.vx, p.vy, p.dash, p.cooldown = 0, 0, 0, 0
+    p.hp, p.dead = Config.health, 0
+    Weapons.give(p, "pistol")
 end
 
 --- @param from table
@@ -49,6 +64,8 @@ function Player.copy(from, to)
     to.slot, to.name = from.slot, from.name
     to.x, to.y, to.angle, to.vx, to.vy = from.x, from.y, from.angle, from.vx, from.vy
     to.dash, to.cooldown, to.dashX, to.dashY = from.dash, from.cooldown, from.dashX, from.dashY
+    to.hp, to.dead, to.trigger = from.hp, from.dead, from.trigger
+    to.weapon, to.ammo, to.reserve, to.reload, to.fireCooldown = from.weapon, from.ammo, from.reserve, from.reload, from.fireCooldown
     return to
 end
 
@@ -56,10 +73,18 @@ end
 --- @param input table
 --- @param arena table
 --- @param dt number
+--- @return boolean
 function Player.step(p, input, arena, dt)
     local def = Config.player
     local angle = Player.unpackAngle(input.a)
     p.angle = angle
+
+    if p.dead > 0 then
+        p.dead = p.dead - 1
+        p.vx, p.vy, p.dash = 0, 0, 0
+        p.trigger = input.b == 1
+        return false
+    end
 
     local ca, sa = cos(angle), sin(angle)
     local forward = input.f
@@ -102,6 +127,7 @@ function Player.step(p, input, arena, dt)
         p.vx, p.vy = p.vx - nx * into, p.vy - ny * into
     end
     p.x, p.y = x, y
+    return Weapons.update(p, input)
 end
 
 return Player

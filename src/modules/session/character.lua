@@ -5,7 +5,7 @@ local Character = {}
 local cos, sin, sqrt, min, atan2, pi = math.cos, math.sin, math.sqrt, math.min, math.atan2, math.pi
 
 local LIGHT = -2.4
-local MUZZLE_X, MUZZLE_Y = 28, 2.4
+local LINE = 2.4
 local STRIDE = 2 * pi / 34
 local SWAY = 0.08
 
@@ -72,7 +72,32 @@ local HEAD = {
     { -4.4, 2.2 }, { -1.2, 4.6 }, { 3, 3.6 }
 }
 
-local GUN_BODY = { { 20, 0.6 }, { 20, 4.2 }, { 6.5, 4.6 }, { 4, 2.4 }, { 6.5, 0.2 } }
+local GUNS = {
+    rifle = {
+        body = { { 20, 0.6 }, { 20, 4.2 }, { 6.5, 4.6 }, { 4, 2.4 }, { 6.5, 0.2 } },
+        center = 12,
+        barrel = { 19.5, 28, 2.2, 1.6 },
+        mag = { 12.5, 4.2, 13.5, 8.5, 3, 2.6 },
+        left = { 16.5, 1.6 },
+        right = { 9, 4.2 }
+    },
+    pistol = {
+        body = { { 16, 1.2 }, { 16, 3.6 }, { 9, 4 }, { 8, 2.4 }, { 9, 0.8 } },
+        center = 12,
+        barrel = { 15.5, 21, 1.8, 1.4 },
+        mag = { 10, 3.6, 10.5, 6.5, 2.4, 2.2 },
+        left = { 11, 1.2 },
+        right = { 9.6, 3.8 }
+    },
+    shotgun = {
+        body = { { 17, 0.2 }, { 17, 4.6 }, { 5.5, 5 }, { 3, 2.4 }, { 5.5, -0.2 } },
+        center = 10,
+        barrel = { 16.5, 25, 3.4, 3 },
+        mag = { 13.5, 4.4, 14, 6, 3.6, 3.2 },
+        left = { 15, 1.2 },
+        right = { 8.5, 4.4 }
+    }
+}
 
 local function animate(p)
     local state = states[p.slot]
@@ -106,30 +131,54 @@ local function drawFeet(c, phase, p, speed)
     end
 end
 
-local function drawGun(angle)
-    facets(GUN, GUN_BODY, 12, 2.4, 0.8, angle)
-    segment(GUN, 19.5, 2.4, MUZZLE_X, MUZZLE_Y, 2.2, 1.6, angle)
-    segment(GUN, 12.5, 4.2, 13.5, 8.5, 3, 2.6, angle)
+local function drawGun(gun, angle)
+    local b, m = gun.barrel, gun.mag
+    facets(GUN, gun.body, gun.center, LINE, 0.8, angle)
+    segment(GUN, b[1], LINE, b[2], LINE, b[3], b[4], angle)
+    segment(GUN, m[1], m[2], m[3], m[4], m[5], m[6], angle)
 end
 
-local function drawArms(c, angle)
+local function drawArms(c, gun, angle)
+    if not gun then
+        segment(c, 0.5, 10, 3.5, 11.5, 5, 4.4, angle)
+        segment(c, 3.5, 11.5, 7, 9, 4.4, 3.6, angle)
+        segment(c, 0.5, -10, 3.5, -11.5, 5, 4.4, angle)
+        segment(c, 3.5, -11.5, 7, -9, 4.4, 3.6, angle)
+        gem(c, 7.4, 8.6, 2.4, 2.2, 5, 0.7, angle)
+        gem(c, 7.4, -8.6, 2.4, 2.2, 5, 0.7, angle)
+        return
+    end
+    local l, r = gun.left, gun.right
+    local elbow = (l[1] + 0.5) / 2
     segment(c, 0.5, 10, 5.5, 9.4, 5, 4.4, angle)
-    segment(c, 5.5, 9.4, 9, 4.2, 4.4, 3.6, angle)
-    segment(c, 0.5, -10, 8.5, -7.2, 5, 4.4, angle)
-    segment(c, 8.5, -7.2, 16.5, 1.6, 4.4, 3.6, angle)
-    gem(c, 9.2, 3.6, 2.4, 2.2, 5, 0.7, angle)
-    gem(c, 16.8, 2, 2.4, 2.2, 5, 0.7, angle)
+    segment(c, 5.5, 9.4, r[1], r[2], 4.4, 3.6, angle)
+    segment(c, 0.5, -10, elbow, -7.2, 5, 4.4, angle)
+    segment(c, elbow, -7.2, l[1], l[2], 4.4, 3.6, angle)
+    gem(c, r[1] + 0.2, r[2] - 0.6, 2.4, 2.2, 5, 0.7, angle)
+    gem(c, l[1] + 0.3, l[2] + 0.4, 2.4, 2.2, 5, 0.7, angle)
 end
 
 function Character.reset()
     states = {}
 end
 
---- @param p table
---- @return number, number
-function Character.muzzle(p)
-    local ca, sa = cos(p.angle), sin(p.angle)
-    return p.x + ca * MUZZLE_X - sa * MUZZLE_Y, p.y + sa * MUZZLE_X + ca * MUZZLE_Y
+--- @param kind string
+--- @param x number
+--- @param y number
+--- @param angle number
+--- @param alpha number?
+function Character.drawWeapon(kind, x, y, angle, alpha)
+    local gun = GUNS[kind]
+    if not gun then return end
+    local lg = love.graphics
+    opacity = alpha or 1
+    lg.push()
+    lg.translate(x, y)
+    lg.rotate(angle)
+    lg.translate(-gun.center, -LINE)
+    drawGun(gun, angle)
+    lg.pop()
+    opacity = 1
 end
 
 --- @param slot number
@@ -161,9 +210,10 @@ function Character.draw(p, palette, ghost)
     drawFeet(c, phase, p, speed)
     lg.rotate(sway)
     local angle = p.angle + sway
+    local gun = GUNS[p.weapon or ""]
     facets(c, TORSO, -0.5, 0, 0.8, angle)
-    drawGun(angle)
-    drawArms(c, angle)
+    if gun then drawGun(gun, angle) end
+    drawArms(c, gun, angle)
     lg.setColor(c[1] * 0.45, c[2] * 0.45, c[3] * 0.45, 0.55 * opacity)
     lg.ellipse("fill", 0.2, 0, 6.6, 6.2)
     facets({ c[1] * 1.12, c[2] * 1.12, c[3] * 1.12 }, HEAD, 0.8, 0, 1, angle)

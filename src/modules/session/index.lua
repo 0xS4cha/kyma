@@ -2,7 +2,11 @@ local GM = require("src.core.index")
 local Camera = require("src.core.camera")
 local Arena = require("src.game.arena")
 local Player = require("src.game.player")
+local Weapons = require("src.game.weapons")
+local Vision = require("src.game.vision")
 local Config = require("src.config.game")
+local WeaponConfig = require("src.config.weapons")
+local Effects = require("src.modules.session.effects")
 local NetConfig = require("src.net.config")
 local Renderer = require("src.modules.session.renderer")
 
@@ -15,6 +19,11 @@ local SNAPSHOTS = 32
 local CORRECTION_DECAY = 18
 local pi = math.pi
 
+local SELF_COLOR = { 0.24, 0.25, 0.28 }
+local OPPONENT_COLOR = { 0.88, 0.14, 0.12 }
+local TRACER_SELF = { 0.15, 0.15, 0.17 }
+local TRACER_OPPONENT = { 0.88, 0.14, 0.12 }
+
 local function lerpAngle(a, b, t)
     local d = (b - a + pi) % (2 * pi) - pi
     return a + d * t
@@ -26,12 +35,15 @@ function GM.Session:Initialize()
     self.camera = Camera(Config.camera)
     self.captured = false
     self.autoplay = GM.Flags and GM.Flags.autoplay or false
+    self.effects = Effects.new()
 
     local mp = GM.Multiplayer
     mp:On("joined", function(data) self:join(data) end)
     mp:On("room", function(data) self.room = data end)
     mp:On("state", function(data) self:receive(data) end)
     mp:On("disconnected", function() self:leave() end)
+    mp:On("hit", function(data) self:onHit(data) end)
+    mp:On("kill", function(data) self:onKill(data) end)
 
     local flags = GM.Flags or {}
     local name = flags.name and tostring(flags.name) or "Player"
@@ -61,7 +73,10 @@ function GM.Session:join(data)
         clock = data.tick,
         correctionX = 0,
         correctionY = 0,
-        dashRequested = false,
+        requests = {},
+        items = {},
+        score = {},
+        lastSeen = {},
         autoplayTurn = 1
     }
     self.status = "playing"
@@ -87,14 +102,16 @@ end
 --- @return table
 function GM.Session:sample()
     local world = self.world
-    local forward, strafe = 0, 0
+    local forward, strafe, fire = 0, 0, false
     if self.autoplay then
         if world.sequence % 120 == 0 then
             world.autoplayTurn = -world.autoplayTurn
         end
         forward, strafe = 1, world.autoplayTurn
         world.aim = world.aim + 1.2 * DT * world.autoplayTurn
-        world.dashRequested = world.sequence % 90 == 45
+        world.requests.dash = world.sequence % 90 == 45
+        world.requests.throw = world.sequence % 600 == 300
+        fire = world.sequence % 20 < 2
     else
         local down = love.keyboard.isScancodeDown
         if down("w") or down("up") then forward = forward + 1 end
@@ -103,18 +120,32 @@ function GM.Session:sample()
         if down("a") then strafe = strafe - 1 end
         if down("left") then world.aim = world.aim - Config.turnSpeed * DT end
         if down("right") then world.aim = world.aim + Config.turnSpeed * DT end
+        fire = self.captured and love.mouse.isDown(1)
     end
-    local dash = world.dashRequested and 1 or 0
-    world.dashRequested = false
+    local requests = world.requests
+    world.requests = {}
     world.sequence = world.sequence + 1
-    return { s = world.sequence, f = forward, r = strafe, a = Player.packAngle(world.aim), d = dash }
+    local command = {
+        s = world.sequence, f = forward, r = strafe, a = Player.packAngle(world.aim),
+        d = requests.dash and 1 or 0,
+        b = fire and 1 or 0,
+        l = requests.reload and 1 or 0,
+        t = requests.throw and 1 or 0,
+        e = requests.pickup and 1 or 0
+    }
+    if fire then
+        command.v = math.max(0, math.floor(world.clock - Config.interpolationTicks + 0.5))
+    end
+    return command
 end
 
 function GM.Session:tick()
     local world = self.world
     local command = self:sample()
     Player.copy(world.me, world.previous)
-    Player.step(world.me, command, world.arena, DT)
+    if Player.step(world.me, command, world.arena, DT) then
+        self:shoot(world.me, command.s, TRACER_SELF)
+    end
     world.pending[#world.pending + 1] = command
 
     local batch = {}
@@ -122,6 +153,46 @@ function GM.Session:tick()
         batch[#batch + 1] = world.pending[k]
     end
     GM.Multiplayer:Stream("input", { c = batch })
+end
+
+--- @param p table
+--- @param sequence number
+--- @param color table
+function GM.Session:shoot(p, sequence, color)
+    local arena = self.world.arena
+    for _, ray in ipairs(Weapons.rays(p, sequence)) do
+        local length = arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
+        self.effects:tracer(ray.x, ray.y, ray.x + ray.dx * length, ray.y + ray.dy * length, color)
+    end
+end
+
+--- @param data table
+function GM.Session:onHit(data)
+    local world = self.world
+    if not world then return end
+    if data.t == world.slot then
+        self.effects:hurtFlash()
+    elseif data.a == world.slot then
+        self.effects:hitMarker()
+    end
+end
+
+--- @param data table
+function GM.Session:onKill(data)
+    local world = self.world
+    if not world then return end
+    local victim = data.v
+    if victim == world.slot then
+        self.effects:shatter(world.me.x, world.me.y, SELF_COLOR)
+    else
+        local seen = world.lastSeen[victim]
+        if seen then
+            self.effects:shatter(seen.x, seen.y, OPPONENT_COLOR)
+        end
+    end
+    local killer = data.k and self:nameOf(data.k) or nil
+    local text = killer and killer ~= self:nameOf(victim) and (killer .. "  >  " .. self:nameOf(victim)) or (self:nameOf(victim) .. " died")
+    self.effects:announce(text, victim == world.slot and OPPONENT_COLOR or SELF_COLOR)
 end
 
 --- @param data table
@@ -135,6 +206,15 @@ function GM.Session:receive(data)
         players[entry.i] = entry
     end
     world.snapshots[#world.snapshots + 1] = { t = data.t, players = players }
+    world.items = type(data.d) == "table" and data.d or {}
+    for _, entry in ipairs(data.sc or {}) do
+        world.score[entry.i] = entry.k
+    end
+    for _, shot in ipairs(data.s or {}) do
+        if shot.o ~= world.slot then
+            self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT)
+        end
+    end
     if #world.snapshots > SNAPSHOTS then
         table.remove(world.snapshots, 1)
     end
@@ -156,6 +236,10 @@ function GM.Session:receive(data)
     local beforeX, beforeY = me.x, me.y
     me.x, me.y, me.vx, me.vy = own.x, own.y, own.u, own.v
     me.dash, me.cooldown, me.dashX, me.dashY = own.e or 0, own.w or 0, own.m or 0, own.n or 0
+    me.hp, me.dead = own.h or me.hp, own.o or 0
+    me.weapon = Weapons.unpack(own.g)
+    me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
+    me.trigger = own.z == 1
     for _, command in ipairs(kept) do
         Player.step(me, command, world.arena, DT)
     end
@@ -195,6 +279,8 @@ function GM.Session:opponents()
                 vx = (a.u or 0) + ((b.u or 0) - (a.u or 0)) * t,
                 vy = (a.v or 0) + ((b.v or 0) - (a.v or 0)) * t,
                 dashing = (b.e or 0) > 0,
+                weapon = Weapons.unpack(b.g),
+                dead = b.o or 0,
                 name = self:nameOf(slot)
             }
         end
@@ -224,8 +310,43 @@ function GM.Session:localView()
         vx = b.vx,
         vy = b.vy,
         dashing = b.dash > 0,
+        weapon = b.weapon,
+        dead = b.dead,
+        hp = b.hp,
         name = GM.Multiplayer.name
     }
+end
+
+--- @return table[]
+function GM.Session:visibleOpponents()
+    local world = self.world
+    local me = self:localView()
+    local list = {}
+    for _, p in ipairs(self:opponents()) do
+        if p.dead == 0 then
+            world.lastSeen[p.slot] = { x = p.x, y = p.y }
+            if me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius) then
+                list[#list + 1] = p
+            end
+        end
+    end
+    return list
+end
+
+--- @return table?
+function GM.Session:nearbyItem()
+    local world = self.world
+    if not world or world.me.dead > 0 then return nil end
+    local best, bestDistance
+    for _, item in ipairs(world.items) do
+        if item.f == 0 then
+            local d = math.sqrt((item.x - world.me.x) ^ 2 + (item.y - world.me.y) ^ 2)
+            if d <= WeaponConfig.pickupRadius and (not bestDistance or d < bestDistance) then
+                best, bestDistance = item, d
+            end
+        end
+    end
+    return best
 end
 
 --- @return number
@@ -235,9 +356,10 @@ function GM.Session:dashCharge()
     return 1 - world.me.cooldown / Config.dash.cooldown
 end
 
-function GM.Session:requestDash()
+--- @param action string
+function GM.Session:request(action)
     if self.world and self.captured and not self.autoplay then
-        self.world.dashRequested = true
+        self.world.requests[action] = true
     end
 end
 
@@ -256,6 +378,7 @@ function GM.Session:Think(dt)
     end
     GM.Multiplayer:Flush()
 
+    self.effects:update(dt)
     local decay = math.exp(-CORRECTION_DECAY * dt)
     world.correctionX, world.correctionY = world.correctionX * decay, world.correctionY * decay
 
@@ -277,7 +400,9 @@ function GM.Session:MousePressed(_, _, button)
     if self.world and not self.captured then
         self:capture(true)
     elseif button == 2 then
-        self:requestDash()
+        self:request("dash")
+    elseif button == 3 then
+        self:request("throw")
     end
 end
 
@@ -291,7 +416,13 @@ end
 
 function GM.Session:KeyPressed(key, scancode)
     if scancode == "space" or scancode == "lshift" or scancode == "rshift" then
-        self:requestDash()
+        self:request("dash")
+    elseif scancode == "r" then
+        self:request("reload")
+    elseif scancode == "g" then
+        self:request("throw")
+    elseif scancode == "e" then
+        self:request("pickup")
     elseif key == "escape" then
         if self.captured then
             self:capture(false)
