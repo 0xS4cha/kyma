@@ -5,7 +5,7 @@ local CONFIG = {
     resizable = true,
     vsync = false,
     fullscreen = false,
-    icon = nil
+    icon = "assets/icon.png"
 }
 
 return CONFIG

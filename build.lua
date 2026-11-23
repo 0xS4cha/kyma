@@ -4,6 +4,7 @@ return {
   version = '0.1',
   love = '11.5',
   output = 'dist',
+  icon = 'assets/icon.png',
   identifier = 'com.kyma.game',
   platforms = {'windows', 'macos', 'linux'},
   ignore = {
