@@ -148,6 +148,7 @@ end
 function GM.Session:tick()
     local world = self.world
     local command = self:sample()
+    world.lastCommand = command
     Player.copy(world.me, world.previous)
     if Player.step(world.me, command, world.arena, DT) then
         self:shoot(world.me, command.s, TRACER_SELF)
@@ -254,6 +255,7 @@ function GM.Session:receive(data)
     local beforeX, beforeY = me.x, me.y
     me.x, me.y, me.vx, me.vy = own.x, own.y, own.u, own.v
     me.dash, me.cooldown, me.dashX, me.dashY = own.e or 0, own.w or 0, own.m or 0, own.n or 0
+    me.slide, me.slideX, me.slideY = own.j or 0, own.sx or 0, own.sy or 0
     me.hp, me.dead = own.h or me.hp, own.o or 0
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
@@ -297,6 +299,7 @@ function GM.Session:opponents()
                 vx = (a.u or 0) + ((b.u or 0) - (a.u or 0)) * t,
                 vy = (a.v or 0) + ((b.v or 0) - (a.v or 0)) * t,
                 dashing = (b.e or 0) > 0,
+                sliding = (b.j or 0) > 0,
                 weapon = Weapons.unpack(b.g),
                 dead = b.o or 0,
                 name = self:nameOf(slot)
@@ -328,6 +331,7 @@ function GM.Session:localView()
         vx = b.vx,
         vy = b.vy,
         dashing = b.dash > 0,
+        sliding = b.slide > 0,
         weapon = b.weapon,
         dead = b.dead,
         hp = b.hp,
@@ -367,6 +371,12 @@ function GM.Session:nearbyItem()
     return best
 end
 
+--- @return boolean
+function GM.Session:canSlide()
+    local world = self.world
+    return world ~= nil and world.lastCommand ~= nil and Player.running(world.me, world.lastCommand)
+end
+
 --- @return number
 function GM.Session:dashCharge()
     local world = self.world
@@ -398,6 +408,15 @@ function GM.Session:Think(dt)
     GM.Multiplayer:Flush()
 
     self.effects:update(dt)
+    local dustColor = { 0.6, 0.63, 0.68 }
+    local views = self:visibleOpponents()
+    views[#views + 1] = self:localView()
+    for _, view in ipairs(views) do
+        if view.sliding and love.math.random() < 0.6 then
+            local ca, sa = math.cos(view.angle), math.sin(view.angle)
+            self.effects:spray(view.x + ca * 10, view.y + sa * 10, dustColor, 1)
+        end
+    end
     local decay = math.exp(-CORRECTION_DECAY * dt)
     world.correctionX, world.correctionY = world.correctionX * decay, world.correctionY * decay
 

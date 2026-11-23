@@ -36,6 +36,7 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 - The rifle waits in the middle of the arena and two shotguns at the top and bottom, on the circles drawn on the floor. A taken weapon comes back 10 seconds later.
 - Throwing your weapon (`G`) sends it flying: it deals 45 damage to the opponent it hits, then lands with its remaining ammo, ready to be picked up by anyone. With empty hands you pick up a weapon just by walking on it; `E` swaps the weapon you hold for the one on the floor.
 - While dashing you can't shoot, but bullets and thrown weapons go through you: time it to dodge.
+- Pressing dash while running forward turns it into a slide: longer (about 210 units), fast at first then slowing down, and you can shoot during it. You are only untouchable during its first 8 ticks, so a slide that ends in the open can be punished. The dash card reads `Slide` when it would slide. It shares the dash cooldown and makes noise.
 - You only see what is in front of you (a cone of about 110 degrees) and a small circle around you, and walls block the view. Everything else is greyed out, and the opponent is invisible there.
 
 ## Noise

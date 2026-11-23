@@ -105,6 +105,10 @@ function World:footsteps(player, command)
         Combat.noise(self, "dash", player.x, player.y, player.slot)
         return
     end
+    if player.slide == Config.slide.ticks - 1 then
+        Combat.noise(self, "slide", player.x, player.y, player.slot)
+        return
+    end
     if command.k == 1 then return end
     player.stride = (player.stride or 0) + 1
     local speed = math.sqrt(player.vx * player.vx + player.vy * player.vy)
@@ -162,10 +166,11 @@ function World:snapshot(viewer)
         if self:visible(viewer, slot) then
             local entry = {
                 i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy,
-                e = p.dash, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp
+                e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp
             }
             if slot == viewer then
                 entry.w, entry.m, entry.n = p.cooldown, p.dashX, p.dashY
+                entry.sx, entry.sy = p.slideX, p.slideY
                 entry.q, entry.r, entry.l, entry.c = p.ammo, p.reserve, p.reload, p.fireCooldown
                 entry.z = p.trigger and 1 or 0
             end

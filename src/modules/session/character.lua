@@ -207,7 +207,16 @@ function Character.draw(p, palette, ghost)
     lg.push()
     lg.translate(p.x, p.y)
     lg.rotate(p.angle)
-    drawFeet(c, phase, p, speed)
+    if p.sliding then
+        local dark = { c[1] * 0.75, c[2] * 0.75, c[3] * 0.75 }
+        gem(dark, 11, -5.5, 5, 2.4, 6, 0.6, p.angle)
+        gem(dark, 13, 4.5, 5, 2.4, 6, 0.6, p.angle)
+        lg.translate(-3.5, 0)
+        lg.scale(0.94, 0.94)
+        sway = -0.12
+    else
+        drawFeet(c, phase, p, speed)
+    end
     lg.rotate(sway)
     local angle = p.angle + sway
     local gun = GUNS[p.weapon or ""]

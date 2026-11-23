@@ -364,7 +364,8 @@ function Hud:drawVitals(session)
     end
 
     local ready = self.charge >= 1
-    text("Dash", 13, x + 18, y + 70, INK, 0.5)
+    local slide = ready and session:canSlide()
+    text(slide and "Slide" or "Dash", 13, x + 18, y + 70, INK, slide and 0.9 or 0.5)
     local s = pop(self.readyAt, 0.4)
     local lg = love.graphics
     lg.push()
@@ -560,6 +561,7 @@ function Hud:drawHelp()
         { "Mouse", "Aim and turn" },
         { "Left click", "Fire" },
         { "Space", "Dash, dodges bullets" },
+        { "Space", "While running: slide, you can shoot" },
         { "C", "Walk quietly" },
         { "R", "Reload" },
         { "G", "Throw your weapon" },

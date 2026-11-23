@@ -122,7 +122,7 @@ end
 function Combat.kill(world, victim, killer)
     victim.hp = 0
     victim.dead = Config.respawnTicks
-    victim.dash, victim.vx, victim.vy = 0, 0, 0
+    victim.dash, victim.slide, victim.vx, victim.vy = 0, 0, 0, 0
     Combat.drop(world, victim)
     if killer and killer ~= victim.slot then
         world.score[killer] = (world.score[killer] or 0) + 1
@@ -149,7 +149,7 @@ end
 function Combat.record(world)
     local snapshot = {}
     for slot, p in pairs(world.players) do
-        snapshot[slot] = { x = p.x, y = p.y, dash = p.dash, alive = p.hp > 0 and p.dead == 0 }
+        snapshot[slot] = { x = p.x, y = p.y, evading = Player.evading(p), alive = p.hp > 0 and p.dead == 0 }
     end
     world.history[world.tick % HISTORY] = { tick = world.tick, players = snapshot }
 end
@@ -160,7 +160,7 @@ local function rewound(world, slot, tick)
         return entry.players[slot]
     end
     local p = world.players[slot]
-    return { x = p.x, y = p.y, dash = p.dash, alive = p.hp > 0 and p.dead == 0 }
+    return { x = p.x, y = p.y, evading = Player.evading(p), alive = p.hp > 0 and p.dead == 0 }
 end
 
 --- @param world table
@@ -179,7 +179,7 @@ function Combat.fire(world, shooter, command)
         for slot in pairs(world.players) do
             if slot ~= shooter.slot then
                 local past = rewound(world, slot, view)
-                if past.alive and past.dash == 0 then
+                if past.alive and not past.evading then
                     local t = rayCircle(ray.x, ray.y, ray.dx, ray.dy, past.x, past.y, radius)
                     if t and t < length then
                         length, victim = t, slot
@@ -258,7 +258,7 @@ local function updateItem(world, item)
     item.angle = item.angle + 0.35
 
     for slot, p in pairs(world.players) do
-        if slot ~= item.owner and p.hp > 0 and p.dead == 0 and p.dash == 0 then
+        if slot ~= item.owner and p.hp > 0 and p.dead == 0 and not Player.evading(p) then
             local d = sqrt((p.x - item.x) ^ 2 + (p.y - item.y) ^ 2)
             if d < Config.player.radius + def.radius then
                 Combat.damage(world, p, def.damage, item.owner, item.x - item.vx * 0.05, item.y - item.vy * 0.05)
