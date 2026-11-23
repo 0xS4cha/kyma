@@ -220,6 +220,7 @@ function GM.Session:receive(data)
     end
     world.snapshots[#world.snapshots + 1] = { t = data.t, players = players }
     world.items = type(data.d) == "table" and data.d or {}
+    world.aims = type(data.l) == "table" and data.l or {}
     for _, entry in ipairs(data.sc or {}) do
         world.score[entry.i] = entry.k
     end

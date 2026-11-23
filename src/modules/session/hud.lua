@@ -404,7 +404,16 @@ function Hud:drawWeapon(session)
     end
 
     local refill = easeOutCubic((now - self.refillAt) / 0.35)
-    text(def.name:lower():gsub("^%l", string.upper), 13, x + 18, y + 14, INK, 0.5)
+    local nameWidth = text(def.name:lower():gsub("^%l", string.upper), 13, x + 18, y + 14, INK, 0.5)
+    if def.tag and me.reload == 0 then
+        local tagSize = 11
+        local available = w - 36 - nameWidth - 12
+        local tag = def.tag
+        while #tag > 4 and font(tagSize):getWidth(tag) > available do
+            tag = tag:sub(1, -6) .. "..."
+        end
+        text(tag, tagSize, x + w - 18, y + 16, def.exposed and RED or INK, 0.55, "right")
+    end
     local empty = me.ammo == 0
     local ammoStr = tostring(me.ammo)
     local aw = text(ammoStr, 34, x + 18, y + 30 - (1 - refill) * 6, empty and RED or INK, 0.4 + 0.6 * refill)

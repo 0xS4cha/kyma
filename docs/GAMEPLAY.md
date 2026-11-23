@@ -31,9 +31,12 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 | Pistol | 34 (3 hits) | 8 / 32 | One shot per click |
 | Rifle | 22 | 24 / 48 | Automatic, 10 shots per second |
 | Shotgun | 7 pellets of 14 | 5 / 15 | Wide spread, short range |
+| Sniper | 100 (one shot) | 4 / 8 | Its laser is shown to the opponent even when they can't see you |
+| Silencer | 30 | 10 / 30 | No noise; its shots are only shown to players who can see you |
+| LMG | 15 | 60 / 60 | Automatic, 12 shots per second; heavy: you move at 72% speed and can't slide |
 
 - The magazine reloads by itself when it is empty, or with `R`. You can't shoot while reloading.
-- The rifle waits in the middle of the arena and two shotguns at the top and bottom, on the circles drawn on the floor. A taken weapon comes back 10 seconds later.
+- Weapons wait on the circles drawn on the floor: the rifle in the middle, two shotguns at the top and bottom, and a sniper, a silencer and an LMG on each side, placed symmetrically for both spawns. A taken weapon comes back 10 seconds later. The weapon card shows the trait of the weapon you hold.
 - Ammo packs: walking over one with a weapon in hand adds one magazine of that weapon to your reserve (up to twice its starting reserve; a `+` shows next to the reserve). An eliminated player drops one next to their weapon, and two ammo pads sit between the spawns and the middle. A full reserve leaves the pack on the floor.
 - Throwing your weapon (`G`) sends it flying: it deals 45 damage to the opponent it hits, then lands with its remaining ammo, ready to be picked up by anyone. With empty hands you pick up a weapon just by walking on it; `E` swaps the weapon you hold for the one on the floor.
 - While dashing you can't shoot, but bullets and thrown weapons go through you: time it to dodge.

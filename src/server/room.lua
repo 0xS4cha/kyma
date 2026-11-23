@@ -97,6 +97,12 @@ function Room:sendState()
     self.shots, self.noises = {}, {}
     for _, member in ipairs(self.members) do
         local view = self.world:snapshot(member.slot)
+        local seen = {}
+        for _, shot in ipairs(shots) do
+            if self.world:shows(member.slot, shot) then
+                seen[#seen + 1] = shot
+            end
+        end
         local heard = {}
         for _, noise in ipairs(noises) do
             if self.world:hears(member.slot, noise) then
@@ -105,7 +111,7 @@ function Room:sendState()
         end
         member:Stream("state", {
             t = tick, k = self.world:ack(member.slot),
-            p = view.players, d = view.items, sc = view.score, s = shots, n = heard
+            p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims
         })
     end
 end

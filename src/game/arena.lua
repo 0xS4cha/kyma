@@ -36,7 +36,13 @@ local DEFAULT = {
         { x = 900, y = 120, kind = "shotgun" },
         { x = 900, y = 1080, kind = "shotgun" },
         { x = 560, y = 300, kind = "ammo" },
-        { x = 1240, y = 900, kind = "ammo" }
+        { x = 1240, y = 900, kind = "ammo" },
+        { x = 200, y = 1000, kind = "sniper" },
+        { x = 1600, y = 200, kind = "sniper" },
+        { x = 520, y = 560, kind = "silencer" },
+        { x = 1280, y = 640, kind = "silencer" },
+        { x = 640, y = 900, kind = "lmg" },
+        { x = 1160, y = 300, kind = "lmg" }
     }
 }
 

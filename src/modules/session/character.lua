@@ -10,6 +10,7 @@ local STRIDE = 2 * pi / 34
 local SWAY = 0.08
 
 local GUN = { 0.09, 0.09, 0.1 }
+local SCOPE = { 0.22, 0.23, 0.26 }
 
 Character.PALETTES = {
     self = { body = { 0.24, 0.25, 0.28 } },
@@ -89,6 +90,31 @@ local GUNS = {
         left = { 11, 1.2 },
         right = { 9.6, 3.8 }
     },
+    sniper = {
+        body = { { 20, 0.8 }, { 20, 4 }, { 5, 4.6 }, { 2.5, 2.4 }, { 5, 0.2 } },
+        center = 12,
+        barrel = { 19.5, 36, 1.8, 1.3 },
+        mag = { 11.5, 4, 12, 6.5, 2.4, 2.2 },
+        scope = { 9, 15.5 },
+        left = { 17.5, 1.6 },
+        right = { 9, 4.2 }
+    },
+    silencer = {
+        body = { { 16, 1.2 }, { 16, 3.6 }, { 9, 4 }, { 8, 2.4 }, { 9, 0.8 } },
+        center = 12,
+        barrel = { 15.5, 26, 3.2, 3.2 },
+        mag = { 10, 3.6, 10.5, 6.5, 2.4, 2.2 },
+        left = { 11, 1.2 },
+        right = { 9.6, 3.8 }
+    },
+    lmg = {
+        body = { { 22, -0.6 }, { 22, 5.4 }, { 5, 5.8 }, { 2, 2.4 }, { 5, -1 } },
+        center = 12,
+        barrel = { 21.5, 32, 2.6, 2 },
+        mag = { 11, 5, 15, 10, 6, 6 },
+        left = { 19, 1.2 },
+        right = { 9, 4.8 }
+    },
     shotgun = {
         body = { { 17, 0.2 }, { 17, 4.6 }, { 5.5, 5 }, { 3, 2.4 }, { 5.5, -0.2 } },
         center = 10,
@@ -136,6 +162,9 @@ local function drawGun(gun, angle)
     facets(GUN, gun.body, gun.center, LINE, 0.8, angle)
     segment(GUN, b[1], LINE, b[2], LINE, b[3], b[4], angle)
     segment(GUN, m[1], m[2], m[3], m[4], m[5], m[6], angle)
+    if gun.scope then
+        segment(SCOPE, gun.scope[1], LINE - 1.6, gun.scope[2], LINE - 1.6, 2.6, 2.6, angle)
+    end
 end
 
 local function drawArms(c, gun, angle)

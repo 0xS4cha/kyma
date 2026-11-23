@@ -173,7 +173,9 @@ function Combat.fire(world, shooter, command)
     view = max(world.tick - Config.rewindTicks, min(world.tick, view))
     local radius = Config.player.radius
     local hits = {}
-    Combat.noise(world, "shot", shooter.x, shooter.y, shooter.slot)
+    if not def.silent then
+        Combat.noise(world, "shot", shooter.x, shooter.y, shooter.slot)
+    end
     for _, ray in ipairs(Weapons.rays(shooter, command.s)) do
         local length = world.arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
         local victim
@@ -194,7 +196,8 @@ function Combat.fire(world, shooter, command)
         local hit = victim and 2 or (length < ray.range - 1e-6 and 1 or 0)
         world.shots[#world.shots + 1] = {
             o = shooter.slot, x = ray.x, y = ray.y,
-            X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length, h = hit
+            X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length, h = hit,
+            q = def.silent and 1 or nil
         }
     end
     for slot, amount in pairs(hits) do
