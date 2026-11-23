@@ -1,6 +1,9 @@
 local GM = require("src.core.index")
 local Config = require("src.config.game")
 local Character = require("src.modules.session.character")
+local Weapons = require("src.game.weapons")
+local Vision = require("src.game.vision")
+local WeaponConfig = require("src.config.weapons")
 
 local Renderer = {}
 
@@ -16,7 +19,9 @@ local COLORS = {
     hud = { 0.13, 0.14, 0.16 },
     laser = { 0.88, 0.14, 0.12 },
     opponent = { 0.88, 0.14, 0.12 },
-    muted = { 0.13, 0.14, 0.16, 0.55 }
+    muted = { 0.13, 0.14, 0.16, 0.55 },
+    fog = { 0.4, 0.44, 0.5, 0.5 },
+    pad = { 0.13, 0.14, 0.16, 0.12 }
 }
 
 local WALL = {
@@ -133,17 +138,56 @@ end
 
 local function drawPlayer(p, arena, palette)
     local lg = love.graphics
-    local ca, sa = cos(p.angle), sin(p.angle)
-    local mx, my = Character.muzzle(p)
-
     drawTrail(p, palette)
     Character.draw(p, palette)
+    if not p.weapon then return end
 
+    local ca, sa = cos(p.angle), sin(p.angle)
+    local mx, my = Weapons.muzzle(p)
     local length = arena:raycast(mx, my, ca, sa, Config.laserLength)
     lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], 0.45)
     lg.setLineWidth(1)
     lg.line(mx, my, mx + ca * length, my + sa * length)
     lg.circle("fill", mx + ca * length, my + sa * length, 2)
+end
+
+local function drawItems(world)
+    local lg = love.graphics
+    local pulse = 0.5 + 0.5 * sin(love.timer.getTime() * 4)
+    for _, pad in ipairs(world.arena.loot) do
+        lg.setColor(COLORS.pad)
+        lg.setLineWidth(2)
+        lg.circle("line", pad.x, pad.y, 22)
+    end
+    for _, item in ipairs(world.items) do
+        local kind = Weapons.unpack(item.k)
+        if kind then
+            if item.f == 0 then
+                lg.setColor(1, 1, 1, 0.35 + 0.35 * pulse)
+                lg.circle("fill", item.x, item.y, 16)
+            end
+            Character.drawWeapon(kind, item.x, item.y, item.a or 0)
+        end
+    end
+    lg.setLineWidth(1)
+end
+
+local function drawFog(world, me)
+    local lg = love.graphics
+    local arena = world.arena
+    lg.stencil(function()
+        if me.dead > 0 then return end
+        local cone, near = Vision.fans(arena, me.x, me.y, me.angle)
+        for _, fan in ipairs({ cone, near }) do
+            for k = 3, #fan - 3, 2 do
+                lg.polygon("fill", fan[1], fan[2], fan[k], fan[k + 1], fan[k + 2], fan[k + 3])
+            end
+        end
+    end, "replace", 1)
+    lg.setStencilTest("equal", 0)
+    lg.setColor(COLORS.fog)
+    lg.rectangle("fill", -2000, -2000, arena.width + 4000, arena.height + 4000)
+    lg.setStencilTest()
 end
 
 local function label(camera, p, color)
@@ -153,6 +197,87 @@ local function label(camera, p, color)
     lg.setFont(f)
     lg.setColor(color[1], color[2], color[3], 0.8)
     lg.print(p.name, sx - f:getWidth(p.name) / 2, sy - 30 * camera.scale - f:getHeight())
+end
+
+local function centered(text, size, y, color)
+    local lg = love.graphics
+    local f = font(size)
+    lg.setFont(f)
+    lg.setColor(color)
+    lg.print(text, (lg.getWidth() - f:getWidth(text)) / 2, y)
+end
+
+local function bar(x, y, w, h, fill, color)
+    local lg = love.graphics
+    lg.setColor(color[1], color[2], color[3], 0.15)
+    lg.rectangle("fill", x, y, w, h)
+    lg.setColor(color[1], color[2], color[3], color[4] or 1)
+    lg.rectangle("fill", x, y, w * math.max(0, math.min(1, fill)), h)
+end
+
+local function drawCombatHud(session)
+    local lg = love.graphics
+    local W, H = lg.getDimensions()
+    local world = session.world
+    local me = world.me
+
+    local scores = {}
+    for slot, kills in pairs(world.score) do
+        scores[#scores + 1] = (slot == world.slot and "YOU " or session:nameOf(slot) .. " ") .. kills
+    end
+    table.sort(scores)
+    if #scores > 0 then
+        centered(table.concat(scores, "   -   "), 28, 16, COLORS.hud)
+    end
+
+    local w = 220
+    local x = (W - w) / 2
+    lg.setFont(font(16))
+    lg.setColor(COLORS.muted)
+    lg.print("HEALTH", x, H - 142)
+    bar(x, H - 120, w, 10, me.hp / Config.health, COLORS.opponent)
+    local charge = session:dashCharge()
+    lg.setColor(COLORS.muted)
+    lg.print("DASH", x, H - 102)
+    bar(x, H - 80, w, 6, charge, { COLORS.hud[1], COLORS.hud[2], COLORS.hud[3], charge >= 1 and 1 or 0.5 })
+
+    local def = Weapons.def(me.weapon)
+    local right = W - 24
+    if def then
+        local ammo = me.ammo .. " / " .. me.reserve
+        local f = font(44)
+        lg.setFont(f)
+        lg.setColor(me.ammo == 0 and COLORS.opponent or COLORS.hud)
+        lg.print(ammo, right - f:getWidth(ammo), H - 130)
+        lg.setFont(font(20))
+        lg.setColor(COLORS.muted)
+        lg.print(def.name, right - font(20):getWidth(def.name), H - 156)
+        if me.reload > 0 then
+            lg.setColor(COLORS.hud)
+            lg.print("RELOADING", right - 160, H - 74)
+            bar(right - 160, H - 50, 160, 4, 1 - me.reload / def.reloadTicks, COLORS.hud)
+        elseif me.ammo == 0 and me.reserve == 0 then
+            lg.setColor(COLORS.opponent)
+            local text = "EMPTY - THROW IT (G)"
+            lg.print(text, right - font(20):getWidth(text), H - 74)
+        end
+    else
+        local f = font(32)
+        lg.setFont(f)
+        lg.setColor(COLORS.hud)
+        lg.print("UNARMED", right - f:getWidth("UNARMED"), H - 120)
+    end
+
+    local item = session:nearbyItem()
+    if item and me.weapon then
+        local kind = Weapons.unpack(item.k)
+        centered("E  -  SWAP FOR " .. WeaponConfig[kind].name, 24, H * 0.62, COLORS.hud)
+    end
+
+    if me.dead > 0 then
+        centered("ELIMINATED", 56, H * 0.3, COLORS.opponent)
+        centered("RESPAWN IN " .. math.ceil(me.dead / 60), 26, H * 0.3 + 70, COLORS.hud)
+    end
 end
 
 local function drawHud(session)
@@ -185,28 +310,21 @@ local function drawHud(session)
     lg.print(info, 24, H - 36)
 
     if session.world then
-        local charge = session:dashCharge()
-        local w, h = 220, 6
-        local x, y = (W - w) / 2, H - 80
-        lg.setFont(font(16))
-        lg.setColor(COLORS.muted)
-        lg.print("DASH", x, y - 22)
-        lg.setColor(COLORS.hud[1], COLORS.hud[2], COLORS.hud[3], 0.15)
-        lg.rectangle("fill", x, y, w, h)
-        lg.setColor(COLORS.hud[1], COLORS.hud[2], COLORS.hud[3], charge >= 1 and 1 or 0.5)
-        lg.rectangle("fill", x, y, w * charge, h)
+        drawCombatHud(session)
     end
 
     if session.world and not session.captured then
-        local text = "CLICK TO PLAY   -   ESC TO QUIT"
-        lg.setFont(font(32))
-        lg.setColor(COLORS.hud)
-        lg.print(text, (W - font(32):getWidth(text)) / 2, H * 0.4)
+        centered("CLICK TO PLAY   -   ESC TO QUIT", 32, H * 0.4, COLORS.hud)
     end
-    lg.setFont(font(20))
+    lg.setFont(font(16))
     lg.setColor(COLORS.muted)
-    local help = "MOVE WASD / ZQSD   TURN MOUSE OR ARROWS   DASH SPACE / SHIFT / RIGHT CLICK   ZOOM WHEEL"
-    lg.print(help, W - font(20):getWidth(help) - 24, H - 32)
+    local lines = {
+        "MOVE WASD / ZQSD   TURN MOUSE / ARROWS   DASH SPACE / SHIFT / RIGHT CLICK",
+        "FIRE LEFT CLICK   RELOAD R   THROW G / MIDDLE CLICK   PICK UP E   ZOOM WHEEL"
+    }
+    for k, line in ipairs(lines) do
+        lg.print(line, 24, 60 + (k - 1) * 20 + (mp.error and 30 or 0))
+    end
 end
 
 --- @param session table
@@ -217,20 +335,26 @@ function Renderer.draw(session)
     if world then
         local camera = session.camera
         local me = session:localView()
-        local opponents = session:opponents()
+        local opponents = session:visibleOpponents()
         camera:apply()
         drawFloor(world.arena)
+        drawItems(world)
         for _, p in ipairs(opponents) do
             drawPlayer(p, world.arena, Character.PALETTES.opponent)
         end
+        drawFog(world, me)
+        session.effects:drawWorld()
         drawWalls(world.arena, camera)
-        drawPlayer(me, world.arena, Character.PALETTES.self)
+        if me.dead == 0 then
+            drawPlayer(me, world.arena, Character.PALETTES.self)
+        end
         camera:clear()
         for _, p in ipairs(opponents) do
             label(camera, p, COLORS.opponent)
         end
     end
     drawHud(session)
+    session.effects:drawScreen(font)
     lg.setColor(1, 1, 1, 1)
     lg.setLineWidth(1)
 end

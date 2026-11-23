@@ -30,7 +30,7 @@ end
 
 local function screenshot(path)
     local canvas = love.graphics.newCanvas()
-    love.graphics.setCanvas(canvas)
+    love.graphics.setCanvas({ canvas, stencil = true })
     love.graphics.clear(BACKGROUND)
     love.draw()
     love.graphics.setCanvas()

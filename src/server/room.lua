@@ -11,6 +11,7 @@ function Room:init(id)
     self.members = {}
     self.world = World.new()
     self.accumulator = 0
+    self.shots = {}
     self.state = "waiting"
 end
 
@@ -90,10 +91,25 @@ function Room:Input(client, data)
 end
 
 function Room:sendState()
-    local players = self.world:snapshot()
     local tick = self.world.tick
+    local shots = self.shots
+    self.shots = {}
     for _, member in ipairs(self.members) do
-        member:Stream("state", { t = tick, k = self.world:ack(member.slot), p = players })
+        local view = self.world:snapshot(member.slot)
+        member:Stream("state", {
+            t = tick, k = self.world:ack(member.slot),
+            p = view.players, d = view.items, sc = view.score, s = shots
+        })
+    end
+end
+
+function Room:flushEvents()
+    local events, shots = self.world:drain()
+    for _, shot in ipairs(shots) do
+        self.shots[#self.shots + 1] = shot
+    end
+    for _, data in ipairs(events) do
+        self:Broadcast(data.kind, data)
     end
 end
 
@@ -103,6 +119,7 @@ function Room:Update(dt)
     while self.accumulator >= step do
         self.accumulator = self.accumulator - step
         self.world:step()
+        self:flushEvents()
         if self.world.tick % Config.snapshotTicks == 0 then
             self:sendState()
         end
