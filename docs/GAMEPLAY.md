@@ -98,8 +98,8 @@ Every map has four spawns per team and works in all modes. Except the Labyrinth,
 
 ## Main menu
 
-- **Play**: practice against a bot (easy, medium or hard: it sees, turns and reacts like a player, with more delay and less precision at lower levels), or host a duel on your network.
-- **Multiplayer**: duels hosted on your network show up by themselves, click one to join; or type the address of a dedicated server.
+- **Play**: pick a mode and one of the ten maps (each tile shows its layout, the panel below its doors, glass and loot), then practice against bots (easy, medium or hard: they see, turn and react like players, with more delay and less precision at lower levels; they fill every free slot) or host the game on your network.
+- **Multiplayer**: games hosted on your network show up by themselves with their mode and map, click one to join; or type the address of a dedicated server.
 - **How to play**: the mechanics and weapons on one page. **Settings**: mouse sensitivity, camera distance, fullscreen, VSync, the live duel behind the menu and the controls reminder, saved automatically.
 - Behind the menu two bots fight a live duel. Navigate with the mouse or with the arrows, `Enter` and `Escape`.
 - In game, `Escape` opens the pause menu: resume, settings, leave the duel or quit. The duel keeps running while it is open.

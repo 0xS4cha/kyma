@@ -18,6 +18,7 @@ return {
             local values = Settings.defaults()
             values.name, values.server, values.sensitivity, values.zoom = "Sacha", "10.0.0.2:6789", 5, 3
             values.fullscreen, values.background, values.bot = true, false, 1
+            values.mode, values.map = 3, "vault"
             local back = Settings.parse(Settings.serialize(values))
             for _, key in ipairs(Settings.KEYS) do
                 assert(back[key] == values[key], key)
@@ -27,7 +28,8 @@ return {
     {
         name = "out of range and broken values are clamped or ignored",
         run = function()
-            local values = Settings.parse("sensitivity=42\nzoom=-3\nbot=9\nfullscreen=maybe\nunknown=1\nname=Bob")
+            local values = Settings.parse("sensitivity=42\nzoom=-3\nbot=9\nfullscreen=maybe\nunknown=1\nname=Bob\nmap=nowhere\nmode=7")
+            assert(values.map == "atrium" and values.mode == #Config.modes.order)
             assert(values.sensitivity == #Settings.SENSITIVITY and values.zoom == 1 and values.bot == #Config.bots.order)
             assert(values.fullscreen == false and values.unknown == nil and values.name == "Bob")
         end

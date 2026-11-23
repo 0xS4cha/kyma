@@ -140,7 +140,8 @@ function GM.Multiplayer:announce()
         room = room.id,
         players = #(room.players or {}),
         max = room.max or NetConfig.roomPlayers,
-        name = self.name .. " - " .. ((require("src.config.game").modes[room.mode or ""] or {}).name or "Duel"),
+        name = self.name .. " - " .. ((require("src.config.game").modes[room.mode or ""] or {}).name or "Duel")
+            .. " - " .. require("src.maps.index").get(room.map).name,
         address = self.lanAddress
     })
 end
