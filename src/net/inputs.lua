@@ -17,7 +17,7 @@ function Inputs.sanitize(raw)
     local s, a = raw.s, raw.a
     if type(s) ~= "number" or s ~= floor(s) or s < 1 or s >= 2 ^ 31 then return nil end
     if type(a) ~= "number" or a ~= floor(a) or a < 0 or a >= Player.ANGLE_STEPS then return nil end
-    return { s = s, f = axis(raw.f), r = axis(raw.r), a = a }
+    return { s = s, f = axis(raw.f), r = axis(raw.r), a = a, d = raw.d == 1 and 1 or 0 }
 end
 
 --- @param data any

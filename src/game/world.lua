@@ -75,7 +75,10 @@ end
 function World:snapshot()
     local list = {}
     for slot, p in pairs(self.players) do
-        list[#list + 1] = { i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy }
+        list[#list + 1] = {
+            i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy,
+            e = p.dash, w = p.cooldown, m = p.dashX, n = p.dashY
+        }
     end
     table.sort(list, function(a, b) return a.i < b.i end)
     return list

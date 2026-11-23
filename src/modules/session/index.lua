@@ -61,6 +61,7 @@ function GM.Session:join(data)
         clock = data.tick,
         correctionX = 0,
         correctionY = 0,
+        dashRequested = false,
         autoplayTurn = 1
     }
     self.status = "playing"
@@ -93,6 +94,7 @@ function GM.Session:sample()
         end
         forward, strafe = 1, world.autoplayTurn
         world.aim = world.aim + 1.2 * DT * world.autoplayTurn
+        world.dashRequested = world.sequence % 90 == 45
     else
         local down = love.keyboard.isScancodeDown
         if down("w") or down("up") then forward = forward + 1 end
@@ -102,8 +104,10 @@ function GM.Session:sample()
         if down("left") then world.aim = world.aim - Config.turnSpeed * DT end
         if down("right") then world.aim = world.aim + Config.turnSpeed * DT end
     end
+    local dash = world.dashRequested and 1 or 0
+    world.dashRequested = false
     world.sequence = world.sequence + 1
-    return { s = world.sequence, f = forward, r = strafe, a = Player.packAngle(world.aim) }
+    return { s = world.sequence, f = forward, r = strafe, a = Player.packAngle(world.aim), d = dash }
 end
 
 function GM.Session:tick()
@@ -151,6 +155,7 @@ function GM.Session:receive(data)
     local me = world.me
     local beforeX, beforeY = me.x, me.y
     me.x, me.y, me.vx, me.vy = own.x, own.y, own.u, own.v
+    me.dash, me.cooldown, me.dashX, me.dashY = own.e or 0, own.w or 0, own.m or 0, own.n or 0
     for _, command in ipairs(kept) do
         Player.step(me, command, world.arena, DT)
     end
@@ -189,6 +194,7 @@ function GM.Session:opponents()
                 angle = lerpAngle(angleA, angleB, t),
                 vx = (a.u or 0) + ((b.u or 0) - (a.u or 0)) * t,
                 vy = (a.v or 0) + ((b.v or 0) - (a.v or 0)) * t,
+                dashing = (b.e or 0) > 0,
                 name = self:nameOf(slot)
             }
         end
@@ -217,8 +223,22 @@ function GM.Session:localView()
         angle = world.aim,
         vx = b.vx,
         vy = b.vy,
+        dashing = b.dash > 0,
         name = GM.Multiplayer.name
     }
+end
+
+--- @return number
+function GM.Session:dashCharge()
+    local world = self.world
+    if not world then return 0 end
+    return 1 - world.me.cooldown / Config.dash.cooldown
+end
+
+function GM.Session:requestDash()
+    if self.world and self.captured and not self.autoplay then
+        self.world.dashRequested = true
+    end
 end
 
 function GM.Session:Think(dt)
@@ -253,9 +273,11 @@ function GM.Session:MouseMoved(_, _, dx)
     end
 end
 
-function GM.Session:MousePressed()
+function GM.Session:MousePressed(_, _, button)
     if self.world and not self.captured then
         self:capture(true)
+    elseif button == 2 then
+        self:requestDash()
     end
 end
 
@@ -267,8 +289,10 @@ function GM.Session:WheelMoved(_, y)
     end
 end
 
-function GM.Session:KeyPressed(key)
-    if key == "escape" then
+function GM.Session:KeyPressed(key, scancode)
+    if scancode == "space" or scancode == "lshift" or scancode == "rshift" then
+        self:requestDash()
+    elseif key == "escape" then
         if self.captured then
             self:capture(false)
         else

@@ -9,6 +9,12 @@ local CONFIG = {
         acceleration = 14
     },
 
+    dash = {
+        speed = 900,
+        ticks = 9,
+        cooldown = 60
+    },
+
     camera = {
         scale = 1.6,
         anchorX = 0.5,
