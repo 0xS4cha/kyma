@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Love2D and Dependencies
+      run: |
+        sudo add-apt-repository ppa:bartbes/love-stable -y
+        sudo apt-get update
+        sudo apt-get install -y love xvfb
+
+    - name: Run the test suite
+      run: |
+        love . --test
+
+    - name: Verify the game boots
+      run: |
+        xvfb-run love . --frames 300
+
+    - name: Lua Diagnostics (LuaLS)
+      uses: mrcjkb/lua-typecheck-action@v0
+      with:
+        configpath: ".luarc.json"
