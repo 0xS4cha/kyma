@@ -190,9 +190,10 @@ function Combat.fire(world, shooter, command)
         if victim then
             hits[victim] = (hits[victim] or 0) + def.damage
         end
+        local hit = victim and 2 or (length < ray.range - 1e-6 and 1 or 0)
         world.shots[#world.shots + 1] = {
             o = shooter.slot, x = ray.x, y = ray.y,
-            X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length
+            X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length, h = hit
         }
     end
     for slot, amount in pairs(hits) do

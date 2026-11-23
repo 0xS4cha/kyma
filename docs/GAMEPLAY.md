@@ -42,6 +42,7 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 
 - Everything loud leaves an echo for an opponent who can't see you: a shot (heard from far away), a dash, footsteps while running, a thrown weapon and the clank of a weapon hitting a wall.
 - The echo is a ring on the floor, visible through the grey area outside your view; when it is off screen, an arrow on the edge of the screen points to it. Shots are red, the rest is dark.
+- Bullets betray the shooter: each shot leaves a smoke trail along its path for about a second, visible even in the grey area, and bullet holes stay on the walls for 10 seconds. Following a trail back leads to where the shot came from.
 - Holding `C` (or `Ctrl`) makes you walk at less than half speed without footsteps. Throwing an empty weapon somewhere makes a noise there: use it to lure the opponent.
 
 ## Screen
