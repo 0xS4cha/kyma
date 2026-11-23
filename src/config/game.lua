@@ -41,6 +41,13 @@ local CONFIG = {
         runSpeed = 0.8
     },
 
+    bots = {
+        order = { "easy", "medium", "hard" },
+        easy = { name = "Easy", turn = 0.05, aimError = 0.14, reaction = 40, fireCone = 0.09, dashChance = 0 },
+        medium = { name = "Medium", turn = 0.09, aimError = 0.07, reaction = 22, fireCone = 0.06, dashChance = 0.2 },
+        hard = { name = "Hard", turn = 0.15, aimError = 0.03, reaction = 11, fireCone = 0.04, dashChance = 0.45 }
+    },
+
     dash = {
         speed = 900,
         ticks = 9,

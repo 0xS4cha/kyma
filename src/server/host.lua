@@ -35,15 +35,17 @@ function Host:leaveRoom(client)
     end
 end
 
-function Host:matchmake(client)
+function Host:matchmake(client, options)
+    options = type(options) == "table" and options or {}
+    local practice = type(options.bot) == "string" and options.bot or nil
     local best
     for _, room in pairs(self.rooms) do
-        if not room:Full() and (not best or room.id < best.id) then
+        if not practice and not room.bot and not room:Full() and (not best or room.id < best.id) then
             best = room
         end
     end
     if not best then
-        best = Room(self.nextRoomId)
+        best = Room(self.nextRoomId, { bot = practice })
         self.nextRoomId = self.nextRoomId + 1
         self.rooms[best.id] = best
         Logger:info("server", "Room created", best.id)
@@ -69,9 +71,9 @@ function Host:bind()
         client:Send("welcome", { id = client.id })
     end)
 
-    server:On("queue", function(client)
+    server:On("queue", function(client, data)
         if not client.name or client.room then return end
-        self:matchmake(client)
+        self:matchmake(client, data)
     end)
 
     server:On("leave", function(client)

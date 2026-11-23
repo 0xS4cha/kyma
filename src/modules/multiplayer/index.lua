@@ -3,6 +3,8 @@ local enet = require("enet")
 local Protocol = require("src.net.protocol")
 local NetConfig = require("src.net.config")
 local LocalServer = require("src.modules.multiplayer.localserver")
+local Lan = require("src.modules.multiplayer.lan")
+local Address = require("src.net.address")
 
 GM.Multiplayer = {}
 
@@ -21,12 +23,18 @@ function GM.Multiplayer:Initialize()
     self.localServer = LocalServer()
     self.isLocal = false
     self.pending = nil
+    self.queueOptions = nil
+    self.lan = Lan()
+    self.lanHost = false
+    self.lanAddress = nil
+    self.listening = false
+    self.announceAt = 0
 
     self:On("welcome", function(data)
         self.id = data.id
         self.state = "online"
         self.error = nil
-        self:Send("queue")
+        self:Send("queue", self.queueOptions)
     end)
     self:On("error", function(data)
         self.error = tostring(data.message)
@@ -73,14 +81,68 @@ function GM.Multiplayer:Disconnect()
     self.id = nil
 end
 
-function GM.Multiplayer:PlayLocal(name, lan)
+function GM.Multiplayer:PlayLocal(name, lan, options)
     self.error = nil
+    self.queueOptions = options
+    self.lanHost = lan == true
+    self.lanAddress = self.lanHost and Address.lan() or nil
     self.pending = { name = name }
     self.localServer:Start(function(port)
         if not self.pending then return end
         self.pending = nil
         self:Connect(NetConfig.localAddress .. ":" .. port, name, true)
     end, lan)
+end
+
+--- @param address string
+--- @param name string
+function GM.Multiplayer:Join(address, name)
+    self.queueOptions = nil
+    self.lanHost = false
+    return self:Connect(address, name)
+end
+
+function GM.Multiplayer:Leave()
+    self:Send("leave")
+    self:Flush()
+    self:Disconnect()
+    self.localServer:Stop()
+    self.pending = nil
+    self.isLocal = false
+    self.lanHost = false
+    self.error = nil
+end
+
+--- @param enabled boolean
+function GM.Multiplayer:Browse(enabled)
+    self.listening = enabled == true
+end
+
+--- @return table[]
+function GM.Multiplayer:LanGames()
+    return self.lan:List()
+end
+
+--- @return string?
+function GM.Multiplayer:LanEndpoint()
+    if not self.lanHost or not self.localServer:Running() then return nil end
+    return (self.lanAddress or "?") .. ":" .. tostring(self.localServer.port)
+end
+
+function GM.Multiplayer:announce()
+    local room = GM.Session and GM.Session.room
+    if not self.lanHost or not room or room.practice or not self.localServer:Running() then return end
+    local now = love.timer.getTime()
+    if now - self.announceAt < NetConfig.discoveryInterval then return end
+    self.announceAt = now
+    self.lan:Announce({
+        port = self.localServer.port,
+        room = room.id,
+        players = #(room.players or {}),
+        max = NetConfig.roomPlayers,
+        name = self.name .. "'s duel",
+        address = self.lanAddress
+    })
 end
 
 function GM.Multiplayer:Send(kind, data)
@@ -135,6 +197,9 @@ end
 
 function GM.Multiplayer:Think()
     self.localServer:Update()
+    self.lan:Listen(self.listening)
+    self.lan:Poll()
+    self:announce()
     if self.pending and self.localServer.state == "failed" then
         self.pending = nil
         self.error = self.localServer.error or "The local game server failed to start"
@@ -165,10 +230,8 @@ function GM.Multiplayer:Poll()
 end
 
 function GM.Multiplayer:Shutdown()
-    self:Send("leave")
-    self:Flush()
-    self:Disconnect()
-    self.localServer:Stop()
+    self:Leave()
+    self.lan:Close()
 end
 
 return GM.Multiplayer

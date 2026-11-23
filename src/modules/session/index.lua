@@ -31,7 +31,8 @@ local function lerpAngle(a, b, t)
 end
 
 function GM.Session:Initialize()
-    self.status = "connecting"
+    self.status = "idle"
+    self.active = false
     self.world = nil
     self.camera = Camera(Config.camera)
     self.captured = false
@@ -46,14 +47,42 @@ function GM.Session:Initialize()
     mp:On("disconnected", function() self:leave() end)
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
+end
 
-    local flags = GM.Flags or {}
-    local name = flags.name and tostring(flags.name) or "Player"
-    if flags.connect then
-        mp:Connect(flags.connect, name)
+--- @param options table { mode = "practice"|"host"|"local"|"connect", bot, address, name }
+function GM.Session:Start(options)
+    self:Stop()
+    options = options or {}
+    local mp = GM.Multiplayer
+    local name = options.name and options.name ~= "" and options.name or "Player"
+    self.active = true
+    self.status = "connecting"
+    self.room = nil
+    self.effects = Effects.new()
+    self.hud = Hud.new()
+    self.camera.scale = Config.camera.scale
+    GM.State = "game"
+    if options.mode == "connect" then
+        mp:Join(options.address, name)
     else
-        mp:PlayLocal(name, flags.host == true)
+        mp:PlayLocal(name, options.mode == "host", options.mode == "practice" and { bot = options.bot or "medium" } or nil)
     end
+end
+
+function GM.Session:Stop()
+    if not self.active then return end
+    GM.Multiplayer:Leave()
+    self.active = false
+    self.world = nil
+    self.room = nil
+    self.status = "idle"
+    self:capture(false)
+    GM.State = "menu"
+end
+
+--- @return boolean
+function GM.Session:paused()
+    return GM.Menu ~= nil and GM.Menu.paused == true
 end
 
 --- @param data table
@@ -82,7 +111,9 @@ function GM.Session:join(data)
         autoplayTurn = 1
     }
     self.status = "playing"
-    self.hud:joined()
+    if not GM.Menu or GM.Menu.settings.showHelp then
+        self.hud:joined()
+    end
     self.camera:follow(me.x, me.y, me.angle)
     self:capture(true)
 end
@@ -115,7 +146,7 @@ function GM.Session:sample()
         world.requests.dash = world.sequence % 90 == 45
         world.requests.throw = world.sequence % 600 == 300
         fire = world.sequence % 20 < 2
-    else
+    elseif not self:paused() then
         local down = love.keyboard.isScancodeDown
         if down("w") or down("up") then forward = forward + 1 end
         if down("s") or down("down") then forward = forward - 1 end
@@ -393,6 +424,7 @@ function GM.Session:request(action)
 end
 
 function GM.Session:Think(dt)
+    if not self.active then return end
     self.hud:update(self, dt)
     local world = self.world
     if not world then
@@ -426,16 +458,18 @@ function GM.Session:Think(dt)
 end
 
 function GM.Session:Draw()
+    if not self.active then return end
     Renderer.draw(self)
 end
 
 function GM.Session:MouseMoved(_, _, dx)
-    if self.world and self.captured and not self.autoplay then
+    if self.active and self.world and self.captured and not self.autoplay and not self:paused() then
         self.world.aim = self.world.aim + dx * Config.mouseSensitivity
     end
 end
 
 function GM.Session:MousePressed(_, _, button)
+    if not self.active or self:paused() then return end
     if self.world and not self.captured then
         self:capture(true)
     elseif button == 2 then
@@ -446,6 +480,7 @@ function GM.Session:MousePressed(_, _, button)
 end
 
 function GM.Session:WheelMoved(_, y)
+    if not self.active or self:paused() then return end
     if y > 0 then
         self.camera:zoom(1.1)
     elseif y < 0 then
@@ -454,6 +489,11 @@ function GM.Session:WheelMoved(_, y)
 end
 
 function GM.Session:KeyPressed(key, scancode)
+    if not self.active or self:paused() then return end
+    if key == "escape" then
+        if GM.Menu then GM.Menu:Pause() end
+        return
+    end
     if scancode == "space" or scancode == "lshift" or scancode == "rshift" then
         self:request("dash")
     elseif scancode == "r" then
@@ -464,12 +504,6 @@ function GM.Session:KeyPressed(key, scancode)
         self:request("pickup")
     elseif scancode == "h" then
         self.hud:toggleHelp()
-    elseif key == "escape" then
-        if self.captured then
-            self:capture(false)
-        else
-            love.event.quit()
-        end
     end
 end
 

@@ -217,6 +217,10 @@ local function label(camera, p, color)
     lg.print(p.name, sx - f:getWidth(p.name) / 2, sy - 30 * camera.scale - f:getHeight())
 end
 
+Renderer.drawFloor = drawFloor
+Renderer.drawWalls = drawWalls
+Renderer.COLORS = COLORS
+
 --- @param session table
 function Renderer.draw(session)
     local lg = love.graphics

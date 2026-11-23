@@ -43,17 +43,33 @@ function love.load(args)
     modules:Load("src/modules")
 
     local parser = ArgParser.new()
-        parser:add_argument("frames", { default = nil, type = "value" })
+    parser:add_argument("frames", { default = nil, type = "value" })
     parser:add_argument("screenshot", { default = nil, type = "value" })
     parser:add_argument("connect", { default = nil, type = "value" })
     parser:add_argument("host", { default = false, type = "boolean" })
     parser:add_argument("name", { default = nil, type = "value" })
     parser:add_argument("autoplay", { default = false, type = "boolean" })
+    parser:add_argument("play", { default = false, type = "boolean" })
+    parser:add_argument("practice", { default = nil, type = "value" })
+    parser:add_argument("screen", { default = nil, type = "value" })
     flags = parser:parse(args)
     GM.Flags = flags
 
     GM:InitializeModules()
     love.graphics.setBackgroundColor(BACKGROUND)
+
+    local name = flags.name and tostring(flags.name) or GM.Menu.settings.name
+    if flags.connect then
+        GM.Session:Start({ mode = "connect", address = tostring(flags.connect), name = name })
+    elseif flags.host then
+        GM.Session:Start({ mode = "host", name = name })
+    elseif flags.practice then
+        GM.Session:Start({ mode = "practice", bot = tostring(flags.practice), name = name })
+    elseif flags.play or flags.autoplay then
+        GM.Session:Start({ mode = "local", name = name })
+    else
+        GM.Menu:Open(flags.screen)
+    end
 end
 
 function love.update(dt)

@@ -42,7 +42,9 @@ The server is authoritative and simulates at 60 ticks per second. Athena used a 
 - **Weapons on the floor**: thrown weapons fly, bounce off walls and slow down on the server; they hurt the first opponent they touch and then land. Loot pads (`arena.loot`) respawn their weapon 10 seconds after it is taken. Ammo packs are items of kind `ammo` (sent with `k = 0`): eliminations drop one, two pads spawn them, and `Combat.refill` gives an armed player one magazine when they walk over one, capped at `reserve * ammoReserveCap`. `E` and the unarmed auto pickup ignore them. Throwing and picking up are not predicted: they show up after one round trip.
 - **Prediction and reconciliation**: the client moves its own player immediately with the same `Player.step` the server runs (`src/game/player.lua`). When a snapshot arrives it takes the server position, drops the acknowledged inputs and replays the pending ones. The visual difference is absorbed over a few frames instead of snapping.
 - **Interpolation**: the opponent is drawn 6 ticks (100 ms) in the past, between the two snapshots around that time, so it moves smoothly despite the 30 Hz updates.
-- **Matchmaking**: `queue` puts the client in the oldest room waiting for an opponent, or opens a new one. A room holds 2 players and closes when empty.
+- **Matchmaking**: `queue` puts the client in the oldest room waiting for an opponent, or opens a new one. A room holds 2 players and closes when empty. `queue { bot = "easy"|"medium"|"hard" }` opens a private practice room instead: the server adds a bot in the second slot and queues one bot command per tick before stepping the world.
+- **Bots** (`src/game/bot.lua`): they only use what a player could know (line of sight through `Vision.sees`, last seen position), turn at a limited rate, wait a reaction time and aim with an error set per level in `Config.bots`, pick up a weapon when unarmed, roam between loot pads, unstick themselves and dash when hit. The menu runs two of them in a local `World` for the live duel behind the menu.
+- **LAN discovery**: a host announces its duel every second with a UDP broadcast on port 6788 (`src/modules/multiplayer/lan.lua`); the Multiplayer screen listens and lists the duels it hears about.
 
 ## Camera
 
@@ -52,7 +54,10 @@ The server is authoritative and simulates at 60 ticks per second. Athena used a 
 
 | Flag | Description |
 | --- | --- |
-| *(none)* | Solo: start a local server on 127.0.0.1 and join it |
+| *(none)* | Open the main menu |
+| `--screen play` | Open the menu on a screen: `play`, `multiplayer`, `settings`, `howto` |
+| `--practice hard` | Start a practice game against a bot (`easy`, `medium`, `hard`) |
+| `--play` | Start a local server on 127.0.0.1, join it and wait for an opponent |
 | `--host` | Start the local server on the network (UDP 6789) so another player can join |
 | `--connect host:port` | Join a remote or LAN server |
 | `--name Alice` | Player name |
@@ -93,6 +98,7 @@ docker build -t kyma-server . && docker run -p 6789:6789/udp kyma-server
    ├─ server/               # Authoritative server: enet transport, host, rooms, thread, runner
    └─ modules/
       ├─ index.lua          # Module loader and callback dispatch
-      ├─ multiplayer/       # Connection and local server thread
+      ├─ menu/              # Main menu: screens, transitions, settings, live bot duel, pause
+      ├─ multiplayer/       # Connection, local server thread, LAN discovery
       └─ session/           # Prediction, interpolation, input, camera, effects and drawing
 ```
