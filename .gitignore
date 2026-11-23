@@ -1,0 +1,6 @@
+.env
+build
+dist
+love-build
+kyma
+appimagetool.AppImage

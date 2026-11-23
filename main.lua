@@ -1,0 +1,89 @@
+for _, value in ipairs(arg or {}) do
+    if value == "--test" then
+        require("tests.runner")
+        return
+    end
+end
+
+local env = require("src.core.env")
+local modules = require("src.modules.index")
+local GM = require("src.core.index")
+local ArgParser = require("src.core.args")
+local Threads = require("src.core.thread")
+
+local BACKGROUND = { 0.02, 0.03, 0.04 }
+
+local flags
+local frames = 0
+local defaultErrorHandler = love.errorhandler
+
+function love.errorhandler(msg)
+    print(debug.traceback(tostring(msg), 3))
+    if flags and flags.frames then
+        return nil
+    end
+    return defaultErrorHandler(msg)
+end
+
+local function screenshot(path)
+    local canvas = love.graphics.newCanvas()
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(BACKGROUND)
+    love.draw()
+    love.graphics.setCanvas()
+    canvas:newImageData():encode("png", path)
+    Logger:info("main", "Screenshot saved to " .. love.filesystem.getSaveDirectory() .. "/" .. path)
+end
+
+function love.load(args)
+    env:Load(".env")
+    modules:Load("src/modules")
+
+    local parser = ArgParser.new()
+    parser:add_argument("seed", { default = nil, type = "value" })
+    parser:add_argument("frames", { default = nil, type = "value" })
+    parser:add_argument("screenshot", { default = nil, type = "value" })
+    flags = parser:parse(args)
+    GM.Flags = flags
+
+    GM:InitializeModules()
+    love.graphics.setBackgroundColor(BACKGROUND)
+end
+
+function love.update(dt)
+    Threads.updateScheduler()
+    GM:Think(dt)
+    if flags.frames then
+        frames = frames + 1
+        if frames >= tonumber(flags.frames) then
+            if flags.screenshot then
+                screenshot(flags.screenshot)
+            end
+            love.event.quit()
+        end
+    end
+end
+
+function love.draw()
+    GM:Draw()
+end
+
+function love.wheelmoved(x, y)
+    GM:WheelMoved(x, y)
+end
+
+function love.textinput(text)
+    GM:TextInput(text)
+end
+
+function love.keypressed(key, scancode, isrepeat)
+    GM:KeyPressed(key, scancode, isrepeat)
+end
+
+function love.mousepressed(x, y, button, istouch, presses)
+    GM:MousePressed(x, y, button, istouch, presses)
+end
+
+function love.mousereleased(x, y, button, istouch, presses)
+    GM:MouseReleased(x, y, button, istouch, presses)
+end
