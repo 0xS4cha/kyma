@@ -209,6 +209,7 @@ function Renderer.draw(session)
         drawFog(world, me)
         session.effects:drawWorld()
         drawWalls(world.arena, camera)
+        session.effects:drawImpacts()
         if me.dead == 0 then
             drawPlayer(me, world.arena, Character.PALETTES.self)
         end

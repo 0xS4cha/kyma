@@ -168,7 +168,8 @@ function GM.Session:shoot(p, sequence, color)
     local arena = self.world.arena
     for _, ray in ipairs(Weapons.rays(p, sequence)) do
         local length = arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
-        self.effects:tracer(ray.x, ray.y, ray.x + ray.dx * length, ray.y + ray.dy * length, color)
+        local hit = length < ray.range - 1e-6 and 1 or 0
+        self.effects:tracer(ray.x, ray.y, ray.x + ray.dx * length, ray.y + ray.dy * length, color, hit, 0.5)
     end
 end
 
@@ -227,7 +228,9 @@ function GM.Session:receive(data)
     end
     for _, shot in ipairs(data.s or {}) do
         if shot.o ~= world.slot then
-            self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT)
+            self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT, shot.h)
+        elseif shot.h == 2 then
+            self.effects:spray(shot.X, shot.Y, OPPONENT_COLOR, 8)
         end
     end
     if #world.snapshots > SNAPSHOTS then
