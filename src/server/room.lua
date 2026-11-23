@@ -3,13 +3,19 @@ local Protocol = require("src.net.protocol")
 local Config = require("src.net.config")
 local World = require("src.game.world")
 local Inputs = require("src.net.inputs")
+local Bot = require("src.game.bot")
 
 local Room = Class()
 
-function Room:init(id)
+function Room:init(id, options)
     self.id = id
     self.members = {}
     self.world = World.new()
+    self.bot = nil
+    if type(options) == "table" and type(options.bot) == "string" then
+        self.bot = Bot.new(Config.roomPlayers, options.bot, id * 104729 + os.time())
+        self.world:add(self.bot.slot, self.bot:name())
+    end
     self.accumulator = 0
     self.shots = {}
     self.noises = {}
@@ -17,7 +23,7 @@ function Room:init(id)
 end
 
 function Room:Full()
-    return #self.members >= Config.roomPlayers
+    return #self.members + (self.bot and 1 or 0) >= Config.roomPlayers
 end
 
 function Room:Empty()
@@ -26,7 +32,7 @@ end
 
 function Room:freeSlot()
     for slot = 1, Config.roomPlayers do
-        local taken = false
+        local taken = self.bot ~= nil and self.bot.slot == slot
         for _, member in ipairs(self.members) do
             if member.slot == slot then taken = true break end
         end
@@ -39,8 +45,11 @@ function Room:Info()
     for _, member in ipairs(self.members) do
         players[#players + 1] = { id = member.id, slot = member.slot, name = member.name }
     end
+    if self.bot then
+        players[#players + 1] = { id = "bot", slot = self.bot.slot, name = self.bot:name(), bot = true }
+    end
     table.sort(players, function(a, b) return a.slot < b.slot end)
-    return { id = self.id, state = self.state, players = players }
+    return { id = self.id, state = self.state, players = players, practice = self.bot ~= nil }
 end
 
 function Room:Broadcast(kind, data)
@@ -134,6 +143,9 @@ function Room:Update(dt)
     self.accumulator = math.min(self.accumulator + dt, step * 8)
     while self.accumulator >= step do
         self.accumulator = self.accumulator - step
+        if self.bot then
+            self.world:queue(self.bot.slot, { self.bot:command(self.world) })
+        end
         self.world:step()
         self:flushEvents()
         if self.world.tick % Config.snapshotTicks == 0 then
