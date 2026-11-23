@@ -1,26 +1,27 @@
 local GM = require("src.core.index")
 local Config = require("src.config.game")
+local Character = require("src.modules.session.character")
 
 local Renderer = {}
 
 local cos, sin = math.cos, math.sin
 
 local COLORS = {
-    background = { 0.015, 0.02, 0.03 },
-    floor = { 0.04, 0.07, 0.08 },
-    grid = { 0.2, 0.9, 0.9, 0.05 },
-    wall = { 0.01, 0.03, 0.04 },
-    neon = { 0.25, 0.95, 0.95 },
-    hud = { 1, 0.72, 0.15 },
-    laser = { 1, 0.55, 0.1 },
-    self = { 0.95, 0.95, 0.92 },
-    opponent = { 1, 0.3, 0.35 },
-    muted = { 1, 0.72, 0.15, 0.55 }
+    background = { 0.93, 0.95, 0.97 },
+    floor = { 0.8, 0.82, 0.85 },
+    grid = { 0.66, 0.69, 0.74, 0.3 },
+    wallTop = { 0.98, 0.985, 0.99 },
+    wallSide = { 0.82, 0.86, 0.9 },
+    wallShadow = { 0.35, 0.4, 0.48, 0.14 },
+    hud = { 0.13, 0.14, 0.16 },
+    laser = { 0.88, 0.14, 0.12 },
+    opponent = { 0.88, 0.14, 0.12 },
+    muted = { 0.13, 0.14, 0.16, 0.55 }
 }
 
 local WALL = {
     height = 70,
-    cameraHeight = 650
+    cameraHeight = 1400
 }
 
 local STATUS = {
@@ -34,22 +35,9 @@ local fonts = {}
 
 local function font(size)
     if not fonts[size] then
-        local ok, f = pcall(love.graphics.newFont, "assets/fonts/Jersey10-Regular.ttf", size)
-        fonts[size] = ok and f or love.graphics.newFont(size)
+        fonts[size] = love.graphics.newFont(size)
     end
     return fonts[size]
-end
-
-local function neonPolygon(points, color)
-    local lg = love.graphics
-    for k = 4, 1, -1 do
-        lg.setColor(color[1], color[2], color[3], 0.07 * (5 - k))
-        lg.setLineWidth(k * 4)
-        lg.polygon("line", points)
-    end
-    lg.setColor(color[1], color[2], color[3], 1)
-    lg.setLineWidth(2)
-    lg.polygon("line", points)
 end
 
 local function drawFloor(arena)
@@ -60,6 +48,13 @@ local function drawFloor(arena)
     lg.setLineWidth(1)
     for x = 0, arena.width, 80 do lg.line(x, 0, x, arena.height) end
     for y = 0, arena.height, 80 do lg.line(0, y, arena.width, y) end
+    local ox, oy = -cos(Character.LIGHT) * 18, -sin(Character.LIGHT) * 18
+    lg.setColor(COLORS.wallShadow)
+    for _, wall in ipairs(arena.walls) do
+        lg.polygon("fill",
+            wall.x, wall.y, wall.x + wall.w, wall.y, wall.x + wall.w + ox, wall.y + oy,
+            wall.x + wall.w + ox, wall.y + wall.h + oy, wall.x + ox, wall.y + wall.h + oy, wall.x, wall.y + wall.h)
+    end
 end
 
 local function lift(x, y, cx, cy, factor)
@@ -68,7 +63,6 @@ end
 
 local function drawWall(wall, cx, cy, factor)
     local lg = love.graphics
-    local neon = COLORS.neon
     local base = {
         wall.x, wall.y,
         wall.x + wall.w, wall.y,
@@ -86,22 +80,15 @@ local function drawWall(wall, cx, cy, factor)
         local nx, ny = by - ay, ax - bx
         local mx, my = (ax + bx) / 2, (ay + by) / 2
         if nx * (cx - mx) + ny * (cy - my) > 0 then
-            local face = { ax, ay, bx, by, top[n], top[n + 1], top[k], top[k + 1] }
-            lg.setColor(COLORS.wall)
-            lg.polygon("fill", face)
-            lg.setColor(neon[1], neon[2], neon[3], 0.18)
-            lg.polygon("fill", face)
-            lg.setColor(neon[1], neon[2], neon[3], 0.5)
-            lg.setLineWidth(1)
-            lg.line(ax, ay, bx, by)
-            lg.line(ax, ay, top[k], top[k + 1])
-            lg.line(bx, by, top[n], top[n + 1])
+            local light = 1 + 0.12 * cos(math.atan2(ny, nx) - Character.LIGHT)
+            local side = COLORS.wallSide
+            lg.setColor(side[1] * light, side[2] * light, side[3] * light)
+            lg.polygon("fill", ax, ay, bx, by, top[n], top[n + 1], top[k], top[k + 1])
         end
     end
 
-    lg.setColor(COLORS.wall)
+    lg.setColor(COLORS.wallTop)
     lg.polygon("fill", top)
-    neonPolygon(top, neon)
 end
 
 local function drawWalls(arena, camera)
@@ -119,30 +106,18 @@ local function drawWalls(arena, camera)
     end
 end
 
-local function drawPlayer(p, arena, color)
+local function drawPlayer(p, arena, palette)
     local lg = love.graphics
-    local radius = Config.player.radius
     local ca, sa = cos(p.angle), sin(p.angle)
-    local mx, my = p.x + ca * (radius + 14), p.y + sa * (radius + 14)
+    local mx, my = Character.muzzle(p)
+
+    Character.draw(p, palette)
 
     local length = arena:raycast(mx, my, ca, sa, Config.laserLength)
-    lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], 0.25)
-    lg.setLineWidth(4)
+    lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], 0.45)
+    lg.setLineWidth(1)
     lg.line(mx, my, mx + ca * length, my + sa * length)
-    lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], 0.9)
-    lg.setLineWidth(1.5)
-    lg.line(mx, my, mx + ca * length, my + sa * length)
-    lg.circle("fill", mx + ca * length, my + sa * length, 3)
-
-    lg.setColor(color[1], color[2], color[3], 0.12)
-    lg.circle("fill", p.x, p.y, radius * 2.2)
-    lg.setColor(0.45, 0.47, 0.5)
-    lg.setLineWidth(5)
-    lg.line(p.x + ca * 4 - sa * 5, p.y + sa * 4 + ca * 5, mx - sa * 5, my + ca * 5)
-    lg.setColor(color)
-    lg.circle("fill", p.x, p.y, radius)
-    lg.setColor(0, 0, 0, 0.35)
-    lg.circle("fill", p.x + ca * 4, p.y + sa * 4, radius * 0.45)
+    lg.circle("fill", mx + ca * length, my + sa * length, 2)
 end
 
 local function label(camera, p, color)
@@ -151,7 +126,7 @@ local function label(camera, p, color)
     local f = font(22)
     lg.setFont(f)
     lg.setColor(color[1], color[2], color[3], 0.8)
-    lg.print(p.name, sx - f:getWidth(p.name) / 2, sy - Config.player.radius * camera.scale * 2.2 - f:getHeight())
+    lg.print(p.name, sx - f:getWidth(p.name) / 2, sy - 30 * camera.scale - f:getHeight())
 end
 
 local function drawHud(session)
@@ -207,10 +182,10 @@ function Renderer.draw(session)
         camera:apply()
         drawFloor(world.arena)
         for _, p in ipairs(opponents) do
-            drawPlayer(p, world.arena, COLORS.opponent)
+            drawPlayer(p, world.arena, Character.PALETTES.opponent)
         end
-        drawPlayer(me, world.arena, COLORS.self)
         drawWalls(world.arena, camera)
+        drawPlayer(me, world.arena, Character.PALETTES.self)
         camera:clear()
         for _, p in ipairs(opponents) do
             label(camera, p, COLORS.opponent)
