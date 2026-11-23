@@ -1,6 +1,7 @@
 local GM = require("src.core.index")
 local Camera = require("src.core.camera")
 local Arena = require("src.game.arena")
+local Maps = require("src.maps.index")
 local Player = require("src.game.player")
 local Weapons = require("src.game.weapons")
 local Vision = require("src.game.vision")
@@ -89,7 +90,7 @@ end
 
 --- @param data table
 function GM.Session:join(data)
-    local arena = Arena.new()
+    local arena = Arena.new(Maps.get(data.map))
     local slot = data.slot
     local me = Player.new(slot, GM.Multiplayer.name, arena:spawn(slot))
     if data.x and data.y then

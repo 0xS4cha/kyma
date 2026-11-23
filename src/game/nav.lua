@@ -20,7 +20,7 @@ end
 function Nav.grid(arena)
     if arena.nav then return arena.nav end
     local rects = {}
-    for _, list in ipairs({ arena.walls, arena.cover, arena.glass }) do
+    for _, list in ipairs({ arena.walls, arena.cover, arena.glass, arena.pits or {} }) do
         for _, r in ipairs(list) do rects[#rects + 1] = r end
     end
     local cols, rows = math.ceil(arena.width / CELL), math.ceil(arena.height / CELL)

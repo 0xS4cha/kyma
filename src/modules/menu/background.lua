@@ -2,6 +2,8 @@ local Class = require("src.core.class")
 local Camera = require("src.core.camera")
 local World = require("src.game.world")
 local Bot = require("src.game.bot")
+local Arena = require("src.game.arena")
+local Maps = require("src.maps.index")
 local Config = require("src.config.game")
 local Renderer = require("src.modules.session.renderer")
 local Character = require("src.modules.session.character")
@@ -23,7 +25,8 @@ function Background:init()
 end
 
 function Background:reset()
-    self.world = World.new()
+    self.mapIndex = ((self.mapIndex or love.math.random(#Maps.order)) % #Maps.order) + 1
+    self.world = World.new(Arena.new(Maps.get(Maps.order[self.mapIndex])))
     self.bots = {}
     for k, slot in ipairs(SLOTS) do
         local bot = Bot.new(slot, LEVELS[k], os.time() + k * 31)
