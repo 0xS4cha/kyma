@@ -1,9 +1,7 @@
-local GM = require("src.core.index")
 local Config = require("src.config.game")
 local Character = require("src.modules.session.character")
 local Weapons = require("src.game.weapons")
 local Vision = require("src.game.vision")
-local WeaponConfig = require("src.config.weapons")
 
 local Renderer = {}
 
@@ -34,12 +32,6 @@ local TRAIL_SPACING = 0.018
 
 local trails = {}
 
-local STATUS = {
-    connecting = "CONNECTING",
-    queued = "LOOKING FOR A ROOM",
-    offline = "DISCONNECTED",
-    error = "ERROR"
-}
 
 local fonts = {}
 
@@ -199,134 +191,6 @@ local function label(camera, p, color)
     lg.print(p.name, sx - f:getWidth(p.name) / 2, sy - 30 * camera.scale - f:getHeight())
 end
 
-local function centered(text, size, y, color)
-    local lg = love.graphics
-    local f = font(size)
-    lg.setFont(f)
-    lg.setColor(color)
-    lg.print(text, (lg.getWidth() - f:getWidth(text)) / 2, y)
-end
-
-local function bar(x, y, w, h, fill, color)
-    local lg = love.graphics
-    lg.setColor(color[1], color[2], color[3], 0.15)
-    lg.rectangle("fill", x, y, w, h)
-    lg.setColor(color[1], color[2], color[3], color[4] or 1)
-    lg.rectangle("fill", x, y, w * math.max(0, math.min(1, fill)), h)
-end
-
-local function drawCombatHud(session)
-    local lg = love.graphics
-    local W, H = lg.getDimensions()
-    local world = session.world
-    local me = world.me
-
-    local scores = {}
-    for slot, kills in pairs(world.score) do
-        scores[#scores + 1] = (slot == world.slot and "YOU " or session:nameOf(slot) .. " ") .. kills
-    end
-    table.sort(scores)
-    if #scores > 0 then
-        centered(table.concat(scores, "   -   "), 28, 16, COLORS.hud)
-    end
-
-    local w = 220
-    local x = (W - w) / 2
-    lg.setFont(font(16))
-    lg.setColor(COLORS.muted)
-    lg.print("HEALTH", x, H - 142)
-    bar(x, H - 120, w, 10, me.hp / Config.health, COLORS.opponent)
-    local charge = session:dashCharge()
-    lg.setColor(COLORS.muted)
-    lg.print("DASH", x, H - 102)
-    bar(x, H - 80, w, 6, charge, { COLORS.hud[1], COLORS.hud[2], COLORS.hud[3], charge >= 1 and 1 or 0.5 })
-
-    local def = Weapons.def(me.weapon)
-    local right = W - 24
-    if def then
-        local ammo = me.ammo .. " / " .. me.reserve
-        local f = font(44)
-        lg.setFont(f)
-        lg.setColor(me.ammo == 0 and COLORS.opponent or COLORS.hud)
-        lg.print(ammo, right - f:getWidth(ammo), H - 130)
-        lg.setFont(font(20))
-        lg.setColor(COLORS.muted)
-        lg.print(def.name, right - font(20):getWidth(def.name), H - 156)
-        if me.reload > 0 then
-            lg.setColor(COLORS.hud)
-            lg.print("RELOADING", right - 160, H - 74)
-            bar(right - 160, H - 50, 160, 4, 1 - me.reload / def.reloadTicks, COLORS.hud)
-        elseif me.ammo == 0 and me.reserve == 0 then
-            lg.setColor(COLORS.opponent)
-            local text = "EMPTY - THROW IT (G)"
-            lg.print(text, right - font(20):getWidth(text), H - 74)
-        end
-    else
-        local f = font(32)
-        lg.setFont(f)
-        lg.setColor(COLORS.hud)
-        lg.print("UNARMED", right - f:getWidth("UNARMED"), H - 120)
-    end
-
-    local item = session:nearbyItem()
-    if item and me.weapon then
-        local kind = Weapons.unpack(item.k)
-        centered("E  -  SWAP FOR " .. WeaponConfig[kind].name, 24, H * 0.62, COLORS.hud)
-    end
-
-    if me.dead > 0 then
-        centered("ELIMINATED", 56, H * 0.3, COLORS.opponent)
-        centered("RESPAWN IN " .. math.ceil(me.dead / 60), 26, H * 0.3 + 70, COLORS.hud)
-    end
-end
-
-local function drawHud(session)
-    local lg = love.graphics
-    local W, H = lg.getDimensions()
-    local mp = GM.Multiplayer
-
-    lg.setFont(font(36))
-    lg.setColor(COLORS.hud)
-    local status
-    if session.world then
-        local room = session.room
-        local count = room and #room.players or 1
-        status = count >= 2 and "DUEL" or "WAITING FOR AN OPPONENT"
-    else
-        status = STATUS[session.status] or session.status
-    end
-    lg.print(status, 24, 16)
-
-    lg.setFont(font(24))
-    if mp.error then
-        lg.setColor(COLORS.opponent)
-        lg.print(mp.error, 24, 56)
-    end
-    lg.setColor(COLORS.muted)
-    local ping = mp:Ping()
-    local info = mp.address or ""
-    if session.room then info = info .. "   ROOM " .. session.room.id end
-    if ping and not mp.isLocal then info = info .. "   " .. ping .. " MS" end
-    lg.print(info, 24, H - 36)
-
-    if session.world then
-        drawCombatHud(session)
-    end
-
-    if session.world and not session.captured then
-        centered("CLICK TO PLAY   -   ESC TO QUIT", 32, H * 0.4, COLORS.hud)
-    end
-    lg.setFont(font(16))
-    lg.setColor(COLORS.muted)
-    local lines = {
-        "MOVE WASD / ZQSD   TURN MOUSE / ARROWS   DASH SPACE / SHIFT / RIGHT CLICK",
-        "FIRE LEFT CLICK   RELOAD R   THROW G / MIDDLE CLICK   PICK UP E   ZOOM WHEEL"
-    }
-    for k, line in ipairs(lines) do
-        lg.print(line, 24, 60 + (k - 1) * 20 + (mp.error and 30 or 0))
-    end
-end
-
 --- @param session table
 function Renderer.draw(session)
     local lg = love.graphics
@@ -353,8 +217,8 @@ function Renderer.draw(session)
             label(camera, p, COLORS.opponent)
         end
     end
-    drawHud(session)
-    session.effects:drawScreen(font)
+    session.effects:drawScreen()
+    session.hud:draw(session)
     lg.setColor(1, 1, 1, 1)
     lg.setLineWidth(1)
 end

@@ -124,10 +124,12 @@ end
 --- @param target table
 --- @param amount number
 --- @param attacker number?
-function Combat.damage(world, target, amount, attacker)
+--- @param x number?
+--- @param y number?
+function Combat.damage(world, target, amount, attacker, x, y)
     if target.hp <= 0 or target.dead > 0 then return end
     target.hp = max(0, target.hp - amount)
-    event(world, { kind = "hit", a = attacker, t = target.slot, d = amount })
+    event(world, { kind = "hit", a = attacker, t = target.slot, d = amount, x = x, y = y })
     if target.hp <= 0 then
         Combat.kill(world, target, attacker)
     end
@@ -183,7 +185,7 @@ function Combat.fire(world, shooter, command)
         }
     end
     for slot, amount in pairs(hits) do
-        Combat.damage(world, world.players[slot], amount, shooter.slot)
+        Combat.damage(world, world.players[slot], amount, shooter.slot, shooter.x, shooter.y)
     end
 end
 
@@ -245,7 +247,7 @@ local function updateItem(world, item)
         if slot ~= item.owner and p.hp > 0 and p.dead == 0 and p.dash == 0 then
             local d = sqrt((p.x - item.x) ^ 2 + (p.y - item.y) ^ 2)
             if d < Config.player.radius + def.radius then
-                Combat.damage(world, p, def.damage, item.owner)
+                Combat.damage(world, p, def.damage, item.owner, item.x - item.vx * 0.05, item.y - item.vy * 0.05)
                 item.vx, item.vy = -item.vx * 0.25, -item.vy * 0.25
                 item.flying = false
                 break
