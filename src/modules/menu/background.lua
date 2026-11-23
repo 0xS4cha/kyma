@@ -133,6 +133,8 @@ function Background:draw()
     for _, item in ipairs(world.items) do
         if item.kind == "ammo" then
             Character.drawAmmo(item.x, item.y, item.angle or 0)
+        elseif item.kind == "health" then
+            Renderer.drawHealth(item.x, item.y)
         else
             Character.drawWeapon(item.kind, item.x, item.y, item.angle or 0)
         end

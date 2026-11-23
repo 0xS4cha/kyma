@@ -1,5 +1,6 @@
 local Config = require("src.config.game")
 local Character = require("src.modules.session.character")
+local Kit = require("src.ui.kit")
 local Weapons = require("src.game.weapons")
 local Player = require("src.game.player")
 local Vision = require("src.game.vision")
@@ -43,6 +44,33 @@ local function font(size)
     return fonts[size]
 end
 
+local STYLES = {
+    wall = { top = { 0.98, 0.985, 0.99 }, side = { 0.82, 0.86, 0.9 }, height = 70 },
+    door = { top = { 0.84, 0.86, 0.9 }, side = { 0.66, 0.7, 0.76 }, height = 70, stripe = true },
+    glass = { top = { 0.78, 0.9, 0.98, 0.45 }, side = { 0.62, 0.8, 0.95, 0.3 }, height = 70, edge = true },
+    cover = { top = { 0.93, 0.94, 0.96 }, side = { 0.7, 0.74, 0.8 }, height = 24 }
+}
+
+local function shadow(rect, ox, oy)
+    love.graphics.polygon("fill",
+        rect.x, rect.y, rect.x + rect.w, rect.y, rect.x + rect.w + ox, rect.y + oy,
+        rect.x + rect.w + ox, rect.y + rect.h + oy, rect.x + ox, rect.y + rect.h + oy, rect.x, rect.y + rect.h)
+end
+
+local function drawShards(pane)
+    local lg = love.graphics
+    lg.setColor(0.6, 0.78, 0.92, 0.55)
+    local long = pane.w >= pane.h
+    local length = long and pane.w or pane.h
+    for k = 0, math.floor(length / 14) do
+        local t = (k * 14 + (k * 37 % 11)) / length
+        local px = long and pane.x + t * pane.w or pane.x + pane.w / 2 + ((k * 53 % 13) - 6) * 2
+        local py = long and pane.y + pane.h / 2 + ((k * 53 % 13) - 6) * 2 or pane.y + t * pane.h
+        local s = 3 + k % 3
+        lg.polygon("fill", px, py - s, px + s, py + s * 0.6, px - s * 0.8, py + s * 0.4)
+    end
+end
+
 local function drawFloor(arena)
     local lg = love.graphics
     lg.setColor(COLORS.floor)
@@ -53,10 +81,14 @@ local function drawFloor(arena)
     for y = 0, arena.height, 80 do lg.line(0, y, arena.width, y) end
     local ox, oy = -cos(Character.LIGHT) * 18, -sin(Character.LIGHT) * 18
     lg.setColor(COLORS.wallShadow)
-    for _, wall in ipairs(arena.walls) do
-        lg.polygon("fill",
-            wall.x, wall.y, wall.x + wall.w, wall.y, wall.x + wall.w + ox, wall.y + oy,
-            wall.x + wall.w + ox, wall.y + wall.h + oy, wall.x + ox, wall.y + wall.h + oy, wall.x, wall.y + wall.h)
+    for _, wall in ipairs(arena.walls) do shadow(wall, ox, oy) end
+    for _, door in ipairs(arena.doors or {}) do
+        if not door.open then shadow(door, ox, oy) end
+    end
+    lg.setColor(COLORS.wallShadow[1], COLORS.wallShadow[2], COLORS.wallShadow[3], COLORS.wallShadow[4] * 0.6)
+    for _, block in ipairs(arena.cover or {}) do shadow(block, ox * 0.4, oy * 0.4) end
+    for _, pane in ipairs(arena.glass or {}) do
+        if pane.broken then drawShards(pane) end
     end
 end
 
@@ -64,8 +96,10 @@ local function lift(x, y, cx, cy, factor)
     return cx + (x - cx) * factor, cy + (y - cy) * factor
 end
 
-local function drawWall(wall, cx, cy, factor)
+local function drawWall(wall, cx, cy, style)
     local lg = love.graphics
+    local factor = WALL.cameraHeight / (WALL.cameraHeight - style.height)
+    local alpha = style.top[4] or 1
     local base = {
         wall.x, wall.y,
         wall.x + wall.w, wall.y,
@@ -84,29 +118,84 @@ local function drawWall(wall, cx, cy, factor)
         local mx, my = (ax + bx) / 2, (ay + by) / 2
         if nx * (cx - mx) + ny * (cy - my) > 0 then
             local light = 1 + 0.12 * cos(math.atan2(ny, nx) - Character.LIGHT)
-            local side = COLORS.wallSide
-            lg.setColor(side[1] * light, side[2] * light, side[3] * light)
+            local side = style.side
+            lg.setColor(side[1] * light, side[2] * light, side[3] * light, side[4] or 1)
             lg.polygon("fill", ax, ay, bx, by, top[n], top[n + 1], top[k], top[k + 1])
         end
     end
 
-    lg.setColor(COLORS.wallTop)
+    lg.setColor(style.top[1], style.top[2], style.top[3], alpha)
     lg.polygon("fill", top)
+    if style.edge then
+        lg.setColor(1, 1, 1, 0.8)
+        lg.setLineWidth(1.5)
+        lg.polygon("line", top)
+        lg.setLineWidth(1)
+    end
+    if style.stripe then
+        local x1, y1, x2, y2 = top[1], top[2], top[5], top[6]
+        Kit.color(Kit.RED, 0.85)
+        if wall.w >= wall.h then
+            local my = (y1 + y2) / 2
+            lg.rectangle("fill", x1 + 4, my - 1.5, x2 - x1 - 8, 3)
+        else
+            local mx = (x1 + x2) / 2
+            lg.rectangle("fill", mx - 1.5, y1 + 4, 3, y2 - y1 - 8)
+        end
+    end
+end
+
+local function doorPanels(door)
+    local dt = math.min(love.timer.getDelta(), 0.1)
+    door.anim = Kit.approach(door.anim or 0, door.open and 1 or 0, 12, dt)
+    local closed = 1 - door.anim
+    if closed > 0.97 then return { door } end
+    local horizontal = door.w >= door.h
+    local length = horizontal and door.w or door.h
+    local panel = math.max(4, length / 2 * closed)
+    if horizontal then
+        return {
+            { x = door.x, y = door.y, w = panel, h = door.h },
+            { x = door.x + door.w - panel, y = door.y, w = panel, h = door.h }
+        }
+    end
+    return {
+        { x = door.x, y = door.y, w = door.w, h = panel },
+        { x = door.x, y = door.y + door.h - panel, w = door.w, h = panel }
+    }
 end
 
 local function drawWalls(arena, camera)
     local cx, cy = camera.x, camera.y
-    local factor = WALL.cameraHeight / (WALL.cameraHeight - WALL.height)
     local order = {}
-    for _, wall in ipairs(arena.walls) do
-        local dx = math.max(wall.x - cx, 0, cx - wall.x - wall.w)
-        local dy = math.max(wall.y - cy, 0, cy - wall.y - wall.h)
-        order[#order + 1] = { wall = wall, distance = dx * dx + dy * dy }
+    local function add(rect, style)
+        local dx = math.max(rect.x - cx, 0, cx - rect.x - rect.w)
+        local dy = math.max(rect.y - cy, 0, cy - rect.y - rect.h)
+        order[#order + 1] = { rect = rect, style = style, distance = dx * dx + dy * dy }
+    end
+    for _, block in ipairs(arena.cover or {}) do add(block, STYLES.cover) end
+    for _, wall in ipairs(arena.walls) do add(wall, STYLES.wall) end
+    for _, door in ipairs(arena.doors or {}) do
+        for _, panel in ipairs(doorPanels(door)) do add(panel, STYLES.door) end
+    end
+    for _, pane in ipairs(arena.glass or {}) do
+        if not pane.broken then add(pane, STYLES.glass) end
     end
     table.sort(order, function(a, b) return a.distance > b.distance end)
     for _, entry in ipairs(order) do
-        drawWall(entry.wall, cx, cy, factor)
+        drawWall(entry.rect, cx, cy, entry.style)
     end
+end
+
+local function drawHealth(x, y)
+    local lg = love.graphics
+    lg.setColor(0.05, 0.07, 0.1, 0.15)
+    lg.rectangle("fill", x - 9, y - 7, 18, 18, 4, 4)
+    lg.setColor(1, 1, 1, 1)
+    lg.rectangle("fill", x - 9, y - 9, 18, 18, 4, 4)
+    Kit.color(Kit.RED, 1)
+    lg.rectangle("fill", x - 2.5, y - 6, 5, 12, 1, 1)
+    lg.rectangle("fill", x - 6, y - 2.5, 12, 5, 1, 1)
 end
 
 local function drawTrail(p, palette)
@@ -146,7 +235,7 @@ drawLaser = function(p, arena)
     local exposed = def and def.exposed
     local ca, sa = cos(p.angle), sin(p.angle)
     local mx, my = Weapons.muzzle(p)
-    local length = arena:raycast(mx, my, ca, sa, exposed and def.range or Config.laserLength)
+    local length = arena:raycast(mx, my, ca, sa, exposed and def.range or Config.laserLength, "vision")
     if exposed then
         lg.setColor(COLORS.laser[1], COLORS.laser[2], COLORS.laser[3], 0.18)
         lg.setLineWidth(5)
@@ -181,6 +270,10 @@ local function drawItems(world)
                 lg.circle("fill", item.x, item.y, 16)
             end
             Character.drawWeapon(kind, item.x, item.y, item.a or 0)
+        elseif item.k == -1 then
+            lg.setColor(1, 1, 1, 0.3 + 0.3 * pulse)
+            lg.circle("fill", item.x, item.y, 15)
+            drawHealth(item.x, item.y)
         elseif item.k == 0 then
             lg.setColor(1, 1, 1, 0.3 + 0.3 * pulse)
             lg.circle("fill", item.x, item.y, 13)
@@ -218,6 +311,7 @@ local function label(camera, p, color)
 end
 
 Renderer.drawFloor = drawFloor
+Renderer.drawHealth = drawHealth
 Renderer.drawWalls = drawWalls
 Renderer.COLORS = COLORS
 

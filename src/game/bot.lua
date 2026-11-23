@@ -3,6 +3,7 @@ local Player = require("src.game.player")
 local Weapons = require("src.game.weapons")
 local Vision = require("src.game.vision")
 local Random = require("src.core.random")
+local Nav = require("src.game.nav")
 
 local Bot = {}
 Bot.__index = Bot
@@ -38,7 +39,10 @@ function Bot.new(slot, level, seed)
         strafeTimer = 0,
         aimError = 0,
         errorTimer = 0,
-        hp = nil
+        hp = nil,
+        path = nil,
+        pathGoal = nil,
+        pathAge = 0
     }, Bot)
 end
 
@@ -52,12 +56,40 @@ function Bot:pickWaypoint(world)
     if #pads > 0 and self.rng:random() < 0.7 then
         local pad = pads[self.rng:random(#pads)]
         self.waypoint = { x = pad.x, y = pad.y }
-    else
-        self.waypoint = {
-            x = 80 + self.rng:random() * (world.arena.width - 160),
-            y = 80 + self.rng:random() * (world.arena.height - 160)
-        }
+        return
     end
+    local grid = Nav.grid(world.arena)
+    for _ = 1, 40 do
+        local col, row = self.rng:random(grid.cols) - 1, self.rng:random(grid.rows) - 1
+        if grid.open[row * grid.cols + col] then
+            self.waypoint = { x = (col + 0.5) * Nav.CELL, y = (row + 0.5) * Nav.CELL }
+            return
+        end
+    end
+    self.waypoint = { x = world.arena.width / 2, y = world.arena.height / 2 }
+end
+
+function Bot:steer(world, me, gx, gy)
+    local arena = world.arena
+    if Nav.clear(arena, me.x, me.y, gx, gy) then
+        self.path = nil
+        return atan2(gy - me.y, gx - me.x)
+    end
+    self.pathAge = self.pathAge - 1
+    local goal = self.pathGoal
+    if not self.path or self.pathAge <= 0 or not goal or distance(goal.x, goal.y, gx, gy) > 60 then
+        self.path = Nav.path(arena, me.x, me.y, gx, gy)
+        self.pathGoal = { x = gx, y = gy }
+        self.pathAge = 45
+    end
+    local path = self.path
+    if not path or #path == 0 then
+        return atan2(gy - me.y, gx - me.x)
+    end
+    while #path > 1 and (distance(me.x, me.y, path[1].x, path[1].y) < 24 or Nav.clear(arena, me.x, me.y, path[2].x, path[2].y)) do
+        table.remove(path, 1)
+    end
+    return atan2(path[1].y - me.y, path[1].x - me.x)
 end
 
 function Bot:target(world, me)
@@ -128,7 +160,7 @@ function Bot:command(world)
     if not def then
         local item = self:nearestWeapon(world, me)
         if item then
-            desired = atan2(item.y - me.y, item.x - me.x)
+            desired = self:steer(world, me, item.x, item.y)
             command.f = 1
         end
     elseif sees then
@@ -146,7 +178,7 @@ function Bot:command(world)
         if distance(me.x, me.y, self.lastSeen.x, self.lastSeen.y) < 40 then
             self.lastSeen = nil
         else
-            desired = atan2(self.lastSeen.y - me.y, self.lastSeen.x - me.x)
+            desired = self:steer(world, me, self.lastSeen.x, self.lastSeen.y)
             command.f = 1
         end
     end
@@ -155,7 +187,7 @@ function Bot:command(world)
         if not self.waypoint or distance(me.x, me.y, self.waypoint.x, self.waypoint.y) < 40 then
             self:pickWaypoint(world)
         end
-        desired = atan2(self.waypoint.y - me.y, self.waypoint.x - me.x)
+        desired = self:steer(world, me, self.waypoint.x, self.waypoint.y)
         command.f = 1
         if def and me.ammo < def.magazine / 2 and me.reserve > 0 then
             command.l = 1

@@ -209,7 +209,8 @@ function World:snapshot(viewer)
     end
     table.sort(score, function(a, b) return a.i < b.i end)
 
-    return { players = players, items = items, score = score, aims = aims }
+    local doors, glass = self.arena:state()
+    return { players = players, items = items, score = score, aims = aims, doors = doors, glass = glass }
 end
 
 return World

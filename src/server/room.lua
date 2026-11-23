@@ -120,7 +120,8 @@ function Room:sendState()
         end
         member:Stream("state", {
             t = tick, k = self.world:ack(member.slot),
-            p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims
+            p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims,
+            dd = view.doors, gg = view.glass
         })
     end
 end

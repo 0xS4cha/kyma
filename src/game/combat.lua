@@ -177,7 +177,7 @@ function Combat.fire(world, shooter, command)
         Combat.noise(world, "shot", shooter.x, shooter.y, shooter.slot)
     end
     for _, ray in ipairs(Weapons.rays(shooter, command.s)) do
-        local length = world.arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
+        local length, obstacle = world.arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
         local victim
         for slot in pairs(world.players) do
             if slot ~= shooter.slot then
@@ -194,6 +194,11 @@ function Combat.fire(world, shooter, command)
             hits[victim] = (hits[victim] or 0) + def.damage
         end
         local hit = victim and 2 or (length < ray.range - 1e-6 and 1 or 0)
+        if not victim and obstacle and obstacle.kind == "glass" then
+            hit = 3
+            world.arena:breakGlass(obstacle)
+            Combat.noise(world, "glass", ray.x + ray.dx * length, ray.y + ray.dy * length, shooter.slot)
+        end
         world.shots[#world.shots + 1] = {
             o = shooter.slot, x = ray.x, y = ray.y,
             X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length, h = hit,
@@ -220,10 +225,15 @@ function Combat.throw(world, p)
     item.vy = sa * def.speed + p.vy * def.inherit
 end
 
-local function nearest(world, p, flying, ammo)
+local function category(kind)
+    if kind == "ammo" or kind == "health" then return kind end
+    return "weapon"
+end
+
+local function nearest(world, p, flying, wanted)
     local best, bestDistance = nil, WeaponConfig.pickupRadius
     for _, item in ipairs(world.items) do
-        if item.flying == flying and (item.kind == "ammo") == (ammo == true) then
+        if item.flying == flying and category(item.kind) == (wanted or "weapon") then
             local d = sqrt((item.x - p.x) ^ 2 + (item.y - p.y) ^ 2)
             if d <= bestDistance then
                 best, bestDistance = item, d
@@ -254,10 +264,22 @@ function Combat.refill(world, p)
     if not def then return false end
     local cap = Weapons.reserveCap(def)
     if p.reserve >= cap then return false end
-    local item = nearest(world, p, false, true)
+    local item = nearest(world, p, false, "ammo")
     if not item then return false end
     removeItem(world, item)
     p.reserve = math.min(cap, p.reserve + def.magazine)
+    return true
+end
+
+--- @param world table
+--- @param p table
+--- @return boolean
+function Combat.heal(world, p)
+    if p.hp >= Config.health then return false end
+    local item = nearest(world, p, false, "health")
+    if not item then return false end
+    removeItem(world, item)
+    p.hp = math.min(Config.health, p.hp + WeaponConfig.healAmount)
     return true
 end
 
@@ -325,7 +347,14 @@ function Combat.update(world)
         elseif p.dead == 0 then
             Combat.refill(world, p)
         end
+        if p.dead == 0 and p.hp > 0 then
+            Combat.heal(world, p)
+        end
     end
+    for _, door in ipairs(world.arena:updateDoors(world.players)) do
+        Combat.noise(world, "door", door.x + door.w / 2, door.y + door.h / 2, door.opener)
+    end
+    world.arena:updateGlass(world.players)
 end
 
 return Combat
