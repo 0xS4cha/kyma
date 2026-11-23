@@ -12,6 +12,7 @@ function Room:init(id)
     self.world = World.new()
     self.accumulator = 0
     self.shots = {}
+    self.noises = {}
     self.state = "waiting"
 end
 
@@ -92,21 +93,30 @@ end
 
 function Room:sendState()
     local tick = self.world.tick
-    local shots = self.shots
-    self.shots = {}
+    local shots, noises = self.shots, self.noises
+    self.shots, self.noises = {}, {}
     for _, member in ipairs(self.members) do
         local view = self.world:snapshot(member.slot)
+        local heard = {}
+        for _, noise in ipairs(noises) do
+            if self.world:hears(member.slot, noise) then
+                heard[#heard + 1] = { x = noise.x, y = noise.y, k = noise.kind }
+            end
+        end
         member:Stream("state", {
             t = tick, k = self.world:ack(member.slot),
-            p = view.players, d = view.items, sc = view.score, s = shots
+            p = view.players, d = view.items, sc = view.score, s = shots, n = heard
         })
     end
 end
 
 function Room:flushEvents()
-    local events, shots = self.world:drain()
+    local events, shots, noises = self.world:drain()
     for _, shot in ipairs(shots) do
         self.shots[#self.shots + 1] = shot
+    end
+    for _, noise in ipairs(noises) do
+        self.noises[#self.noises + 1] = noise
     end
     for _, data in ipairs(events) do
         self:Broadcast(data.kind, data)

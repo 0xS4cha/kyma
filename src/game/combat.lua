@@ -29,12 +29,22 @@ local function event(world, data)
 end
 
 --- @param world table
+--- @param kind string
+--- @param x number
+--- @param y number
+--- @param source number?
+function Combat.noise(world, kind, x, y, source)
+    world.noises[#world.noises + 1] = { kind = kind, x = x, y = y, source = source, radius = Config.noise[kind] }
+end
+
+--- @param world table
 function Combat.setup(world)
     world.history = {}
     world.items = {}
     world.pads = {}
     world.events = {}
     world.shots = {}
+    world.noises = {}
     world.score = {}
     world.nextItem = 1
     for k, pad in ipairs(world.arena.loot) do
@@ -162,6 +172,7 @@ function Combat.fire(world, shooter, command)
     view = max(world.tick - Config.rewindTicks, min(world.tick, view))
     local radius = Config.player.radius
     local hits = {}
+    Combat.noise(world, "shot", shooter.x, shooter.y, shooter.slot)
     for _, ray in ipairs(Weapons.rays(shooter, command.s)) do
         local length = world.arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
         local victim
@@ -197,6 +208,7 @@ function Combat.throw(world, p)
     local ca, sa = cos(p.angle), sin(p.angle)
     local x, y = world.arena:resolve(p.x + ca * 16, p.y + sa * 16, def.radius)
     local item = Combat.drop(world, p, x, y)
+    Combat.noise(world, "throw", p.x, p.y, p.slot)
     item.flying = true
     item.owner = p.slot
     item.vx = ca * def.speed + p.vx * def.inherit
@@ -238,6 +250,7 @@ local function updateItem(world, item)
     local into = item.vx * nx + item.vy * ny
     if into < 0 then
         item.vx, item.vy = (item.vx - 1.6 * into * nx) * 0.4, (item.vy - 1.6 * into * ny) * 0.4
+        Combat.noise(world, "clank", x, y, item.owner)
     end
     item.x, item.y = x, y
     item.vx, item.vy = item.vx * def.friction, item.vy * def.friction

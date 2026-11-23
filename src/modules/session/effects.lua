@@ -8,10 +8,12 @@ local FLASH_LIFE = 0.06
 local SHARD_LIFE = 1.4
 local HIT_LIFE = 0.25
 local HURT_LIFE = 0.45
+local ECHO_LIFE = 1.1
+local ECHO_SIZE = { shot = 70, dash = 46, step = 30, throw = 40, clank = 40 }
 
 --- @return table
 function Effects.new()
-    return setmetatable({ tracers = {}, flashes = {}, shards = {}, hit = -1, hurt = -1 }, Effects)
+    return setmetatable({ tracers = {}, flashes = {}, shards = {}, echoes = {}, hit = -1, hurt = -1 }, Effects)
 end
 
 --- @param x1 number
@@ -40,6 +42,14 @@ function Effects:shatter(x, y, color)
     end
 end
 
+--- @param x number
+--- @param y number
+--- @param kind string
+function Effects:echo(x, y, kind)
+    self.echoes[#self.echoes + 1] = { x = x, y = y, kind = kind, time = love.timer.getTime() }
+    if #self.echoes > 40 then table.remove(self.echoes, 1) end
+end
+
 function Effects:hitMarker()
     self.hit = love.timer.getTime()
 end
@@ -59,6 +69,7 @@ function Effects:update(dt)
     prune(self.tracers, TRACER_LIFE)
     prune(self.flashes, FLASH_LIFE)
     prune(self.shards, SHARD_LIFE)
+    prune(self.echoes, ECHO_LIFE)
     local drag = math.exp(-4 * dt)
     for _, shard in ipairs(self.shards) do
         shard.x, shard.y = shard.x + shard.vx * dt, shard.y + shard.vy * dt
@@ -71,6 +82,22 @@ end
 function Effects:drawWorld()
     local lg = love.graphics
     local now = love.timer.getTime()
+    for _, echo in ipairs(self.echoes) do
+        local t = (now - echo.time) / ECHO_LIFE
+        local size = ECHO_SIZE[echo.kind] or 36
+        local loud = echo.kind == "shot"
+        local r, g, b = loud and 0.88 or 0.1, loud and 0.14 or 0.11, loud and 0.12 or 0.13
+        for ring = 0, 1 do
+            local k = math.max(0, t - ring * 0.18)
+            if k > 0 and k < 1 then
+                lg.setColor(r, g, b, (1 - k) * 0.7)
+                lg.setLineWidth(2.5 - k * 1.5)
+                lg.circle("line", echo.x, echo.y, 6 + size * (1 - (1 - k) ^ 3))
+            end
+        end
+        lg.setColor(r, g, b, (1 - t) * 0.8)
+        lg.circle("fill", echo.x, echo.y, 4)
+    end
     for _, shard in ipairs(self.shards) do
         local fade = 1 - (now - shard.time) / SHARD_LIFE
         local c, s = shard.color, shard.size
