@@ -38,14 +38,17 @@ end
 function Host:matchmake(client, options)
     options = type(options) == "table" and options or {}
     local practice = type(options.bot) == "string" and options.bot or nil
+    local mode = type(options.mode) == "string" and options.mode or nil
+    local map = type(options.map) == "string" and options.map or nil
     local best
     for _, room in pairs(self.rooms) do
-        if not practice and not room.bot and not room:Full() and (not best or room.id < best.id) then
+        local fits = (not mode or room.mode == mode) and (not map or room.map == map)
+        if not practice and not room.practice and fits and not room:Full() and (not best or room.id < best.id) then
             best = room
         end
     end
     if not best then
-        best = Room(self.nextRoomId, { bot = practice })
+        best = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, arena = self.arenaFor and self.arenaFor(map) or nil })
         self.nextRoomId = self.nextRoomId + 1
         self.rooms[best.id] = best
         Logger:info("server", "Room created", best.id)

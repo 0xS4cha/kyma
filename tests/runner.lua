@@ -14,7 +14,8 @@ local SUITES = {
     "tests.weapons_test",
     "tests.bot_test",
     "tests.settings_test",
-    "tests.map_systems_test"
+    "tests.map_systems_test",
+    "tests.modes_test"
 }
 
 local function run(filter)

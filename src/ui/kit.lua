@@ -6,6 +6,7 @@ Kit.INK = { 0.1, 0.11, 0.13 }
 Kit.RED = { 0.88, 0.14, 0.12 }
 Kit.GREEN = { 0.22, 0.68, 0.4 }
 Kit.AMBER = { 0.92, 0.6, 0.12 }
+Kit.ALLY = { 0.24, 0.42, 0.62 }
 Kit.CARD = { 1, 1, 1 }
 Kit.PAPER = { 0.93, 0.95, 0.97 }
 Kit.RADIUS = 12

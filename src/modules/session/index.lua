@@ -65,7 +65,9 @@ function GM.Session:Start(options)
     if options.mode == "connect" then
         mp:Join(options.address, name)
     else
-        mp:PlayLocal(name, options.mode == "host", options.mode == "practice" and { bot = options.bot or "medium" } or nil)
+        local queue = { mode = options.game or "duel", map = options.map }
+        if options.mode == "practice" then queue.bot = options.bot or "medium" end
+        mp:PlayLocal(name, options.mode == "host", queue)
     end
 end
 
@@ -90,8 +92,19 @@ function GM.Session:join(data)
     local arena = Arena.new()
     local slot = data.slot
     local me = Player.new(slot, GM.Multiplayer.name, arena:spawn(slot))
+    if data.x and data.y then
+        me.x, me.y = data.x, data.y
+        me.angle = Player.unpackAngle(data.angle or 0)
+    end
+    me.team = data.team
+    local mode = Config.modes[data.mode or ""] and data.mode or "duel"
     self.world = {
         arena = arena,
+        mode = mode,
+        rules = Config.modes[mode],
+        team = data.team,
+        teamScore = { 0, 0 },
+        over = nil,
         slot = slot,
         me = me,
         previous = Player.copy(me),
@@ -236,7 +249,42 @@ function GM.Session:onKill(data)
         return slot == world.slot and "You" or self:nameOf(slot)
     end
     local killer = data.k and data.k ~= victim and name(data.k) or nil
-    self.hud:announce(killer, name(victim), data.k == world.slot, victim == world.slot)
+    self.hud:announce(killer, name(victim), data.k and self:friendly(data.k), self:friendly(victim))
+end
+
+--- @param slot number
+--- @return number?
+function GM.Session:teamOf(slot)
+    for _, player in ipairs(self.room and self.room.players or {}) do
+        if player.slot == slot then return player.team end
+    end
+    return nil
+end
+
+--- @param slot number
+--- @return boolean
+function GM.Session:friendly(slot)
+    local world = self.world
+    if not world then return false end
+    if slot == world.slot then return true end
+    return world.rules.teams and world.team ~= nil and self:teamOf(slot) == world.team
+end
+
+--- @return table[]
+function GM.Session:standings()
+    local world = self.world
+    local list = {}
+    for _, player in ipairs(self.room and self.room.players or {}) do
+        list[#list + 1] = {
+            slot = player.slot, name = player.slot == world.slot and (player.name .. " (you)") or player.name,
+            team = player.team, bot = player.bot, kills = world.score[player.slot] or 0, me = player.slot == world.slot
+        }
+    end
+    table.sort(list, function(a, b)
+        if a.kills ~= b.kills then return a.kills > b.kills end
+        return a.slot < b.slot
+    end)
+    return list
 end
 
 --- @param data table
@@ -256,6 +304,10 @@ function GM.Session:receive(data)
     for _, entry in ipairs(data.sc or {}) do
         world.score[entry.i] = entry.k
     end
+    if type(data.ts) == "table" then
+        world.teamScore = { data.ts[1] or 0, data.ts[2] or 0 }
+    end
+    world.over = type(data.ov) == "table" and data.ov or nil
     for _, noise in ipairs(data.n or {}) do
         self.effects:echo(noise.x, noise.y, noise.k)
         self.hud:noise(noise.x, noise.y, noise.k)
@@ -293,6 +345,7 @@ function GM.Session:receive(data)
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.trigger = own.z == 1
+    me.team = own.t
     for _, command in ipairs(kept) do
         Player.step(me, command, world.arena, DT)
     end
@@ -333,6 +386,8 @@ function GM.Session:opponents()
                 vy = (a.v or 0) + ((b.v or 0) - (a.v or 0)) * t,
                 dashing = (b.e or 0) > 0,
                 sliding = (b.j or 0) > 0,
+                team = b.t,
+                ally = world.rules.teams and b.t ~= nil and b.t == world.team,
                 weapon = Weapons.unpack(b.g),
                 dead = b.o or 0,
                 name = self:nameOf(slot)
@@ -380,7 +435,7 @@ function GM.Session:visibleOpponents()
     for _, p in ipairs(self:opponents()) do
         if p.dead == 0 then
             world.lastSeen[p.slot] = { x = p.x, y = p.y }
-            if me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius) then
+            if p.ally or (me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius)) then
                 list[#list + 1] = p
             end
         end

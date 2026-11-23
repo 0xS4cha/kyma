@@ -328,7 +328,7 @@ function Renderer.draw(session)
         drawFloor(world.arena)
         drawItems(world)
         for _, p in ipairs(opponents) do
-            drawPlayer(p, world.arena, Character.PALETTES.opponent)
+            drawPlayer(p, world.arena, p.ally and Character.PALETTES.ally or Character.PALETTES.opponent)
         end
         drawFog(world, me)
         drawAims(world)
@@ -340,7 +340,7 @@ function Renderer.draw(session)
         end
         camera:clear()
         for _, p in ipairs(opponents) do
-            label(camera, p, COLORS.opponent)
+            label(camera, p, p.ally and Character.PALETTES.ally.body or COLORS.opponent)
         end
     end
     session.effects:drawScreen()

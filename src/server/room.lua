@@ -4,17 +4,32 @@ local Config = require("src.net.config")
 local World = require("src.game.world")
 local Inputs = require("src.net.inputs")
 local Bot = require("src.game.bot")
+local Player = require("src.game.player")
+local GameConfig = require("src.config.game")
 
 local Room = Class()
 
+local BOT_NAMES = { "Nova", "Echo", "Vega", "Orion", "Lyra", "Atlas", "Iris" }
+
 function Room:init(id, options)
+    options = type(options) == "table" and options or {}
     self.id = id
+    self.mode = GameConfig.modes[options.mode or ""] and options.mode or "duel"
+    self.rules = GameConfig.modes[self.mode]
+    self.map = options.map
     self.members = {}
-    self.world = World.new()
-    self.bot = nil
-    if type(options) == "table" and type(options.bot) == "string" then
-        self.bot = Bot.new(Config.roomPlayers, options.bot, id * 104729 + os.time())
-        self.world:add(self.bot.slot, self.bot:name())
+    self.world = World.new(options.arena, self.mode)
+    self.bots = {}
+    self.practice = type(options.bot) == "string"
+    if self.practice then
+        local count = self.rules.players - 1
+        for k = 1, count do
+            local slot = self.rules.players - k + 1
+            local bot = Bot.new(slot, options.bot, id * 104729 + os.time() + k)
+            bot.label = count == 1 and bot:name() or BOT_NAMES[k]
+            self.bots[#self.bots + 1] = bot
+            self.world:add(slot, bot.label, self:teamFor())
+        end
     end
     self.accumulator = 0
     self.shots = {}
@@ -22,34 +37,52 @@ function Room:init(id, options)
     self.state = "waiting"
 end
 
+function Room:Max()
+    return self.rules.players
+end
+
+function Room:Count()
+    return #self.members + #self.bots
+end
+
 function Room:Full()
-    return #self.members + (self.bot and 1 or 0) >= Config.roomPlayers
+    return self:Count() >= self:Max()
 end
 
 function Room:Empty()
     return #self.members == 0
 end
 
+function Room:teamFor()
+    if not self.rules.teams then return nil end
+    local sizes = { 0, 0 }
+    for _, p in pairs(self.world.players) do
+        if p.team then sizes[p.team] = sizes[p.team] + 1 end
+    end
+    return sizes[1] <= sizes[2] and 1 or 2
+end
+
 function Room:freeSlot()
-    for slot = 1, Config.roomPlayers do
-        local taken = self.bot ~= nil and self.bot.slot == slot
-        for _, member in ipairs(self.members) do
-            if member.slot == slot then taken = true break end
-        end
-        if not taken then return slot end
+    for slot = 1, self:Max() do
+        if not self.world.players[slot] then return slot end
     end
 end
 
 function Room:Info()
     local players = {}
     for _, member in ipairs(self.members) do
-        players[#players + 1] = { id = member.id, slot = member.slot, name = member.name }
+        local p = self.world.players[member.slot]
+        players[#players + 1] = { id = member.id, slot = member.slot, name = member.name, team = p and p.team }
     end
-    if self.bot then
-        players[#players + 1] = { id = "bot", slot = self.bot.slot, name = self.bot:name(), bot = true }
+    for _, bot in ipairs(self.bots) do
+        local p = self.world.players[bot.slot]
+        players[#players + 1] = { id = "bot" .. bot.slot, slot = bot.slot, name = bot.label, bot = true, team = p and p.team }
     end
     table.sort(players, function(a, b) return a.slot < b.slot end)
-    return { id = self.id, state = self.state, players = players, practice = self.bot ~= nil }
+    return {
+        id = self.id, state = self.state, players = players, practice = self.practice,
+        mode = self.mode, map = self.map, max = self:Max()
+    }
 end
 
 function Room:Broadcast(kind, data)
@@ -60,7 +93,7 @@ function Room:Broadcast(kind, data)
 end
 
 function Room:refresh()
-    self.state = self:Full() and "duel" or "waiting"
+    self.state = self:Count() >= 2 and "playing" or "waiting"
     self:Broadcast("room", self:Info())
 end
 
@@ -72,8 +105,12 @@ function Room:Add(client)
     client.room = self
     client.slot = slot
     self.members[#self.members + 1] = client
-    self.world:add(slot, client.name)
-    client:Send("joined", { room = self.id, slot = slot, tick = self.world.tick, tickRate = Config.tickRate })
+    local player = self.world:add(slot, client.name, self:teamFor())
+    client:Send("joined", {
+        room = self.id, slot = slot, tick = self.world.tick, tickRate = Config.tickRate,
+        mode = self.mode, map = self.map, team = player.team, angle = Player.packAngle(player.angle),
+        x = player.x, y = player.y
+    })
     Logger:info("room", string.format("%s joined room %d as slot %d", client.name, self.id, slot))
     self:refresh()
     return true
@@ -121,7 +158,7 @@ function Room:sendState()
         member:Stream("state", {
             t = tick, k = self.world:ack(member.slot),
             p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims,
-            dd = view.doors, gg = view.glass
+            dd = view.doors, gg = view.glass, ts = view.teams, ov = view.over
         })
     end
 end
@@ -144,8 +181,8 @@ function Room:Update(dt)
     self.accumulator = math.min(self.accumulator + dt, step * 8)
     while self.accumulator >= step do
         self.accumulator = self.accumulator - step
-        if self.bot then
-            self.world:queue(self.bot.slot, { self.bot:command(self.world) })
+        for _, bot in ipairs(self.bots) do
+            self.world:queue(bot.slot, { bot:command(self.world) })
         end
         self.world:step()
         self:flushEvents()
