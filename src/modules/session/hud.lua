@@ -490,6 +490,9 @@ function Hud:drawOverlay(session)
         local status = session.status
         local mp = GM.Multiplayer
         local label = mp.error or (status == "queued" and "Looking for a room" or "Connecting")
+        if mp.error or status == "offline" then
+            label = (mp.error or "Disconnected") .. "  -  Esc for the menu"
+        end
         local w, h = 360, 120
         local x, y = (W - w) / 2, (H - h) / 2
         love.graphics.setColor(0.93, 0.95, 0.97, c)
@@ -510,7 +513,7 @@ function Hud:drawOverlay(session)
     end
 
     local o = self.overlay
-    if o > 0.01 and session.world then
+    if o > 0.01 and session.world and not session:paused() then
         love.graphics.setColor(0.93, 0.95, 0.97, 0.6 * o)
         love.graphics.rectangle("fill", 0, 0, W, H)
         local w, h = 340, 96

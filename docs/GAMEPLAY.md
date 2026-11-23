@@ -58,8 +58,15 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 - A red arc around you points to where the last shots came from, and the screen edges flash red when you are hit.
 - Standing on a weapon shows the `E` prompt to swap it.
 
+## Main menu
+
+- **Play**: practice against a bot (easy, medium or hard: it sees, turns and reacts like a player, with more delay and less precision at lower levels), or host a duel on your network.
+- **Multiplayer**: duels hosted on your network show up by themselves, click one to join; or type the address of a dedicated server.
+- **How to play**: the mechanics and weapons on one page. **Settings**: mouse sensitivity, camera distance, fullscreen, VSync, the live duel behind the menu and the controls reminder, saved automatically.
+- Behind the menu two bots fight a live duel. Navigate with the mouse or with the arrows, `Enter` and `Escape`.
+- In game, `Escape` opens the pause menu: resume, settings, leave the duel or quit. The duel keeps running while it is open.
+
 ## Playing
 
 - The dash is a short burst (135 units in 0.15 s) in the direction you are moving, or straight ahead when standing still. It recharges in 1 second: the bar at the bottom of the screen fills up when it is ready again.
-- Solo: `love .` drops you alone in an arena while waiting for an opponent.
-- Duel on a network: one player runs `love . --host`, the other `love . --connect <ip>:6789`.
+- From the command line: `love . --practice hard` starts a practice game, `love . --host` hosts a duel, `love . --connect <ip>:6789` joins one, `love . --play` waits alone for an opponent on this computer.
