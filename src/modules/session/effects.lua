@@ -6,13 +6,12 @@ local cos, sin, pi, random = math.cos, math.sin, math.pi, love.math.random
 local TRACER_LIFE = 0.18
 local FLASH_LIFE = 0.06
 local SHARD_LIFE = 1.4
-local FEED_LIFE = 4
 local HIT_LIFE = 0.25
-local HURT_LIFE = 0.35
+local HURT_LIFE = 0.45
 
 --- @return table
 function Effects.new()
-    return setmetatable({ tracers = {}, flashes = {}, shards = {}, feed = {}, hit = -1, hurt = -1 }, Effects)
+    return setmetatable({ tracers = {}, flashes = {}, shards = {}, hit = -1, hurt = -1 }, Effects)
 end
 
 --- @param x1 number
@@ -49,13 +48,6 @@ function Effects:hurtFlash()
     self.hurt = love.timer.getTime()
 end
 
---- @param text string
---- @param color table
-function Effects:announce(text, color)
-    self.feed[#self.feed + 1] = { text = text, color = color, time = love.timer.getTime() }
-    if #self.feed > 4 then table.remove(self.feed, 1) end
-end
-
 --- @param dt number
 function Effects:update(dt)
     local now = love.timer.getTime()
@@ -67,7 +59,6 @@ function Effects:update(dt)
     prune(self.tracers, TRACER_LIFE)
     prune(self.flashes, FLASH_LIFE)
     prune(self.shards, SHARD_LIFE)
-    prune(self.feed, FEED_LIFE)
     local drag = math.exp(-4 * dt)
     for _, shard in ipairs(self.shards) do
         shard.x, shard.y = shard.x + shard.vx * dt, shard.y + shard.vy * dt
@@ -104,16 +95,30 @@ function Effects:drawWorld()
     lg.setLineWidth(1)
 end
 
---- @param font function
-function Effects:drawScreen(font)
+function Effects:drawScreen()
     local lg = love.graphics
     local W, H = lg.getDimensions()
     local now = love.timer.getTime()
 
     local hurt = now - self.hurt
     if hurt < HURT_LIFE then
-        lg.setColor(0.88, 0.14, 0.12, 0.28 * (1 - hurt / HURT_LIFE))
-        lg.rectangle("fill", 0, 0, W, H)
+        local alpha = 0.55 * (1 - hurt / HURT_LIFE)
+        local d = math.min(W, H) * 0.18
+        local r, g, b = 0.88, 0.14, 0.12
+        local function edge(x1, y1, x2, y2, x3, y3, x4, y4)
+            local mesh = lg.newMesh({
+                { x1, y1, 0, 0, r, g, b, alpha },
+                { x2, y2, 0, 0, r, g, b, alpha },
+                { x3, y3, 0, 0, r, g, b, 0 },
+                { x4, y4, 0, 0, r, g, b, 0 }
+            }, "fan", "stream")
+            lg.setColor(1, 1, 1, 1)
+            lg.draw(mesh)
+        end
+        edge(0, 0, W, 0, W - d, d, d, d)
+        edge(W, 0, W, H, W - d, H - d, W - d, d)
+        edge(W, H, 0, H, d, H - d, W - d, H - d)
+        edge(0, H, 0, 0, d, d, d, H - d)
     end
 
     local hit = now - self.hit
@@ -127,15 +132,6 @@ function Effects:drawScreen(font)
         lg.line(cx - s, cy + s, cx - s / 3, cy + s / 3)
         lg.line(cx + s, cy + s, cx + s / 3, cy + s / 3)
         lg.setLineWidth(1)
-    end
-
-    local f = font(22)
-    lg.setFont(f)
-    for k, entry in ipairs(self.feed) do
-        local fade = math.min(1, (FEED_LIFE - (now - entry.time)) * 2)
-        local c = entry.color
-        lg.setColor(c[1], c[2], c[3], fade)
-        lg.print(entry.text, W - f:getWidth(entry.text) - 24, 20 + (k - 1) * 28)
     end
 end
 

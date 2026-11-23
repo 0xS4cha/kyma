@@ -7,6 +7,7 @@ local Vision = require("src.game.vision")
 local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
+local Hud = require("src.modules.session.hud")
 local NetConfig = require("src.net.config")
 local Renderer = require("src.modules.session.renderer")
 
@@ -36,6 +37,7 @@ function GM.Session:Initialize()
     self.captured = false
     self.autoplay = GM.Flags and GM.Flags.autoplay or false
     self.effects = Effects.new()
+    self.hud = Hud.new()
 
     local mp = GM.Multiplayer
     mp:On("joined", function(data) self:join(data) end)
@@ -80,6 +82,7 @@ function GM.Session:join(data)
         autoplayTurn = 1
     }
     self.status = "playing"
+    self.hud:joined()
     self.camera:follow(me.x, me.y, me.angle)
     self:capture(true)
 end
@@ -172,6 +175,9 @@ function GM.Session:onHit(data)
     if not world then return end
     if data.t == world.slot then
         self.effects:hurtFlash()
+        if data.x and data.y then
+            self.hud:damageFrom(world.me.x, world.me.y, data.x, data.y)
+        end
     elseif data.a == world.slot then
         self.effects:hitMarker()
     end
@@ -190,9 +196,11 @@ function GM.Session:onKill(data)
             self.effects:shatter(seen.x, seen.y, OPPONENT_COLOR)
         end
     end
-    local killer = data.k and self:nameOf(data.k) or nil
-    local text = killer and killer ~= self:nameOf(victim) and (killer .. "  >  " .. self:nameOf(victim)) or (self:nameOf(victim) .. " died")
-    self.effects:announce(text, victim == world.slot and OPPONENT_COLOR or SELF_COLOR)
+    local function name(slot)
+        return slot == world.slot and "You" or self:nameOf(slot)
+    end
+    local killer = data.k and data.k ~= victim and name(data.k) or nil
+    self.hud:announce(killer, name(victim), data.k == world.slot, victim == world.slot)
 end
 
 --- @param data table
@@ -364,6 +372,7 @@ function GM.Session:request(action)
 end
 
 function GM.Session:Think(dt)
+    self.hud:update(self, dt)
     local world = self.world
     if not world then
         local mp = GM.Multiplayer
@@ -423,6 +432,8 @@ function GM.Session:KeyPressed(key, scancode)
         self:request("throw")
     elseif scancode == "e" then
         self:request("pickup")
+    elseif scancode == "h" then
+        self.hud:toggleHelp()
     elseif key == "escape" then
         if self.captured then
             self:capture(false)

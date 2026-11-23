@@ -17,6 +17,7 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 | Throw your weapon | `G` or middle click |
 | Pick up / swap weapon | `E` |
 | Zoom | Mouse wheel |
+| Show or hide the controls | `H` (shown for the first seconds of a game) |
 | Release the mouse | `Escape` (click to capture it again, `Escape` again to quit) |
 
 ## Combat
@@ -35,6 +36,14 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 - Throwing your weapon (`G`) sends it flying: it deals 45 damage to the opponent it hits, then lands with its remaining ammo, ready to be picked up by anyone. With empty hands you pick up a weapon just by walking on it; `E` swaps the weapon you hold for the one on the floor.
 - While dashing you can't shoot, but bullets and thrown weapons go through you: time it to dodge.
 - You only see what is in front of you (a cone of about 110 degrees) and a small circle around you, and walls block the view. Everything else is greyed out, and the opponent is invisible there.
+
+## Screen
+
+- Top left: the game state (waiting for an opponent or duel, the dot pulses while waiting) and the `H` reminder. Top middle: the score. Top right: your ping and the eliminations, which slide in and fade out.
+- Bottom left: your health, with a light trail showing the damage you just took, and the dash bar, which shows `Space` when the dash is ready.
+- Bottom right: your weapon, the ammo left in the magazine and in reserve, one mark per bullet, a ring while reloading, and the key to press when it matters (`R` when the magazine runs low, `G` when the weapon is empty).
+- A red arc around you points to where the last shots came from, and the screen edges flash red when you are hit.
+- Standing on a weapon shows the `E` prompt to swap it.
 
 ## Playing
 
