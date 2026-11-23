@@ -1,7 +1,7 @@
 local GM = require("src.core.index")
 GM.Modules = {}
 GM.Modules.List = {}
-GM.Modules.HasFunction = { Think = {}, Draw = {}, KeyPressed = {}, MousePressed = {}, MouseReleased = {}, WheelMoved = {}, TextInput = {} }
+GM.Modules.HasFunction = { Think = {}, Draw = {}, KeyPressed = {}, MousePressed = {}, MouseReleased = {}, MouseMoved = {}, WheelMoved = {}, TextInput = {} }
 
 local lastTick = love.timer.getTime()
 
@@ -92,6 +92,9 @@ function GM:InitializeModules()
             if self[name].MouseReleased then
                 table.insert(GM.Modules.HasFunction.MouseReleased, name)
             end
+            if self[name].MouseMoved then
+                table.insert(GM.Modules.HasFunction.MouseMoved, name)
+            end
             if self[name].WheelMoved then
                 table.insert(GM.Modules.HasFunction.WheelMoved, name)
             end
@@ -162,6 +165,18 @@ end
 function GM:MouseReleased(x, y, button, istouch, presses)
     for _, moduleName in pairs(self.Modules.HasFunction.MouseReleased) do
         self[moduleName]:MouseReleased(x, y, button, istouch, presses)
+    end
+end
+
+--- @param x number
+--- @param y number
+--- @param dx number
+--- @param dy number
+--- @param istouch boolean
+--- @return void
+function GM:MouseMoved(x, y, dx, dy, istouch)
+    for _, moduleName in pairs(self.Modules.HasFunction.MouseMoved) do
+        self[moduleName]:MouseMoved(x, y, dx, dy, istouch)
     end
 end
 

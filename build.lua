@@ -8,7 +8,7 @@ return {
   platforms = {'windows', 'macos', 'linux'},
   ignore = {
     'dist', 'build', 'tests', 'docs', 'love-build', 'lib',
-    'Makefile', '.env', '.env.example', '.luarc.json', '.github',
-    'build.lua', 'CODE_OF_CONDUCT.md', 'appimagetool.AppImage', 'kyma'
+    'Makefile', 'Dockerfile', '.dockerignore', '.env', '.env.example', '.luarc.json', '.github',
+    'build.lua', 'CODE_OF_CONDUCT.md', 'appimagetool.AppImage', 'kyma', 'kyma_server'
   }
 }

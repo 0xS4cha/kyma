@@ -1,5 +1,8 @@
 for _, value in ipairs(arg or {}) do
-    if value == "--test" then
+    if value == "--server" then
+        require("src.server.run")
+        return
+    elseif value == "--test" then
         require("tests.runner")
         return
     end
@@ -40,9 +43,12 @@ function love.load(args)
     modules:Load("src/modules")
 
     local parser = ArgParser.new()
-    parser:add_argument("seed", { default = nil, type = "value" })
-    parser:add_argument("frames", { default = nil, type = "value" })
+        parser:add_argument("frames", { default = nil, type = "value" })
     parser:add_argument("screenshot", { default = nil, type = "value" })
+    parser:add_argument("connect", { default = nil, type = "value" })
+    parser:add_argument("host", { default = false, type = "boolean" })
+    parser:add_argument("name", { default = nil, type = "value" })
+    parser:add_argument("autoplay", { default = false, type = "boolean" })
     flags = parser:parse(args)
     GM.Flags = flags
 
@@ -86,4 +92,14 @@ end
 
 function love.mousereleased(x, y, button, istouch, presses)
     GM:MouseReleased(x, y, button, istouch, presses)
+end
+
+function love.mousemoved(x, y, dx, dy, istouch)
+    GM:MouseMoved(x, y, dx, dy, istouch)
+end
+
+function love.quit()
+    if GM.Multiplayer then
+        GM.Multiplayer:Shutdown()
+    end
 end
