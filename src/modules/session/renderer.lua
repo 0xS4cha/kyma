@@ -18,6 +18,11 @@ local COLORS = {
     muted = { 1, 0.72, 0.15, 0.55 }
 }
 
+local WALL = {
+    height = 70,
+    cameraHeight = 650
+}
+
 local STATUS = {
     connecting = "CONNECTING",
     queued = "LOOKING FOR A ROOM",
@@ -35,19 +40,19 @@ local function font(size)
     return fonts[size]
 end
 
-local function neonRect(x, y, w, h, color)
+local function neonPolygon(points, color)
     local lg = love.graphics
     for k = 4, 1, -1 do
         lg.setColor(color[1], color[2], color[3], 0.07 * (5 - k))
         lg.setLineWidth(k * 4)
-        lg.rectangle("line", x, y, w, h)
+        lg.polygon("line", points)
     end
     lg.setColor(color[1], color[2], color[3], 1)
     lg.setLineWidth(2)
-    lg.rectangle("line", x, y, w, h)
+    lg.polygon("line", points)
 end
 
-local function drawArena(arena)
+local function drawFloor(arena)
     local lg = love.graphics
     lg.setColor(COLORS.floor)
     lg.rectangle("fill", 0, 0, arena.width, arena.height)
@@ -55,12 +60,62 @@ local function drawArena(arena)
     lg.setLineWidth(1)
     for x = 0, arena.width, 80 do lg.line(x, 0, x, arena.height) end
     for y = 0, arena.height, 80 do lg.line(0, y, arena.width, y) end
-    for _, wall in ipairs(arena.walls) do
-        lg.setColor(COLORS.wall)
-        lg.rectangle("fill", wall.x, wall.y, wall.w, wall.h)
+end
+
+local function lift(x, y, cx, cy, factor)
+    return cx + (x - cx) * factor, cy + (y - cy) * factor
+end
+
+local function drawWall(wall, cx, cy, factor)
+    local lg = love.graphics
+    local neon = COLORS.neon
+    local base = {
+        wall.x, wall.y,
+        wall.x + wall.w, wall.y,
+        wall.x + wall.w, wall.y + wall.h,
+        wall.x, wall.y + wall.h
+    }
+    local top = {}
+    for k = 1, 8, 2 do
+        top[k], top[k + 1] = lift(base[k], base[k + 1], cx, cy, factor)
     end
+
+    for k = 1, 8, 2 do
+        local n = (k + 1) % 8 + 1
+        local ax, ay, bx, by = base[k], base[k + 1], base[n], base[n + 1]
+        local nx, ny = by - ay, ax - bx
+        local mx, my = (ax + bx) / 2, (ay + by) / 2
+        if nx * (cx - mx) + ny * (cy - my) > 0 then
+            local face = { ax, ay, bx, by, top[n], top[n + 1], top[k], top[k + 1] }
+            lg.setColor(COLORS.wall)
+            lg.polygon("fill", face)
+            lg.setColor(neon[1], neon[2], neon[3], 0.18)
+            lg.polygon("fill", face)
+            lg.setColor(neon[1], neon[2], neon[3], 0.5)
+            lg.setLineWidth(1)
+            lg.line(ax, ay, bx, by)
+            lg.line(ax, ay, top[k], top[k + 1])
+            lg.line(bx, by, top[n], top[n + 1])
+        end
+    end
+
+    lg.setColor(COLORS.wall)
+    lg.polygon("fill", top)
+    neonPolygon(top, neon)
+end
+
+local function drawWalls(arena, camera)
+    local cx, cy = camera.x, camera.y
+    local factor = WALL.cameraHeight / (WALL.cameraHeight - WALL.height)
+    local order = {}
     for _, wall in ipairs(arena.walls) do
-        neonRect(wall.x, wall.y, wall.w, wall.h, COLORS.neon)
+        local dx = math.max(wall.x - cx, 0, cx - wall.x - wall.w)
+        local dy = math.max(wall.y - cy, 0, cy - wall.y - wall.h)
+        order[#order + 1] = { wall = wall, distance = dx * dx + dy * dy }
+    end
+    table.sort(order, function(a, b) return a.distance > b.distance end)
+    for _, entry in ipairs(order) do
+        drawWall(entry.wall, cx, cy, factor)
     end
 end
 
@@ -150,11 +205,12 @@ function Renderer.draw(session)
         local me = session:localView()
         local opponents = session:opponents()
         camera:apply()
-        drawArena(world.arena)
+        drawFloor(world.arena)
         for _, p in ipairs(opponents) do
             drawPlayer(p, world.arena, COLORS.opponent)
         end
         drawPlayer(me, world.arena, COLORS.self)
+        drawWalls(world.arena, camera)
         camera:clear()
         for _, p in ipairs(opponents) do
             label(camera, p, COLORS.opponent)
