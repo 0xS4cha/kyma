@@ -8,7 +8,7 @@ Settings.SENSITIVITY = { 0.002, 0.0028, 0.0035, 0.0045, 0.006 }
 Settings.ZOOM = { 1.3, 1.6, 2.0 }
 Settings.ZOOM_LABELS = { "Far", "Normal", "Close" }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map" }
 
 --- @return table
 function Settings.defaults()
@@ -21,7 +21,9 @@ function Settings.defaults()
         vsync = false,
         background = true,
         showHelp = true,
-        bot = 2
+        bot = 2,
+        mode = 1,
+        map = "atrium"
     }
 end
 
@@ -43,6 +45,8 @@ function Settings.parse(text)
     values.sensitivity = math.max(1, math.min(#Settings.SENSITIVITY, math.floor(values.sensitivity)))
     values.zoom = math.max(1, math.min(#Settings.ZOOM, math.floor(values.zoom)))
     values.bot = math.max(1, math.min(#Config.bots.order, math.floor(values.bot)))
+    values.mode = math.max(1, math.min(#Config.modes.order, math.floor(values.mode)))
+    values.map = require("src.maps.index").valid(values.map)
     return values
 end
 
@@ -84,6 +88,12 @@ end
 --- @return string
 function Settings.botLevel(values)
     return Config.bots.order[values.bot]
+end
+
+--- @param values table
+--- @return string
+function Settings.gameMode(values)
+    return Config.modes.order[values.mode]
 end
 
 return Settings

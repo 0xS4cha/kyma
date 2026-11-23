@@ -1,47 +1,42 @@
 local Kit = require("src.ui.kit")
+local Minimap = require("src.ui.minimap")
 local Common = require("src.modules.menu.screens.common")
 local Settings = require("src.modules.menu.settings")
 local Config = require("src.config.game")
+local Maps = require("src.maps.index")
 local Address = require("src.net.address")
 
 local Play = {}
 
-local CARDS = {
-    {
-        id = "practice", title = "Practice",
-        text = "Duel a bot on your own. Nobody else can join, the bot plays by the same rules as you.",
-        button = "Start practice"
-    },
-    {
-        id = "host", title = "Host a duel",
-        text = "Open a duel on your network and wait for an opponent. It shows up in their Multiplayer screen.",
-        button = "Host"
-    },
-    {
-        id = "join", title = "Join a duel",
-        text = "Find duels hosted on your network, or connect to a dedicated server by address.",
-        button = "Find duels"
-    }
-}
+local COLS = 5
 
 local function layout()
     local W, H = love.graphics.getDimensions()
     local M = Common.margin()
-    local gap = 20
-    local cardW = math.min(360, math.floor((W - M * 2 - gap * 2) / 3))
-    local total = cardW * 3 + gap * 2
-    local x = M
-    local cardH = 300
-    local y = math.max(200, math.floor((H - cardH) / 2) + 30)
-    return { M = M, x = x, y = y, w = cardW, h = cardH, gap = gap, total = total }
+    local right = math.min(380, math.floor(W * 0.28))
+    local gap = 28
+    local leftW = W - M * 2 - right - gap
+    local tileW = math.floor((leftW - (COLS - 1) * 12) / COLS)
+    local tileH = math.floor(tileW * 0.62) + 26
+    return {
+        M = M, W = W, H = H,
+        left = { x = M, w = leftW },
+        right = { x = M + leftW + gap, w = right },
+        modeY = 136,
+        gridY = 236,
+        tileW = tileW, tileH = tileH,
+        detailY = 236 + 2 * (tileH + 12) + 6
+    }
 end
 
-local function levels()
-    local list = {}
-    for _, level in ipairs(Config.bots.order) do
-        list[#list + 1] = Config.bots[level].name
-    end
-    return list
+local function names(list, source)
+    local out = {}
+    for _, id in ipairs(list) do out[#out + 1] = source[id].name end
+    return out
+end
+
+local function selectedMap(menu)
+    return Maps.get(menu.settings.map)
 end
 
 function Play.enter(menu)
@@ -51,78 +46,167 @@ end
 function Play.build(menu)
     local l = layout()
     local list = { Common.backElement(menu, function() menu:switch("root", -1) end) }
+    local modes = #Config.modes.order
     list[#list + 1] = {
-        id = "name", x = l.x, y = l.y - 74, w = 320, h = 46,
+        id = "mode", x = l.left.x, y = l.modeY, w = math.min(520, l.left.w), h = 40,
+        press = function(_, mx)
+            if mx then
+                local cell = math.min(520, l.left.w) / modes
+                menu:setOption("mode", Kit.clamp(math.floor((mx - l.left.x) / cell) + 1, 1, modes))
+            else
+                menu:setOption("mode", menu.settings.mode % modes + 1)
+            end
+        end,
+        left = function() menu:setOption("mode", math.max(1, menu.settings.mode - 1)) end,
+        right = function() menu:setOption("mode", math.min(modes, menu.settings.mode + 1)) end
+    }
+    for k, id in ipairs(Maps.order) do
+        local col, row = (k - 1) % COLS, math.floor((k - 1) / COLS)
+        list[#list + 1] = {
+            id = "map:" .. id, map = id,
+            x = l.left.x + col * (l.tileW + 12), y = l.gridY + row * (l.tileH + 12), w = l.tileW, h = l.tileH,
+            press = function() menu:setOption("map", id) end
+        }
+    end
+    local rx, rw = l.right.x, l.right.w
+    list[#list + 1] = {
+        id = "name", x = rx, y = l.modeY, w = rw, h = 44,
         press = function() menu.editing = "name" end,
         text = Common.textHandler(menu, "name", 20, Common.NAME_PATTERN)
     }
-    for k, card in ipairs(CARDS) do
-        local cx = l.x + (k - 1) * (l.w + l.gap)
-        if card.id == "practice" then
-            local count = #Config.bots.order
-            list[#list + 1] = {
-                id = "level", x = cx + 20, y = l.y + 166, w = l.w - 40, h = 38,
-                press = function(_, mx)
-                    if mx then
-                        local cell = (l.w - 40) / count
-                        menu:setOption("bot", Kit.clamp(math.floor((mx - cx - 20) / cell) + 1, 1, count))
-                    else
-                        menu:setOption("bot", menu.settings.bot % count + 1)
-                    end
-                end,
-                left = function() menu:setOption("bot", math.max(1, menu.settings.bot - 1)) end,
-                right = function() menu:setOption("bot", math.min(count, menu.settings.bot + 1)) end
-            }
-        end
-        list[#list + 1] = {
-            id = card.id, x = cx + 20, y = l.y + l.h - 72, w = l.w - 40, h = 52, card = card, cardX = cx,
-            press = function()
-                if card.id == "practice" then
-                    menu:Play({ mode = "practice", bot = Settings.botLevel(menu.settings), label = "Practice against a bot" })
-                elseif card.id == "host" then
-                    menu:Play({ mode = "host", label = "Opening your duel" })
-                else
-                    menu:switch("multiplayer", 1)
-                end
+    local levels = #Config.bots.order
+    list[#list + 1] = {
+        id = "level", x = rx + 20, y = l.gridY + 84, w = rw - 40, h = 36,
+        press = function(_, mx)
+            if mx then
+                menu:setOption("bot", Kit.clamp(math.floor((mx - rx - 20) / ((rw - 40) / levels)) + 1, 1, levels))
+            else
+                menu:setOption("bot", menu.settings.bot % levels + 1)
             end
-        }
-    end
+        end,
+        left = function() menu:setOption("bot", math.max(1, menu.settings.bot - 1)) end,
+        right = function() menu:setOption("bot", math.min(levels, menu.settings.bot + 1)) end
+    }
+    list[#list + 1] = {
+        id = "practice", x = rx + 20, y = l.gridY + 136, w = rw - 40, h = 50,
+        press = function()
+            local mode = Settings.gameMode(menu.settings)
+            menu:Play({
+                mode = "practice", bot = Settings.botLevel(menu.settings), game = mode, map = menu.settings.map,
+                label = Config.modes[mode].name .. " on " .. selectedMap(menu).name
+            })
+        end
+    }
+    list[#list + 1] = {
+        id = "host", x = rx + 20, y = l.gridY + 300, w = rw - 40, h = 48,
+        press = function()
+            menu:Play({ mode = "host", game = Settings.gameMode(menu.settings), map = menu.settings.map, label = "Opening your game" })
+        end
+    }
+    list[#list + 1] = {
+        id = "join", x = rx, y = l.gridY + 376, w = rw, h = 50,
+        press = function() menu:switch("multiplayer", 1) end
+    }
     return list
+end
+
+local function drawTile(menu, element, alpha)
+    local id = element.map
+    local def = Maps.get(id)
+    local selected = menu.settings.map == id
+    local hot = Kit.ease("tile:" .. id, menu.focus == element.id)
+    local pick = Kit.ease("tilesel:" .. id, selected)
+    local x, y, w, h = element.x, element.y - hot * 3, element.w, element.h
+    Kit.card(x, y, w, h, alpha, 12, hot)
+    Minimap.draw(def, x + 8, y + 8, w - 16, h - 36, alpha, { loot = false })
+    Kit.text(def.name, 13, x + 10, y + h - 24, Kit.INK, alpha * (0.6 + 0.4 * pick))
+    if pick > 0.01 then
+        Kit.color(Kit.RED, pick * alpha)
+        love.graphics.setLineWidth(2.5)
+        love.graphics.rectangle("line", x + 1, y + 1, w - 2, h - 2, 12, 12)
+        love.graphics.setLineWidth(1)
+    end
 end
 
 function Play.draw(menu, elements, p)
     local l = layout()
-    Common.header(menu, elements, p, "Play", "Choose how you want to duel.")
+    Common.header(menu, elements, p, "Play", "Pick a mode and a map, then practice against bots or open a game.")
+    local find = menu.find
 
-    local name = menu.find(elements, "name")
     local a = menu:stagger(p, 2)
-    Kit.text("Your name", 12, name.x, name.y - 20, Kit.INK, 0.5 * a)
-    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", a)
+    local mode = find(elements, "mode")
+    Kit.text("Mode", 12, mode.x, mode.y - 20, Kit.INK, 0.5 * a)
+    Kit.segments("mode", mode.x, mode.y, mode.w, mode.h, names(Config.modes.order, Config.modes), menu.settings.mode, a)
+    local rules = Config.modes[Settings.gameMode(menu.settings)]
+    Kit.text(rules.text .. ", first to " .. rules.scoreLimit .. ".", 13, mode.x + mode.w + 18, mode.y + 11, Kit.INK, 0.55 * a)
 
-    for k, card in ipairs(CARDS) do
-        local e = menu:stagger(p, k + 2)
-        local cx = l.x + (k - 1) * (l.w + l.gap)
-        local cy = l.y + (1 - e) * 30
-        local button = menu.find(elements, card.id)
-        local hot = Kit.ease("card:" .. card.id, menu.focus == card.id or (card.id == "practice" and menu.focus == "level"))
-        Kit.card(cx, cy - hot * 4, l.w, l.h, e, 18, hot)
-        local top = cy - hot * 4
-        Kit.text(string.format("0%d", k), 13, cx + 20, top + 20, Kit.RED, e)
-        Kit.text(card.title, 24, cx + 20, top + 40, Kit.INK, e)
-        Common.paragraph(card.text, 13, cx + 20, top + 80, l.w - 40, Kit.INK, 0.6 * e)
-        if card.id == "practice" then
-            local level = menu.find(elements, "level")
-            Kit.text("Bot level", 12, level.x, top + 142, Kit.INK, 0.5 * e)
-            Kit.segments("level", level.x, top + 166, level.w, level.h, levels(), menu.settings.bot, e)
-        elseif card.id == "host" then
-            local address = menu.lanAddress and (menu.lanAddress .. ":6789") or "No network found"
-            Kit.text("Friends connect to", 12, cx + 20, top + 150, Kit.INK, 0.5 * e)
-            Kit.text(address, 18, cx + 20, top + 170, Kit.INK, e)
+    Kit.text("Map", 12, l.left.x, l.gridY - 20, Kit.INK, 0.5 * a)
+    local k = 0
+    for _, element in ipairs(elements) do
+        if element.map then
+            k = k + 1
+            local e = menu:stagger(p, 3 + k * 0.4)
+            drawTile(menu, element, e)
         end
-        Kit.button(card.id, button.x, top + l.h - 72, button.w, button.h, card.button, {
-            hot = menu.focus == card.id, primary = card.id == "practice", size = 17, alpha = e, align = "center", arrow = false
-        })
     end
+
+    local e = menu:stagger(p, 8)
+    local def = selectedMap(menu)
+    local dy = l.detailY + (1 - e) * 16
+    local dh = math.max(120, l.H - dy - l.M)
+    Kit.card(l.left.x, dy, l.left.w, dh, e, 16)
+    local pw = math.min(320, math.floor(l.left.w * 0.36))
+    Minimap.draw(def, l.left.x + 16, dy + 16, pw, dh - 32, e)
+    local tx = l.left.x + pw + 36
+    Kit.text(def.name, 24, tx, dy + 18, Kit.INK, e)
+    Kit.text(def.width .. " x " .. def.height, 12, tx, dy + 52, Kit.INK, 0.45 * e)
+    Common.paragraph(def.description, 14, tx, dy + 76, l.left.w - pw - 56, Kit.INK, 0.7 * e)
+    local features = {}
+    if #(def.doors or {}) > 0 then features[#features + 1] = { Kit.RED, #def.doors .. " doors" } end
+    if #(def.glass or {}) > 0 then features[#features + 1] = { { 0.45, 0.68, 0.9 }, #def.glass .. " glass panes" } end
+    if #(def.cover or {}) > 0 then features[#features + 1] = { { 0.6, 0.64, 0.7 }, #def.cover .. " low covers" } end
+    if #(def.pits or {}) > 0 then features[#features + 1] = { { 0.3, 0.33, 0.38 }, "a chasm" } end
+    features[#features + 1] = { Kit.INK, #def.loot .. " loot spots" }
+    local fx = tx
+    for _, feature in ipairs(features) do
+        Kit.dot(fx + 5, dy + dh - 30, 5, feature[1], e)
+        fx = fx + 18 + Kit.text(feature[2], 13, fx + 16, dy + dh - 38, Kit.INK, 0.7 * e) + 18
+    end
+
+    local r = l.right
+    local ra = menu:stagger(p, 3)
+    local name = find(elements, "name")
+    Kit.text("Your name", 12, name.x, name.y - 20, Kit.INK, 0.5 * ra)
+    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", ra)
+
+    local cy = l.gridY + (1 - ra) * 20
+    local practiceHot = Kit.ease("card:practice", menu.focus == "practice" or menu.focus == "level")
+    Kit.card(r.x, cy - practiceHot * 3, r.w, 206, ra, 16, practiceHot)
+    Kit.text("Practice", 20, r.x + 20, cy + 16 - practiceHot * 3, Kit.INK, ra)
+    local bots = rules.players - 1
+    Kit.text(bots == 1 and "Against one bot" or ("Against " .. bots .. " bots"), 13, r.x + 20, cy + 44 - practiceHot * 3, Kit.INK, 0.55 * ra)
+    local level = find(elements, "level")
+    Kit.text("Bot level", 11, level.x, level.y - 18 + (cy - l.gridY), Kit.INK, 0.45 * ra)
+    Kit.segments("level", level.x, level.y + (cy - l.gridY), level.w, level.h, names(Config.bots.order, Config.bots), menu.settings.bot, ra)
+    local practice = find(elements, "practice")
+    Kit.button("practice", practice.x, practice.y + (cy - l.gridY), practice.w, practice.h, "Start practice", {
+        hot = menu.focus == "practice", primary = true, size = 17, align = "center", alpha = ra
+    })
+
+    local hy = cy + 222
+    local hostHot = Kit.ease("card:host", menu.focus == "host")
+    Kit.card(r.x, hy - hostHot * 3, r.w, 140, ra, 16, hostHot)
+    Kit.text("Host on your network", 18, r.x + 20, hy + 14 - hostHot * 3, Kit.INK, ra)
+    local address = menu.lanAddress and (menu.lanAddress .. ":6789") or "No network found"
+    Kit.text("Friends join " .. address, 12, r.x + 20, hy + 42 - hostHot * 3, Kit.INK, 0.55 * ra)
+    local host = find(elements, "host")
+    Kit.button("host", host.x, host.y + (cy - l.gridY), host.w, host.h, "Host " .. rules.name:lower(), {
+        hot = menu.focus == "host", size = 16, align = "center", alpha = ra, arrow = false
+    })
+    local join = find(elements, "join")
+    Kit.button("join", join.x, join.y + (cy - l.gridY), join.w, join.h, "Join a game", {
+        hot = menu.focus == "join", size = 16, alpha = ra
+    })
 end
 
 function Play.back(menu)

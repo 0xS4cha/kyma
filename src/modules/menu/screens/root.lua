@@ -16,8 +16,10 @@ function Root.build(menu)
     local y = titleY() + 190
     local w = 380
     local level = Config.bots[Settings.botLevel(menu.settings)].name
+    local mode = Config.modes[Settings.gameMode(menu.settings)].name
+    local map = require("src.maps.index").get(menu.settings.map).name
     local list = {
-        { id = "play", label = "Play", sublabel = "Practice against a " .. level:lower() .. " bot, or host a duel", primary = true, h = 78, press = function() menu:switch("play", 1) end },
+        { id = "play", label = "Play", sublabel = mode .. " on " .. map .. ", " .. level:lower() .. " bots, or host a game", primary = true, h = 78, press = function() menu:switch("play", 1) end },
         { id = "multiplayer", label = "Multiplayer", sublabel = "Join a duel on your network or a server", h = 62, press = function() menu:switch("multiplayer", 1) end },
         { id = "howto", label = "How to play", h = 50, press = function() menu:switch("howto", 1) end },
         { id = "settings", label = "Settings", h = 50, press = function() menu:switch("settings", 1) end },

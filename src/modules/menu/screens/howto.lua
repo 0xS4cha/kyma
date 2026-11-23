@@ -6,7 +6,7 @@ local Howto = {}
 local CARDS = {
     {
         title = "Read the room",
-        text = "The camera turns with you: where you aim is always up. You see a cone in front of you and a small circle around you. Walls block the view, and the opponent is invisible outside of it."
+        text = "The camera turns with you: where you aim is always up. You see a cone in front of you and a small circle around you. Walls and closed doors block the view, glass does not. Enemies are invisible outside of it."
     },
     {
         title = "Noise gives you away",
@@ -31,7 +31,7 @@ local CARDS = {
     },
     {
         title = "Loot",
-        text = "Weapons wait on the circles on the floor and come back 10 s after being taken. Ammo packs add a magazine. The fallen drop their weapon and ammo.",
+        text = "Weapons wait on the circles on the floor and come back 10 s after being taken. Ammo packs add a magazine, health packs heal 50. The fallen drop their weapon and ammo.",
         keys = { { "E", "Swap weapons" }, { "G", "Throw it, 45 damage" } }
     },
     {
