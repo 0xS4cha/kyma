@@ -64,8 +64,8 @@ function Combat.spawnItem(world, kind, ammo, reserve, x, y)
     local item = {
         id = world.nextItem,
         kind = kind,
-        ammo = ammo or def.magazine,
-        reserve = reserve or def.reserve,
+        ammo = ammo or (def and def.magazine or 0),
+        reserve = reserve or (def and def.reserve or 0),
         x = x,
         y = y,
         vx = 0,
@@ -124,6 +124,7 @@ function Combat.kill(world, victim, killer)
     victim.dead = Config.respawnTicks
     victim.dash, victim.slide, victim.vx, victim.vy = 0, 0, 0, 0
     Combat.drop(world, victim)
+    Combat.spawnItem(world, "ammo", nil, nil, world.arena:resolve(victim.x + 12, victim.y + 8, WeaponConfig.throw.radius))
     if killer and killer ~= victim.slot then
         world.score[killer] = (world.score[killer] or 0) + 1
     end
@@ -216,10 +217,10 @@ function Combat.throw(world, p)
     item.vy = sa * def.speed + p.vy * def.inherit
 end
 
-local function nearest(world, p, flying)
+local function nearest(world, p, flying, ammo)
     local best, bestDistance = nil, WeaponConfig.pickupRadius
     for _, item in ipairs(world.items) do
-        if item.flying == flying then
+        if item.flying == flying and (item.kind == "ammo") == (ammo == true) then
             local d = sqrt((item.x - p.x) ^ 2 + (item.y - p.y) ^ 2)
             if d <= bestDistance then
                 best, bestDistance = item, d
@@ -239,6 +240,21 @@ function Combat.pickup(world, p)
     removeItem(world, item)
     Combat.drop(world, p)
     Weapons.give(p, item.kind, item.ammo, item.reserve)
+    return true
+end
+
+--- @param world table
+--- @param p table
+--- @return boolean
+function Combat.refill(world, p)
+    local def = Weapons.def(p.weapon)
+    if not def then return false end
+    local cap = Weapons.reserveCap(def)
+    if p.reserve >= cap then return false end
+    local item = nearest(world, p, false, true)
+    if not item then return false end
+    removeItem(world, item)
+    p.reserve = math.min(cap, p.reserve + def.magazine)
     return true
 end
 
@@ -303,6 +319,8 @@ function Combat.update(world)
             Player.respawn(p, world.arena:spawn(slot))
         elseif not p.weapon and p.dead == 0 then
             Combat.pickup(world, p)
+        elseif p.dead == 0 then
+            Combat.refill(world, p)
         end
     end
 end

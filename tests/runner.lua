@@ -9,7 +9,8 @@ local SUITES = {
     "tests.combat_test",
     "tests.noise_test",
     "tests.impacts_test",
-    "tests.slide_test"
+    "tests.slide_test",
+    "tests.ammo_test"
 }
 
 local function run(filter)

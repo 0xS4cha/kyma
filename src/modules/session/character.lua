@@ -162,6 +162,25 @@ function Character.reset()
     states = {}
 end
 
+local AMMO_BOX = { { 5, -3.5 }, { 5, 3.5 }, { -5, 3.5 }, { -5, -3.5 } }
+local AMMO_COLOR = { 0.3, 0.32, 0.36 }
+local BULLET = { 0.72, 0.6, 0.32 }
+
+--- @param x number
+--- @param y number
+--- @param angle number
+function Character.drawAmmo(x, y, angle)
+    local lg = love.graphics
+    lg.push()
+    lg.translate(x, y)
+    lg.rotate(angle)
+    facets(AMMO_COLOR, AMMO_BOX, 0, 0, 0.6, angle)
+    for k = -1, 1 do
+        segment(BULLET, -3, k * 2.2, 2.6, k * 2.2, 1.4, 1.1, angle)
+    end
+    lg.pop()
+end
+
 --- @param kind string
 --- @param x number
 --- @param y number

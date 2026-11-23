@@ -52,6 +52,7 @@ local WEAPONS = {
         radius = 6
     },
 
+    ammoReserveCap = 2,
     pickupRadius = 34,
     itemLifetime = 45 * 60,
     padRespawn = 600,
