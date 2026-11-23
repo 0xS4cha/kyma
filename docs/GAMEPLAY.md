@@ -56,11 +56,29 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 - When someone reaches the score, the match ends for everyone: the scoreboard shows for 8 seconds and a new match starts on the same map.
 - Hold `Tab` for the scoreboard. In practice, bots fill every free slot.
 
+## Maps
+
+| Map | Size | Character |
+| --- | --- | --- |
+| Atrium | 1800 x 1200 | The original hall: pillars, half walls, every weapon in reach |
+| Offices | 2400 x 1600 | Eight offices on one long corridor, doors and glass walls, a sniper lane |
+| Greenhouse | 2200 x 1500 | Three halls split by glass: you see everything, a shot through a pane gives you away |
+| Crossroads | 2400 x 1600 | Two fortified bases, three lanes and a cross in the middle, made for teams |
+| Vault | 2000 x 2000 | A sealed vault with four doors holds the sniper and the LMG |
+| Colonnade | 2400 x 1400 | A wide hall of columns and benches, long sightlines |
+| Labyrinth | 1600 x 1600 | Tight corridors and a few doors, shotgun territory |
+| Chasm | 2600 x 1400 | A chasm you can see and shoot across, crossed by three bridges |
+| Courtyard | 2200 x 2200 | A ring of rooms with windows around an open courtyard |
+| Warehouse | 2400 x 1600 | Shelves, crate stacks and glass offices hiding the heavy guns |
+
+Every map has four spawns per team and works in all modes. Except the Labyrinth, they are point symmetric, so both teams get the same ground.
+
 ## Map elements
 
 - **Doors** slide open when someone comes close and shut a moment after they leave. Closed, they block movement, bullets and the view; opening one makes noise.
 - **Glass** lets the view through but stops movement and the first bullet, which shatters it loudly. Broken panes grow back after 25 seconds.
 - **Low cover** (desks, crates, railings) blocks movement but not bullets or the view.
+- **Chasms** block movement but not bullets or the view.
 - **Health packs** (white box, red cross) heal 50 when you walk over them hurt.
 
 ## Noise

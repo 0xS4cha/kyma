@@ -74,6 +74,7 @@ function Arena.new(def)
         height = def.height,
         walls = def.walls,
         cover = def.cover or {},
+        pits = def.pits or {},
         doors = copy(def.doors, { open = false, timer = 0, kind = "door" }),
         glass = copy(def.glass, { broken = false, timer = 0, kind = "glass" }),
         spawns = def.spawns,
@@ -106,6 +107,9 @@ function Arena:each(mode, fn)
     if mode == "move" or mode == "nav" then
         for _, block in ipairs(self.cover) do
             if fn(block) then return end
+        end
+        for _, pit in ipairs(self.pits) do
+            if fn(pit) then return end
         end
     end
 end

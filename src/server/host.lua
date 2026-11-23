@@ -48,7 +48,7 @@ function Host:matchmake(client, options)
         end
     end
     if not best then
-        best = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, arena = self.arenaFor and self.arenaFor(map) or nil })
+        best = Room(self.nextRoomId, { bot = practice, mode = mode, map = map })
         self.nextRoomId = self.nextRoomId + 1
         self.rooms[best.id] = best
         Logger:info("server", "Room created", best.id)

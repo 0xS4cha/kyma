@@ -6,6 +6,8 @@ local Inputs = require("src.net.inputs")
 local Bot = require("src.game.bot")
 local Player = require("src.game.player")
 local GameConfig = require("src.config.game")
+local Maps = require("src.maps.index")
+local Arena = require("src.game.arena")
 
 local Room = Class()
 
@@ -16,9 +18,9 @@ function Room:init(id, options)
     self.id = id
     self.mode = GameConfig.modes[options.mode or ""] and options.mode or "duel"
     self.rules = GameConfig.modes[self.mode]
-    self.map = options.map
+    self.map = Maps.valid(options.map)
     self.members = {}
-    self.world = World.new(options.arena, self.mode)
+    self.world = World.new(Arena.new(Maps.get(self.map)), self.mode)
     self.bots = {}
     self.practice = type(options.bot) == "string"
     if self.practice then

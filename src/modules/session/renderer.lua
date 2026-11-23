@@ -80,6 +80,16 @@ local function drawFloor(arena)
     for x = 0, arena.width, 80 do lg.line(x, 0, x, arena.height) end
     for y = 0, arena.height, 80 do lg.line(0, y, arena.width, y) end
     local ox, oy = -cos(Character.LIGHT) * 18, -sin(Character.LIGHT) * 18
+    for _, pit in ipairs(arena.pits or {}) do
+        lg.setColor(0.36, 0.4, 0.46)
+        lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
+        lg.setColor(0.2, 0.23, 0.28)
+        lg.rectangle("fill", pit.x + 8, pit.y + 8, pit.w - 16, pit.h - 16)
+        lg.setColor(1, 1, 1, 0.5)
+        lg.setLineWidth(2)
+        lg.rectangle("line", pit.x, pit.y, pit.w, pit.h)
+        lg.setLineWidth(1)
+    end
     lg.setColor(COLORS.wallShadow)
     for _, wall in ipairs(arena.walls) do shadow(wall, ox, oy) end
     for _, door in ipairs(arena.doors or {}) do
