@@ -1,7 +1,7 @@
 # Kyma
 
-Top-down neon shooter made with [LÖVE](https://love2d.org) 11.5: the player clears rooms of enemies
-with a limited field of view, under a timer, and reaches the exit.
+Top-down one-on-one duel shooter made with [LÖVE](https://love2d.org) 11.5, in a minimal white
+world where the fighters are faceted single-color figures.
 
 ## Run
 

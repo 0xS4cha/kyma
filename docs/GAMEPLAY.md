@@ -2,7 +2,7 @@
 
 [Back to the README](../README.md)
 
-Kyma is a one-on-one duel in neon arenas, seen from above. The camera turns with you: where you aim is always the top of the screen.
+Kyma is a one-on-one duel seen from above, in a minimal white world where the fighters are faceted single-color figures. The camera turns with you: where you aim is always the top of the screen.
 
 ## Controls
 

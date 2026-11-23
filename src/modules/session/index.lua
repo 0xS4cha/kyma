@@ -187,6 +187,8 @@ function GM.Session:opponents()
                 x = a.x + (b.x - a.x) * t,
                 y = a.y + (b.y - a.y) * t,
                 angle = lerpAngle(angleA, angleB, t),
+                vx = (a.u or 0) + ((b.u or 0) - (a.u or 0)) * t,
+                vy = (a.v or 0) + ((b.v or 0) - (a.v or 0)) * t,
                 name = self:nameOf(slot)
             }
         end
@@ -213,6 +215,8 @@ function GM.Session:localView()
         x = a.x + (b.x - a.x) * alpha + world.correctionX,
         y = a.y + (b.y - a.y) * alpha + world.correctionY,
         angle = world.aim,
+        vx = b.vx,
+        vy = b.vy,
         name = GM.Multiplayer.name
     }
 end

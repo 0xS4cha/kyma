@@ -14,7 +14,7 @@ local GM = require("src.core.index")
 local ArgParser = require("src.core.args")
 local Threads = require("src.core.thread")
 
-local BACKGROUND = { 0.02, 0.03, 0.04 }
+local BACKGROUND = { 0.93, 0.95, 0.97 }
 
 local flags
 local frames = 0
