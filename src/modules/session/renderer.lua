@@ -24,6 +24,11 @@ local WALL = {
     cameraHeight = 1400
 }
 
+local TRAIL_LIFE = 0.22
+local TRAIL_SPACING = 0.018
+
+local trails = {}
+
 local STATUS = {
     connecting = "CONNECTING",
     queued = "LOOKING FOR A ROOM",
@@ -106,11 +111,32 @@ local function drawWalls(arena, camera)
     end
 end
 
+local function drawTrail(p, palette)
+    local now = love.timer.getTime()
+    local trail = trails[p.slot] or {}
+    trails[p.slot] = trail
+    local last = trail[#trail]
+    if p.dashing and (not last or now - last.time >= TRAIL_SPACING) then
+        trail[#trail + 1] = {
+            x = p.x, y = p.y, angle = p.angle, vx = p.vx, vy = p.vy,
+            phase = Character.phase(p.slot), time = now
+        }
+    end
+    while trail[1] and now - trail[1].time > TRAIL_LIFE do
+        table.remove(trail, 1)
+    end
+    for _, ghost in ipairs(trail) do
+        local fade = 1 - (now - ghost.time) / TRAIL_LIFE
+        Character.draw(ghost, palette, { alpha = 0.35 * fade, phase = ghost.phase })
+    end
+end
+
 local function drawPlayer(p, arena, palette)
     local lg = love.graphics
     local ca, sa = cos(p.angle), sin(p.angle)
     local mx, my = Character.muzzle(p)
 
+    drawTrail(p, palette)
     Character.draw(p, palette)
 
     local length = arena:raycast(mx, my, ca, sa, Config.laserLength)
@@ -158,6 +184,19 @@ local function drawHud(session)
     if ping and not mp.isLocal then info = info .. "   " .. ping .. " MS" end
     lg.print(info, 24, H - 36)
 
+    if session.world then
+        local charge = session:dashCharge()
+        local w, h = 220, 6
+        local x, y = (W - w) / 2, H - 80
+        lg.setFont(font(16))
+        lg.setColor(COLORS.muted)
+        lg.print("DASH", x, y - 22)
+        lg.setColor(COLORS.hud[1], COLORS.hud[2], COLORS.hud[3], 0.15)
+        lg.rectangle("fill", x, y, w, h)
+        lg.setColor(COLORS.hud[1], COLORS.hud[2], COLORS.hud[3], charge >= 1 and 1 or 0.5)
+        lg.rectangle("fill", x, y, w * charge, h)
+    end
+
     if session.world and not session.captured then
         local text = "CLICK TO PLAY   -   ESC TO QUIT"
         lg.setFont(font(32))
@@ -166,7 +205,7 @@ local function drawHud(session)
     end
     lg.setFont(font(20))
     lg.setColor(COLORS.muted)
-    local help = "MOVE WASD / ZQSD   TURN MOUSE OR ARROWS   ZOOM WHEEL"
+    local help = "MOVE WASD / ZQSD   TURN MOUSE OR ARROWS   DASH SPACE / SHIFT / RIGHT CLICK   ZOOM WHEEL"
     lg.print(help, W - font(20):getWidth(help) - 24, H - 32)
 end
 

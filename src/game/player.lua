@@ -33,7 +33,11 @@ function Player.new(slot, name, spawn)
         y = spawn.y,
         angle = Player.unpackAngle(Player.packAngle(spawn.angle)),
         vx = 0,
-        vy = 0
+        vy = 0,
+        dash = 0,
+        cooldown = 0,
+        dashX = 0,
+        dashY = 0
     }
 end
 
@@ -44,6 +48,7 @@ function Player.copy(from, to)
     to = to or {}
     to.slot, to.name = from.slot, from.name
     to.x, to.y, to.angle, to.vx, to.vy = from.x, from.y, from.angle, from.vx, from.vy
+    to.dash, to.cooldown, to.dashX, to.dashY = from.dash, from.cooldown, from.dashX, from.dashY
     return to
 end
 
@@ -66,10 +71,30 @@ function Player.step(p, input, arena, dt)
         wx, wy = wx / len, wy / len
     end
 
-    local blend = def.acceleration * dt
-    if blend > 1 then blend = 1 end
-    p.vx = p.vx + (wx * def.speed - p.vx) * blend
-    p.vy = p.vy + (wy * def.speed - p.vy) * blend
+    local dash = Config.dash
+    if p.cooldown > 0 then
+        p.cooldown = p.cooldown - 1
+    end
+    if input.d == 1 and p.cooldown == 0 and p.dash == 0 then
+        local dx, dy = wx, wy
+        len = sqrt(dx * dx + dy * dy)
+        if len < 1e-6 then
+            dx, dy, len = ca, sa, 1
+        end
+        p.dashX, p.dashY = dx / len, dy / len
+        p.dash = dash.ticks
+        p.cooldown = dash.cooldown
+    end
+
+    if p.dash > 0 then
+        p.dash = p.dash - 1
+        p.vx, p.vy = p.dashX * dash.speed, p.dashY * dash.speed
+    else
+        local blend = def.acceleration * dt
+        if blend > 1 then blend = 1 end
+        p.vx = p.vx + (wx * def.speed - p.vx) * blend
+        p.vy = p.vy + (wy * def.speed - p.vy) * blend
+    end
 
     local x, y, nx, ny = arena:resolve(p.x + p.vx * dt, p.y + p.vy * dt, def.radius)
     local into = p.vx * nx + p.vy * ny

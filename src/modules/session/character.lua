@@ -19,6 +19,7 @@ Character.PALETTES = {
 Character.LIGHT = LIGHT
 
 local states = {}
+local opacity = 1
 
 local function shade(c, normal, tilt, angle)
     local k = 1 + 0.45 * tilt * cos(normal + angle - LIGHT)
@@ -31,7 +32,8 @@ local function facets(c, outline, ax, ay, tilt, angle)
     for k = 1, n do
         local a, b = outline[k], outline[k % n + 1]
         local mx, my = (a[1] + b[1]) / 2 - ax, (a[2] + b[2]) / 2 - ay
-        lg.setColor(shade(c, atan2(my, mx), tilt, angle))
+        local r, g, b2 = shade(c, atan2(my, mx), tilt, angle)
+        lg.setColor(r, g, b2, opacity)
         lg.polygon("fill", ax, ay, a[1], a[2], b[1], b[2])
     end
 end
@@ -130,17 +132,28 @@ function Character.muzzle(p)
     return p.x + ca * MUZZLE_X - sa * MUZZLE_Y, p.y + sa * MUZZLE_X + ca * MUZZLE_Y
 end
 
+--- @param slot number
+--- @return number
+function Character.phase(slot)
+    local state = states[slot]
+    return state and state.phase or 0
+end
+
 --- @param p table
 --- @param palette table
-function Character.draw(p, palette)
+--- @param ghost table?
+function Character.draw(p, palette, ghost)
     local lg = love.graphics
     local c = palette.body
-    local phase = animate(p)
+    local phase = ghost and ghost.phase or animate(p)
     local speed = sqrt((p.vx or 0) ^ 2 + (p.vy or 0) ^ 2)
     local sway = sin(phase) * SWAY * min(1, speed / Config.player.speed)
+    opacity = ghost and ghost.alpha or 1
 
-    lg.setColor(0.2, 0.22, 0.26, 0.12)
-    lg.ellipse("fill", p.x - cos(LIGHT) * 4, p.y - sin(LIGHT) * 4, 12, 12)
+    if not ghost then
+        lg.setColor(0.2, 0.22, 0.26, 0.12)
+        lg.ellipse("fill", p.x - cos(LIGHT) * 4, p.y - sin(LIGHT) * 4, 12, 12)
+    end
 
     lg.push()
     lg.translate(p.x, p.y)
@@ -151,10 +164,11 @@ function Character.draw(p, palette)
     facets(c, TORSO, -0.5, 0, 0.8, angle)
     drawGun(angle)
     drawArms(c, angle)
-    lg.setColor(c[1] * 0.45, c[2] * 0.45, c[3] * 0.45, 0.55)
+    lg.setColor(c[1] * 0.45, c[2] * 0.45, c[3] * 0.45, 0.55 * opacity)
     lg.ellipse("fill", 0.2, 0, 6.6, 6.2)
     facets({ c[1] * 1.12, c[2] * 1.12, c[3] * 1.12 }, HEAD, 0.8, 0, 1, angle)
     lg.pop()
+    opacity = 1
 end
 
 return Character

@@ -4,7 +4,8 @@ local ArgParser = require("src.core.args")
 local SUITES = {
     "tests.core_test",
     "tests.net_test",
-    "tests.session_test"
+    "tests.session_test",
+    "tests.dash_test"
 }
 
 local function run(filter)
