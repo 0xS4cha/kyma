@@ -43,6 +43,19 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 - Pressing dash while running forward turns it into a slide: longer (about 210 units), fast at first then slowing down, and you can shoot during it. You are only untouchable during its first 8 ticks, so a slide that ends in the open can be punished. The dash card reads `Slide` when it would slide. It shares the dash cooldown and makes noise.
 - You only see what is in front of you (a cone of about 110 degrees) and a small circle around you, and walls block the view. Everything else is greyed out, and the opponent is invisible there.
 
+## Modes
+
+| Mode | Players | Win |
+| --- | --- | --- |
+| Duel | 2 | First to 10 eliminations |
+| Free for all | up to 6 | First to 15 |
+| Teams | up to 4 against 4 | First team to 25 |
+
+- In Teams, your teammates (blue) are always visible, can't be hurt by you and don't show up as echoes. Enemies are red.
+- You respawn on the spawn farthest from your enemies (your own side in Teams).
+- When someone reaches the score, the match ends for everyone: the scoreboard shows for 8 seconds and a new match starts on the same map.
+- Hold `Tab` for the scoreboard. In practice, bots fill every free slot.
+
 ## Map elements
 
 - **Doors** slide open when someone comes close and shut a moment after they leave. Closed, they block movement, bullets and the view; opening one makes noise.

@@ -54,6 +54,7 @@ end
 --- @param spawn table
 function Player.respawn(p, spawn)
     p.x, p.y = spawn.x, spawn.y
+    p.angle = Player.unpackAngle(Player.packAngle(spawn.angle or 0))
     p.vx, p.vy, p.dash, p.cooldown, p.slide = 0, 0, 0, 0, 0
     p.hp, p.dead = Config.health, 0
     Weapons.give(p, "pistol")

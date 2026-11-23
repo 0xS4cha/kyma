@@ -14,7 +14,8 @@ local SCOPE = { 0.22, 0.23, 0.26 }
 
 Character.PALETTES = {
     self = { body = { 0.24, 0.25, 0.28 } },
-    opponent = { body = { 0.88, 0.14, 0.12 } }
+    opponent = { body = { 0.88, 0.14, 0.12 } },
+    ally = { body = { 0.24, 0.42, 0.62 } }
 }
 
 Character.LIGHT = LIGHT

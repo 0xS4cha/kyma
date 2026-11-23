@@ -11,27 +11,92 @@ World.__index = World
 
 --- @param arena table?
 --- @return table
-function World.new(arena)
+function World.new(arena, mode)
+    mode = Config.modes[mode or ""] and mode or "duel"
     local world = setmetatable({
         arena = arena or Arena.new(),
+        mode = mode,
+        rules = Config.modes[mode],
         tick = 0,
         dt = 1 / NetConfig.tickRate,
         players = {},
-        inputs = {}
+        inputs = {},
+        teamScore = { 0, 0 },
+        over = nil
     }, World)
     Combat.setup(world)
     return world
 end
 
+--- @param a number
+--- @param b number
+--- @return boolean
+function World:enemies(a, b)
+    if a == b then return false end
+    if not self.rules.teams then return true end
+    local pa, pb = self.players[a], self.players[b]
+    return not pa or not pb or pa.team ~= pb.team
+end
+
+--- @param player table
+--- @return table
+function World:spawnPoint(player)
+    local candidates = {}
+    for _, spawn in ipairs(self.arena.spawns) do
+        if not self.rules.teams or not spawn.team or spawn.team == player.team then
+            candidates[#candidates + 1] = spawn
+        end
+    end
+    if #candidates == 0 then candidates = self.arena.spawns end
+    local best, bestScore
+    local count = #candidates
+    for k = 1, count do
+        local spawn = candidates[(k + player.slot - 2) % count + 1]
+        local nearest = math.huge
+        for slot, other in pairs(self.players) do
+            if other ~= player and other.hp > 0 and other.dead == 0 and self:enemies(player.slot, slot) then
+                nearest = math.min(nearest, (other.x - spawn.x) ^ 2 + (other.y - spawn.y) ^ 2)
+            end
+        end
+        if not bestScore or nearest > bestScore then
+            best, bestScore = spawn, nearest
+        end
+    end
+    return best
+end
+
 --- @param slot number
 --- @param name string
+--- @param team number?
 --- @return table
-function World:add(slot, name)
-    local player = Player.new(slot, name, self.arena:spawn(slot))
+function World:add(slot, name, team)
+    local player = Player.new(slot, name, { x = 0, y = 0, angle = 0 })
+    player.team = self.rules.teams and team or nil
     self.players[slot] = player
+    Player.respawn(player, self:spawnPoint(player))
     self.inputs[slot] = { queue = {}, last = 0, acked = 0, credit = 0 }
     self.score[slot] = 0
     return player
+end
+
+--- @param winner number
+--- @param team boolean
+function World:finish(winner, team)
+    self.over = { winner = winner, team = team, timer = Config.matchEndTicks }
+    self.events[#self.events + 1] = { kind = "over", w = winner, tm = team and 1 or 0 }
+end
+
+function World:restart()
+    self.over = nil
+    self.teamScore = { 0, 0 }
+    for slot in pairs(self.score) do self.score[slot] = 0 end
+    for k = #self.items, 1, -1 do
+        if not self.items[k].pad then table.remove(self.items, k) end
+    end
+    for _, p in pairs(self.players) do
+        Player.respawn(p, self:spawnPoint(p))
+    end
+    self.events[#self.events + 1] = { kind = "restart" }
 end
 
 --- @param slot number
@@ -94,6 +159,12 @@ function World:step()
     end
     Combat.update(self)
     Combat.record(self)
+    if self.over then
+        self.over.timer = self.over.timer - 1
+        if self.over.timer <= 0 then
+            self:restart()
+        end
+    end
 end
 
 --- @param player table
@@ -125,6 +196,7 @@ end
 --- @return boolean
 function World:hears(listener, noise)
     if noise.source == listener then return false end
+    if noise.source and not self:enemies(listener, noise.source) then return false end
     local p = self.players[listener]
     if not p or p.dead > 0 then return false end
     local dx, dy = noise.x - p.x, noise.y - p.y
@@ -160,6 +232,7 @@ end
 --- @return boolean
 function World:visible(viewer, slot)
     if not viewer or viewer == slot then return true end
+    if not self:enemies(viewer, slot) then return true end
     local from, target = self.players[viewer], self.players[slot]
     if not from or not target then return false end
     local vision = Config.vision
@@ -174,7 +247,7 @@ function World:snapshot(viewer)
         if self:visible(viewer, slot) then
             local entry = {
                 i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy,
-                e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp
+                e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp, t = p.team
             }
             if slot == viewer then
                 entry.w, entry.m, entry.n = p.cooldown, p.dashX, p.dashY
@@ -210,7 +283,11 @@ function World:snapshot(viewer)
     table.sort(score, function(a, b) return a.i < b.i end)
 
     local doors, glass = self.arena:state()
-    return { players = players, items = items, score = score, aims = aims, doors = doors, glass = glass }
+    local over = self.over and { w = self.over.winner, tm = self.over.team and 1 or 0, c = self.over.timer } or nil
+    return {
+        players = players, items = items, score = score, aims = aims, doors = doors, glass = glass,
+        teams = self.rules.teams and self.teamScore or nil, over = over
+    }
 end
 
 return World

@@ -125,8 +125,22 @@ function Combat.kill(world, victim, killer)
     victim.dash, victim.slide, victim.vx, victim.vy = 0, 0, 0, 0
     Combat.drop(world, victim)
     Combat.spawnItem(world, "ammo", nil, nil, world.arena:resolve(victim.x + 12, victim.y + 8, WeaponConfig.throw.radius))
-    if killer and killer ~= victim.slot then
+    if killer and killer ~= victim.slot and world:enemies(killer, victim.slot) then
         world.score[killer] = (world.score[killer] or 0) + 1
+        local rules = world.rules
+        local team = rules.teams and world.players[killer] and world.players[killer].team
+        if team then
+            world.teamScore[team] = world.teamScore[team] + 1
+        end
+        event(world, { kind = "kill", k = killer, v = victim.slot })
+        if not world.over then
+            if team and world.teamScore[team] >= rules.scoreLimit then
+                world:finish(team, true)
+            elseif not team and world.score[killer] >= rules.scoreLimit then
+                world:finish(killer, false)
+            end
+        end
+        return
     end
     event(world, { kind = "kill", k = killer, v = victim.slot })
 end
@@ -138,7 +152,8 @@ end
 --- @param x number?
 --- @param y number?
 function Combat.damage(world, target, amount, attacker, x, y)
-    if target.hp <= 0 or target.dead > 0 then return end
+    if target.hp <= 0 or target.dead > 0 or world.over then return end
+    if attacker and not world:enemies(attacker, target.slot) then return end
     target.hp = max(0, target.hp - amount)
     event(world, { kind = "hit", a = attacker, t = target.slot, d = amount, x = x, y = y })
     if target.hp <= 0 then
@@ -180,7 +195,7 @@ function Combat.fire(world, shooter, command)
         local length, obstacle = world.arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
         local victim
         for slot in pairs(world.players) do
-            if slot ~= shooter.slot then
+            if slot ~= shooter.slot and world:enemies(shooter.slot, slot) then
                 local past = rewound(world, slot, view)
                 if past.alive and not past.evading then
                     local t = rayCircle(ray.x, ray.y, ray.dx, ray.dy, past.x, past.y, radius)
@@ -299,7 +314,7 @@ local function updateItem(world, item)
     item.angle = item.angle + 0.35
 
     for slot, p in pairs(world.players) do
-        if slot ~= item.owner and p.hp > 0 and p.dead == 0 and not Player.evading(p) then
+        if slot ~= item.owner and p.hp > 0 and p.dead == 0 and not Player.evading(p) and (not item.owner or world:enemies(item.owner, slot)) then
             local d = sqrt((p.x - item.x) ^ 2 + (p.y - item.y) ^ 2)
             if d < Config.player.radius + def.radius then
                 Combat.damage(world, p, def.damage, item.owner, item.x - item.vx * 0.05, item.y - item.vy * 0.05)
@@ -341,7 +356,7 @@ function Combat.update(world)
     end
     for slot, p in pairs(world.players) do
         if p.hp <= 0 and p.dead == 0 then
-            Player.respawn(p, world.arena:spawn(slot))
+            Player.respawn(p, world:spawnPoint(p))
         elseif not p.weapon and p.dead == 0 then
             Combat.pickup(world, p)
         elseif p.dead == 0 then

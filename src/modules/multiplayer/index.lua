@@ -139,8 +139,8 @@ function GM.Multiplayer:announce()
         port = self.localServer.port,
         room = room.id,
         players = #(room.players or {}),
-        max = NetConfig.roomPlayers,
-        name = self.name .. "'s duel",
+        max = room.max or NetConfig.roomPlayers,
+        name = self.name .. " - " .. ((require("src.config.game").modes[room.mode or ""] or {}).name or "Duel"),
         address = self.lanAddress
     })
 end

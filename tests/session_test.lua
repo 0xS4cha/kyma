@@ -13,7 +13,7 @@ return {
         run = function()
             local fake = setmetatable({
                 room = { players = { { slot = 2, name = "Bob" } } },
-                world = { slot = 1, clock = 100 + Config.interpolationTicks, snapshots = { snapshot(98, 0), snapshot(100, 100), snapshot(102, 300) } }
+                world = { slot = 1, rules = { teams = false }, clock = 100 + Config.interpolationTicks, snapshots = { snapshot(98, 0), snapshot(100, 100), snapshot(102, 300) } }
             }, { __index = Session })
             local list = fake:opponents()
             assert(#list == 1 and list[1].slot == 2 and list[1].name == "Bob")

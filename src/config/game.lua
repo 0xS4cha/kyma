@@ -43,6 +43,14 @@ local CONFIG = {
         runSpeed = 0.8
     },
 
+    modes = {
+        order = { "duel", "ffa", "teams" },
+        duel = { name = "Duel", players = 2, scoreLimit = 10, teams = false, text = "One on one" },
+        ffa = { name = "Free for all", players = 6, scoreLimit = 15, teams = false, text = "Everyone for themselves, up to 6" },
+        teams = { name = "Teams", players = 8, scoreLimit = 25, teams = true, text = "Two teams, up to 4 against 4" }
+    },
+    matchEndTicks = 60 * 8,
+
     bots = {
         order = { "easy", "medium", "hard" },
         easy = { name = "Easy", turn = 0.05, aimError = 0.14, reaction = 40, fireCone = 0.09, dashChance = 0 },

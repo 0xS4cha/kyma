@@ -87,7 +87,7 @@ return {
             local room = Room(1, { bot = "hard" })
             local client = setmetatable({ id = "c", name = "Alice" }, fakeClient)
             assert(room:Add(client))
-            assert(client.slot == 1 and room:Full() and room.state == "duel")
+            assert(client.slot == 1 and room:Full() and room.state == "playing")
             local info = room:Info()
             assert(#info.players == 2 and info.players[2].bot and info.practice)
             local start = room.world.players[2]
@@ -108,7 +108,7 @@ return {
             host:matchmake(alice, { bot = "easy" })
             host:matchmake(bob, {})
             host:matchmake(carol)
-            assert(alice.room.bot and alice.room ~= bob.room, "practice room stays private")
+            assert(alice.room.practice and alice.room ~= bob.room, "practice room stays private")
             assert(bob.room == carol.room, "duelists still meet")
         end
     }

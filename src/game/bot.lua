@@ -95,7 +95,7 @@ end
 function Bot:target(world, me)
     local best, bestDistance
     for slot, p in pairs(world.players) do
-        if slot ~= self.slot and p.hp > 0 and p.dead == 0 then
+        if slot ~= self.slot and p.hp > 0 and p.dead == 0 and world:enemies(self.slot, slot) then
             local d = distance(me.x, me.y, p.x, p.y)
             if not bestDistance or d < bestDistance then
                 best, bestDistance = p, d

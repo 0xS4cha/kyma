@@ -51,6 +51,7 @@ function Hud.new()
         feed = {},
         damage = {},
         noises = {},
+        board = 0,
         connecting = 1
     }, Hud)
 end
@@ -151,6 +152,15 @@ function Hud:update(session, dt)
     self.prompt = approach(self.prompt, promptText and 1 or 0, 14, dt)
 
     self.death = approach(self.death, me.dead > 0 and 1 or 0, 8, dt)
+    local holding = love.keyboard and love.keyboard.isScancodeDown("tab") and not session:paused()
+    self.board = approach(self.board, holding and 1 or 0, 14, dt)
+    if world.rules.teams then
+        for team = 1, 2 do
+            local value = world.teamScore[team] or 0
+            if self.scores["team" .. team] and value > self.scores["team" .. team] then self.scoreAt["team" .. team] = now end
+            self.scores["team" .. team] = value
+        end
+    end
     self.overlay = approach(self.overlay, session.captured and 0 or 1, 10, dt)
     local showHelp = self.helpOpen or now < self.helpUntil
     self.help = approach(self.help, showHelp and 1 or 0, 9, dt)
@@ -161,7 +171,8 @@ function Hud:drawStatus(session)
     local now = love.timer.getTime()
     local room = session.room
     local duel = room and #room.players >= 2
-    local label = duel and "Duel" or "Waiting for an opponent"
+    local rules = session.world and session.world.rules
+    local label = duel and (rules and rules.name or "Duel") or "Waiting for an opponent"
     local w = font(16):getWidth(label) + 46
     card(MARGIN, MARGIN, w, 36, 1, 18)
     local pulse = duel and 1 or 0.45 + 0.55 * (0.5 + 0.5 * sin(now * 4))
@@ -184,48 +195,126 @@ function Hud:drawStatus(session)
     end
 end
 
+local function scoreNumber(hud, value, cx, cy, key, c, size)
+    local s = pop(hud.scoreAt[key] or -10, 0.45)
+    local lg = love.graphics
+    lg.push()
+    lg.translate(cx, cy)
+    lg.scale(s, s)
+    local f = font(size or 30)
+    lg.setFont(f)
+    color(c, 1)
+    lg.print(tostring(value), -f:getWidth(tostring(value)) / 2, -f:getHeight() / 2)
+    lg.pop()
+end
+
 function Hud:drawScore(session)
     local world = session.world
     local W = love.graphics.getWidth()
-    local slots = {}
-    for slot in pairs(world.score) do slots[#slots + 1] = slot end
-    table.sort(slots, function(a, b)
-        if a == world.slot then return true end
-        if b == world.slot then return false end
-        return a < b
-    end)
-    if #slots == 0 then return end
-
-    local mine = world.score[world.slot] or 0
-    local theirs, theirName = nil, nil
-    for _, slot in ipairs(slots) do
-        if slot ~= world.slot then
-            theirs, theirName = world.score[slot] or 0, session:nameOf(slot)
-        end
-    end
-    if not theirName then return end
-    local leftName = "You"
-    local w = 300
+    local rules = world.rules
+    local w = 320
     local x = (W - w) / 2
-    card(x, MARGIN, w, 64, 1, 16)
-    text(leftName, 14, x + 18, MARGIN + 10, INK, 0.55)
-    text(theirName, 14, x + w - 18, MARGIN + 10, RED, 0.8, "right")
+    local limit = "First to " .. rules.scoreLimit
 
-    local function number(value, cx, slot, c)
-        local s = pop(self.scoreAt[slot] or -10, 0.45)
-        local lg = love.graphics
-        lg.push()
-        lg.translate(cx, MARGIN + 42)
-        lg.scale(s, s)
-        local f = font(30)
-        lg.setFont(f)
-        color(c, 1)
-        lg.print(tostring(value), -f:getWidth(tostring(value)) / 2, -f:getHeight() / 2)
-        lg.pop()
+    if rules.teams then
+        local mine = world.team or 1
+        local other = mine == 1 and 2 or 1
+        card(x, MARGIN, w, 70, 1, 16)
+        text("Your team", 14, x + 18, MARGIN + 10, Kit.ALLY, 0.9)
+        text("Enemy team", 14, x + w - 18, MARGIN + 10, RED, 0.85, "right")
+        text(limit, 11, x, MARGIN + 12, INK, 0.4, "center", w)
+        scoreNumber(self, world.teamScore[mine] or 0, x + 70, MARGIN + 46, "team" .. mine, Kit.ALLY)
+        text(":", 24, x + w / 2 - 4, MARGIN + 30, INK, 0.3)
+        scoreNumber(self, world.teamScore[other] or 0, x + w - 70, MARGIN + 46, "team" .. other, RED)
+        return
     end
-    number(mine, x + 70, world.slot, INK)
-    text(":", 24, x + w / 2 - 4, MARGIN + 26, INK, 0.3)
-    number(theirs, x + w - 70, slots[2], RED)
+
+    local standings = session:standings()
+    if #standings < 2 then return end
+    if world.mode == "duel" then
+        local theirs
+        for _, entry in ipairs(standings) do
+            if not entry.me then theirs = entry end
+        end
+        card(x, MARGIN, w, 70, 1, 16)
+        text("You", 14, x + 18, MARGIN + 10, INK, 0.55)
+        text(theirs.name, 14, x + w - 18, MARGIN + 10, RED, 0.8, "right")
+        text(limit, 11, x, MARGIN + 12, INK, 0.4, "center", w)
+        scoreNumber(self, world.score[world.slot] or 0, x + 70, MARGIN + 46, world.slot, INK)
+        text(":", 24, x + w / 2 - 4, MARGIN + 30, INK, 0.3)
+        scoreNumber(self, theirs.kills, x + w - 70, MARGIN + 46, theirs.slot, RED)
+        return
+    end
+
+    local rank, leader = 1, standings[1]
+    for k, entry in ipairs(standings) do
+        if entry.me then rank = k end
+    end
+    local suffix = rank == 1 and "st" or rank == 2 and "nd" or rank == 3 and "rd" or "th"
+    card(x, MARGIN, w, 70, 1, 16)
+    text(rank .. suffix .. " of " .. #standings, 14, x + 18, MARGIN + 10, INK, 0.55)
+    text(limit, 11, x + w - 18, MARGIN + 12, INK, 0.4, "right")
+    scoreNumber(self, world.score[world.slot] or 0, x + 46, MARGIN + 46, world.slot, INK)
+    local lead = leader.me and "You lead" or (leader.name .. "  " .. leader.kills)
+    text(lead, 16, x + w - 18, MARGIN + 36, leader.me and INK or RED, 0.85, "right")
+end
+
+function Hud:drawBoard(session)
+    if self.board < 0.01 then return end
+    local W, H = love.graphics.getDimensions()
+    local world = session.world
+    local a = self.board
+    local list = session:standings()
+    local rowH = 34
+    local w = 460
+    local h = 84 + #list * rowH
+    local x, y = (W - w) / 2, math.max(110, (H - h) / 2) + (1 - easeOutCubic(a)) * 14
+    card(x, y, w, h, a, 18)
+    text(world.rules.name, 20, x + 22, y + 18, INK, a)
+    text("First to " .. world.rules.scoreLimit, 13, x + w - 22, y + 22, INK, 0.5 * a, "right")
+    text("Kills", 12, x + w - 22, y + 52, INK, 0.45 * a, "right")
+    for k, entry in ipairs(list) do
+        local ry = y + 70 + (k - 1) * rowH
+        if entry.me then
+            love.graphics.setColor(INK[1], INK[2], INK[3], 0.05 * a)
+            love.graphics.rectangle("fill", x + 12, ry - 4, w - 24, rowH - 4, 8, 8)
+        end
+        local c = (entry.me or session:friendly(entry.slot)) and (entry.me and INK or Kit.ALLY) or RED
+        text(tostring(k), 14, x + 22, ry + 3, INK, 0.4 * a)
+        dot(x + 52, ry + 12, 5, c, a)
+        local nw = text(entry.name, 15, x + 66, ry + 2, INK, a)
+        if entry.bot then
+            text("BOT", 10, x + 74 + nw, ry + 6, INK, 0.4 * a)
+        end
+        text(tostring(entry.kills), 16, x + w - 22, ry + 2, INK, a, "right")
+    end
+end
+
+function Hud:drawMatchOver(session)
+    local over = session.world.over
+    self.overShown = approach(self.overShown or 0, over and 1 or 0, 8, love.timer.getDelta())
+    if self.overShown < 0.01 then return end
+    local W, H = love.graphics.getDimensions()
+    local a = self.overShown
+    local world = session.world
+    local title, won
+    if over then
+        if over.tm == 1 then
+            won = over.w == world.team
+            title = won and "Your team wins" or "Your team lost"
+        else
+            won = over.w == world.slot
+            title = won and "You win" or (session:nameOf(over.w) .. " wins")
+        end
+        self.overTitle, self.overWon, self.overTimer = title, won, over.c
+    end
+    love.graphics.setColor(0.96, 0.97, 0.98, 0.6 * a)
+    love.graphics.rectangle("fill", 0, 0, W, H)
+    local t = easeOutBack(a)
+    local y = H * 0.28 + (1 - t) * 20
+    text(self.overTitle or "", 52, 0, y, self.overWon and INK or RED, a, "center", W)
+    text("Next match in " .. math.ceil((self.overTimer or 0) / 60), 18, 0, y + 74, INK, 0.6 * a, "center", W)
+    self.board = math.max(self.board, a)
 end
 
 function Hud:drawVitals(session)
@@ -467,6 +556,7 @@ function Hud:drawHelp()
         { "R", "Reload" },
         { "G", "Throw your weapon" },
         { "E", "Swap with a weapon on the floor" },
+        { "Tab", "Hold for the scoreboard" },
         { "H", "Show or hide controls" }
     }
     local w, rowH = 360, 34
@@ -537,6 +627,8 @@ function Hud:draw(session)
         self:drawPrompt()
         self:drawFeed()
         self:drawDeath(session)
+        self:drawMatchOver(session)
+        self:drawBoard(session)
         self:drawStatus(session)
         self:drawHelp()
     end
