@@ -159,6 +159,10 @@ local function drawItems(world)
                 lg.circle("fill", item.x, item.y, 16)
             end
             Character.drawWeapon(kind, item.x, item.y, item.a or 0)
+        elseif item.k == 0 then
+            lg.setColor(1, 1, 1, 0.3 + 0.3 * pulse)
+            lg.circle("fill", item.x, item.y, 13)
+            Character.drawAmmo(item.x, item.y, item.a or 0)
         end
     end
     lg.setLineWidth(1)

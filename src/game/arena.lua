@@ -34,7 +34,9 @@ local DEFAULT = {
     loot = {
         { x = 900, y = 600, kind = "rifle" },
         { x = 900, y = 120, kind = "shotgun" },
-        { x = 900, y = 1080, kind = "shotgun" }
+        { x = 900, y = 1080, kind = "shotgun" },
+        { x = 560, y = 300, kind = "ammo" },
+        { x = 1240, y = 900, kind = "ammo" }
     }
 }
 

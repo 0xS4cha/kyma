@@ -31,6 +31,12 @@ function Weapons.unpack(value)
     return value and Config.order[value] or nil
 end
 
+--- @param def table
+--- @return number
+function Weapons.reserveCap(def)
+    return def.reserve * Config.ammoReserveCap
+end
+
 --- @param p table
 --- @param kind string?
 --- @param ammo number?

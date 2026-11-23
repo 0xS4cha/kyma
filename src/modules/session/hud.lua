@@ -154,6 +154,9 @@ function Hud.new()
         scoreAt = {},
         weapon = nil,
         ammo = 0,
+        reserve = 0,
+        gain = 0,
+        gainAt = -10,
         spent = {},
         refillAt = -10,
         prompt = 0,
@@ -244,6 +247,10 @@ function Hud:update(session, dt)
         self.scores[slot] = kills
     end
 
+    if me.weapon == self.weapon and me.reserve > self.reserve then
+        self.gain, self.gainAt = me.reserve - self.reserve, now
+    end
+    self.reserve = me.reserve
     if me.weapon ~= self.weapon then
         self.weapon, self.spent, self.refillAt = me.weapon, {}, now
     elseif me.ammo < self.ammo then
@@ -401,7 +408,11 @@ function Hud:drawWeapon(session)
     local empty = me.ammo == 0
     local ammoStr = tostring(me.ammo)
     local aw = text(ammoStr, 34, x + 18, y + 30 - (1 - refill) * 6, empty and RED or INK, 0.4 + 0.6 * refill)
-    text("/ " .. me.reserve, 16, x + 26 + aw, y + 46, INK, me.reserve == 0 and 0.3 or 0.5)
+    local rw = text("/ " .. me.reserve, 16, x + 26 + aw, y + 46, INK, me.reserve == 0 and 0.3 or 0.5)
+    local gained = (now - self.gainAt) / 1.2
+    if gained < 1 then
+        text("+" .. self.gain, 16, x + 34 + aw + rw, y + 46 - 14 * easeOutCubic(gained), GREEN, 1 - gained)
+    end
 
     local count = def.magazine
     local area = w - 36

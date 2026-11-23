@@ -34,6 +34,7 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 
 - The magazine reloads by itself when it is empty, or with `R`. You can't shoot while reloading.
 - The rifle waits in the middle of the arena and two shotguns at the top and bottom, on the circles drawn on the floor. A taken weapon comes back 10 seconds later.
+- Ammo packs: walking over one with a weapon in hand adds one magazine of that weapon to your reserve (up to twice its starting reserve; a `+` shows next to the reserve). An eliminated player drops one next to their weapon, and two ammo pads sit between the spawns and the middle. A full reserve leaves the pack on the floor.
 - Throwing your weapon (`G`) sends it flying: it deals 45 damage to the opponent it hits, then lands with its remaining ammo, ready to be picked up by anyone. With empty hands you pick up a weapon just by walking on it; `E` swaps the weapon you hold for the one on the floor.
 - While dashing you can't shoot, but bullets and thrown weapons go through you: time it to dodge.
 - Pressing dash while running forward turns it into a slide: longer (about 210 units), fast at first then slowing down, and you can shoot during it. You are only untouchable during its first 8 ticks, so a slide that ends in the open can be punished. The dash card reads `Slide` when it would slide. It shares the dash cooldown and makes noise.

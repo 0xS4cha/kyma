@@ -109,7 +109,9 @@ return {
             local kinds = {}
             for _, e in ipairs(events) do kinds[e.kind] = (kinds[e.kind] or 0) + 1 end
             assert(kinds.hit == 3 and kinds.kill == 1)
-            assert(not b.weapon and #world.items == 1, "the dead player drops their weapon")
+            local kinds = {}
+            for _, item in ipairs(world.items) do kinds[item.kind] = true end
+            assert(not b.weapon and #world.items == 2 and kinds.pistol and kinds.ammo, "the dead player drops their weapon and ammo")
         end
     },
     {
