@@ -6,141 +6,22 @@ local Weapons = require("src.game.weapons")
 local Hud = {}
 Hud.__index = Hud
 
-local exp, min, max, sin, floor, pi = math.exp, math.min, math.max, math.sin, math.floor, math.pi
+local Kit = require("src.ui.kit")
 
-local INK = { 0.1, 0.11, 0.13 }
-local RED = { 0.88, 0.14, 0.12 }
-local GREEN = { 0.22, 0.68, 0.4 }
-local AMBER = { 0.92, 0.6, 0.12 }
-local CARD = { 1, 1, 1 }
+local min, max, sin, pi = math.min, math.max, math.sin, math.pi
+
+local INK, RED, GREEN, AMBER = Kit.INK, Kit.RED, Kit.GREEN, Kit.AMBER
 
 local MARGIN = 24
-local RADIUS = 12
 local FEED_LIFE = 4.5
 local HELP_SECONDS = 7
 local DAMAGE_LIFE = 1.1
 local NOISE_LIFE = 1.4
 
-local fonts = {}
-
-local function font(size)
-    if not fonts[size] then
-        fonts[size] = love.graphics.newFont(size)
-    end
-    return fonts[size]
-end
-
-local function approach(current, target, rate, dt)
-    return current + (target - current) * (1 - exp(-rate * dt))
-end
-
-local function clamp(v, a, b)
-    return max(a, min(b, v))
-end
-
-local function easeOutCubic(t)
-    t = clamp(t, 0, 1)
-    return 1 - (1 - t) ^ 3
-end
-
-local function easeOutBack(t)
-    t = clamp(t, 0, 1)
-    local c = 1.70158
-    return 1 + (c + 1) * (t - 1) ^ 3 + c * (t - 1) ^ 2
-end
-
-local function pop(since, duration)
-    local t = (love.timer.getTime() - since) / (duration or 0.35)
-    if t < 0 or t > 1 then return 1 end
-    return 1 + 0.25 * sin(t * pi) * (1 - t)
-end
-
-local function color(c, alpha)
-    love.graphics.setColor(c[1], c[2], c[3], (c[4] or 1) * (alpha or 1))
-end
-
-local function card(x, y, w, h, alpha, radius)
-    local lg = love.graphics
-    radius = radius or RADIUS
-    lg.setColor(0.05, 0.07, 0.1, 0.1 * alpha)
-    lg.rectangle("fill", x, y + 3, w, h, radius, radius)
-    lg.setColor(CARD[1], CARD[2], CARD[3], 0.92 * alpha)
-    lg.rectangle("fill", x, y, w, h, radius, radius)
-end
-
-local function text(str, size, x, y, c, alpha, align, width)
-    local lg = love.graphics
-    local f = font(size)
-    lg.setFont(f)
-    color(c, alpha)
-    if align == "center" then
-        x = x + ((width or 0) - f:getWidth(str)) / 2
-    elseif align == "right" then
-        x = x - f:getWidth(str)
-    end
-    lg.print(str, floor(x + 0.5), floor(y + 0.5))
-    return f:getWidth(str)
-end
-
-local function keycap(label, x, y, alpha, size)
-    local lg = love.graphics
-    size = size or 14
-    local f = font(size)
-    local w = max(f:getWidth(label) + 14, size + 12)
-    local h = size + 12
-    lg.setColor(INK[1], INK[2], INK[3], 0.08 * alpha)
-    lg.rectangle("fill", x, y + 2, w, h, 6, 6)
-    lg.setColor(1, 1, 1, alpha)
-    lg.rectangle("fill", x, y, w, h, 6, 6)
-    lg.setColor(INK[1], INK[2], INK[3], 0.35 * alpha)
-    lg.setLineWidth(1.5)
-    lg.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
-    lg.setLineWidth(1)
-    text(label, size, x, y + 5, INK, alpha, "center", w)
-    return w, h
-end
-
-local function measureHint(key, label, size)
-    local f = font(size)
-    return max(font(size - 2):getWidth(key) + 14, size + 10) + 10 + f:getWidth(label)
-end
-
-local function hint(key, label, x, y, alpha, size, c)
-    size = size or 16
-    local w = keycap(key, x, y, alpha, size - 2)
-    text(label, size, x + w + 10, y + 4, c or INK, alpha)
-end
-
-local function bar(x, y, w, h, fill, c, alpha, ghost)
-    local lg = love.graphics
-    lg.setColor(INK[1], INK[2], INK[3], 0.08 * alpha)
-    lg.rectangle("fill", x, y, w, h, h / 2, h / 2)
-    if ghost and ghost > fill then
-        lg.setColor(1, 0.8, 0.75, alpha)
-        lg.rectangle("fill", x, y, w * clamp(ghost, 0, 1), h, h / 2, h / 2)
-    end
-    if fill > 0 then
-        color(c, alpha)
-        lg.rectangle("fill", x, y, max(h, w * clamp(fill, 0, 1)), h, h / 2, h / 2)
-    end
-end
-
-local function ring(x, y, radius, fill, width, c, alpha)
-    local lg = love.graphics
-    lg.setLineWidth(width)
-    lg.setColor(INK[1], INK[2], INK[3], 0.1 * alpha)
-    lg.circle("line", x, y, radius)
-    if fill > 0 then
-        color(c, alpha)
-        lg.arc("line", "open", x, y, radius, -pi / 2, -pi / 2 + 2 * pi * clamp(fill, 0, 1), 48)
-    end
-    lg.setLineWidth(1)
-end
-
-local function dot(x, y, r, c, alpha)
-    color(c, alpha)
-    love.graphics.circle("fill", x, y, r)
-end
+local font, approach, clamp = Kit.font, Kit.approach, Kit.clamp
+local easeOutCubic, easeOutBack, pop = Kit.easeOutCubic, Kit.easeOutBack, Kit.pop
+local color, card, text, keycap = Kit.color, Kit.card, Kit.text, Kit.keycap
+local measureHint, hint, bar, ring, dot = Kit.measureHint, Kit.hint, Kit.bar, Kit.ring, Kit.dot
 
 --- @return table
 function Hud.new()
