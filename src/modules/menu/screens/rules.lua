@@ -29,7 +29,7 @@ end
 function Screen.summary(values)
     local spawn = values.spawnWith
     local start = spawn == 1 and "start with a pistol" or spawn == 2 and "start with your loadout"
-        or ("everyone starts with " .. Screen.kitName({ w = values.presetWeapon, m = values.presetMod }):lower())
+        or ("everyone starts with " .. Screen.kitName(Settings.kit(values, "preset")):lower())
     return (values.floorWeapons and "Weapons on the floor" or "No weapons on the floor") .. ", " .. start
 end
 
@@ -85,7 +85,7 @@ function Screen.draw(menu, elements, p)
     local rows = {
         floorWeapons = { "Weapons on the floor", "Weapons wait on their spots and come back after a while" },
         spawnWith = { "Players start with", "A pistol, their loadout, or one for all" },
-        preset = { "Set loadout", s.spawnWith == 3 and Screen.kitName({ w = s.presetWeapon, m = s.presetMod }) or "Pick Same for all to use it" }
+        preset = { "Set loadout", s.spawnWith == 3 and Screen.kitName(Settings.kit(s, "preset")) or "Pick Same for all to use it" }
     }
     for k = 2, #elements do
         local element = elements[k]

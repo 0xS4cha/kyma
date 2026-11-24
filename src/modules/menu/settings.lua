@@ -8,7 +8,7 @@ Settings.SENSITIVITY = { 0.002, 0.0028, 0.0035, 0.0045, 0.006 }
 Settings.ZOOM = { 1.3, 1.6, 2.0 }
 Settings.ZOOM_LABELS = { "Far", "Normal", "Close" }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "kitWeapon", "kitMod", "floorWeapons", "spawnWith", "presetWeapon", "presetMod" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods" }
 
 --- @return table
 function Settings.defaults()
@@ -31,11 +31,11 @@ function Settings.defaults()
         shake = 3,
         theme = 1,
         kitWeapon = 1,
-        kitMod = 1,
+        kitMods = Settings.cleanMods(""),
         floorWeapons = true,
         spawnWith = 1,
         presetWeapon = 1,
-        presetMod = 1
+        presetMods = Settings.cleanMods("")
     }
 end
 
@@ -66,9 +66,10 @@ function Settings.parse(text)
     values.shake = math.max(1, math.min(#require("src.config.feel").strength, math.floor(values.shake)))
     values.theme = math.max(1, math.min(#require("src.ui.theme").order, math.floor(values.theme)))
     local Loadout = require("src.config.loadout")
-    local own = Loadout.sanitize({ w = values.kitWeapon, m = values.kitMod })
-    local preset = Loadout.sanitize({ w = values.presetWeapon, m = values.presetMod })
-    values.kitWeapon, values.kitMod, values.presetWeapon, values.presetMod = own.w, own.m, preset.w, preset.m
+    values.kitWeapon = Loadout.sanitize({ w = values.kitWeapon }).w
+    values.presetWeapon = Loadout.sanitize({ w = values.presetWeapon }).w
+    values.kitMods = Settings.cleanMods(values.kitMods)
+    values.presetMods = Settings.cleanMods(values.presetMods)
     values.spawnWith = Loadout.rules({ s = values.spawnWith }).s
     values.map = require("src.maps.index").valid(values.map)
     return values
@@ -110,10 +111,59 @@ function Settings.apply(values, display)
     end
 end
 
+--- @param text string?
+--- @return string
+function Settings.cleanMods(text)
+    local Loadout = require("src.config.loadout")
+    local count = #require("src.config.weapons").order
+    local list = {}
+    local k = 0
+    for part in tostring(text or ""):gmatch("[^,]+") do
+        k = k + 1
+        if k > count then break end
+        list[k] = Loadout.sanitize({ m = tonumber(part) }).m
+    end
+    for n = k + 1, count do list[n] = 1 end
+    return table.concat(list, ",")
+end
+
+--- @param text string
+--- @param weapon number
+--- @return number
+function Settings.modAt(text, weapon)
+    local k = 0
+    for part in Settings.cleanMods(text):gmatch("[^,]+") do
+        k = k + 1
+        if k == weapon then return tonumber(part) end
+    end
+    return 1
+end
+
+--- @param text string
+--- @param weapon number
+--- @param mod number
+--- @return string
+function Settings.withMod(text, weapon, mod)
+    local list = {}
+    for part in Settings.cleanMods(text):gmatch("[^,]+") do list[#list + 1] = tonumber(part) end
+    list[weapon] = mod
+    return Settings.cleanMods(table.concat(list, ","))
+end
+
+--- @param values table
+--- @param which string?
+--- @return table
+function Settings.kit(values, which)
+    if which == "preset" then
+        return { w = values.presetWeapon, m = Settings.modAt(values.presetMods, values.presetWeapon) }
+    end
+    return { w = values.kitWeapon, m = Settings.modAt(values.kitMods, values.kitWeapon) }
+end
+
 --- @param values table
 --- @return table
 function Settings.matchRules(values)
-    return { f = values.floorWeapons, s = values.spawnWith, p = { w = values.presetWeapon, m = values.presetMod } }
+    return { f = values.floorWeapons, s = values.spawnWith, p = Settings.kit(values, "preset") }
 end
 
 --- @param values table

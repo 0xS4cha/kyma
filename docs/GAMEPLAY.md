@@ -124,7 +124,7 @@ Every shot kicks the gun back into the shooter's body, then it settles: the snip
 
 ## Loadout and match rules
 
-- **Loadout** (home screen): pick your weapon and one mod: Extended mag (+50% magazine), Fast hands (reload 35% faster), Steady aim (half the spread) or Ammo pouch (+50% spare ammo). The panel shows the weapon's damage, fire rate, accuracy, range, magazine and reload, with the mod's gains in green. The mod only works on that weapon: pick up another one and it's a normal weapon. Mods show on the gun, for you and for everyone who sees you: a longer magazine, two magazines taped together, a foregrip and a muzzle brake, or an ammo pouch on top.
+- **Loadout** (home screen): pick your weapon and one mod: Extended mag (+50% magazine), Fast hands (reload 35% faster), Steady aim (half the spread) or Ammo pouch (+50% spare ammo). The panel shows the weapon's damage, fire rate, accuracy, range, magazine and reload, with the mod's gains in green. Each weapon keeps its own mod, so you can set one per weapon and switch weapons without losing them. The mod only works on that weapon: pick up another one and it's a normal weapon. Mods show on the gun, for you and for everyone who sees you: a longer magazine, two magazines taped together, a foregrip and a muzzle brake, or an ammo pouch on top.
 - **Match rules** (the Rules line on the Play screen), for the games you start (practice and hosted games): weapons on the floor on or off (ammo and health stay), and what players start with: a pistol (the classic game), their own loadout, or the same set loadout for everyone, which you build like your own. You get it back every time you respawn. Gun game ignores these rules. Bots bring loadouts of their own.
 
 ## Dark mode
