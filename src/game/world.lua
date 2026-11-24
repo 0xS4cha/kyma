@@ -7,6 +7,8 @@ local Config = require("src.config.game")
 local NetConfig = require("src.net.config")
 local WeaponConfig = require("src.config.weapons")
 local Loadout = require("src.config.loadout")
+local Gadgets = require("src.game.gadgets")
+local GadgetConfig = require("src.config.gadgets")
 
 local World = {}
 World.__index = World
@@ -32,6 +34,7 @@ function World.new(arena, mode, warmup, rules)
         countdown = 0
     }, World)
     Combat.setup(world)
+    Gadgets.setup(world)
     return world
 end
 
@@ -104,7 +107,11 @@ function World:loadout(player)
         return
     end
     local kit = self:kitOf(player)
-    if not kit then return end
+    if not kit then
+        Gadgets.give(player, nil)
+        return
+    end
+    Gadgets.give(player, Loadout.gadgets[kit.g or 1])
     local kind = WeaponConfig.order[kit.w]
     player.mod, player.modWeapon = kit.m > 1 and kit.m or nil, kind
     Weapons.give(player, kind)
@@ -171,6 +178,7 @@ function World:restart(phase)
         if phase == "warmup" then self.ready = {} end
     end
     self.teamScore = { 0, 0 }
+    Gadgets.setup(self)
     for slot in pairs(self.score) do self.score[slot] = 0 end
     for k = #self.items, 1, -1 do
         if not self.items[k].pad then table.remove(self.items, k) end
@@ -205,6 +213,9 @@ function World:apply(player, command)
         end
     end
     self:footsteps(player, command)
+    if command.x == 1 then
+        Gadgets.use(self, player)
+    end
     if command.t == 1 then
         Combat.throw(self, player)
     elseif command.e == 1 then
@@ -245,6 +256,7 @@ function World:step()
             state.credit = state.credit - 1
         end
     end
+    Gadgets.update(self)
     Combat.update(self)
     Combat.record(self)
     if self.over then
@@ -322,6 +334,7 @@ end
 function World:sees(viewer, slot)
     local from, target = self.players[viewer], self.players[slot]
     if not from or not target or from.dead > 0 then return false end
+    if (from.blind or 0) > 0 then return false end
     local vision = Config.vision
     return Vision.sees(self.arena, from, target.x, target.y, Config.player.radius, vision.serverMargin, vision.serverNearRadius)
 end
@@ -362,6 +375,8 @@ function World:snapshot(viewer)
                 entry.mc = p.meleeCooldown
                 entry.q, entry.r, entry.l, entry.c = p.ammo, p.reserve, p.reload, p.fireCooldown
                 if p.mod then entry.md, entry.mw = p.mod, Weapons.pack(p.modWeapon) end
+                entry.gk, entry.gn = GadgetConfig.pack(p.gadget), p.gadgets or 0
+                if (p.blind or 0) > 0 then entry.bl = p.blind end
                 entry.z = p.trigger and 1 or 0
             end
             players[#players + 1] = entry
@@ -396,10 +411,18 @@ function World:snapshot(viewer)
     local readyList = {}
     for slot in pairs(self.ready) do readyList[#readyList + 1] = slot end
     table.sort(readyList)
+    local gadgets, smokes = {}, {}
+    for _, gadget in ipairs(self.gadgets) do
+        gadgets[#gadgets + 1] = { x = math.floor(gadget.x), y = math.floor(gadget.y), k = GadgetConfig.pack(gadget.kind) }
+    end
+    for _, smoke in ipairs(self.smokes) do
+        smokes[#smokes + 1] = { x = math.floor(smoke.x), y = math.floor(smoke.y), r = math.floor(smoke.r) }
+    end
     return {
         players = players, items = items, score = score, aims = aims, doors = doors, glass = glass,
         teams = self.rules.teams and self.teamScore or nil, over = over,
-        phase = { p = self.phase, c = self.countdown }, ready = readyList
+        phase = { p = self.phase, c = self.countdown }, ready = readyList,
+        gadgets = gadgets, smokes = smokes
     }
 end
 

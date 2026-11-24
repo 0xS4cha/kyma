@@ -147,7 +147,7 @@ function Bot:command(world)
     end
 
     local target, range = self:target(world, me)
-    local sees = target and Vision.sees(world.arena, me, target.x, target.y, Config.player.radius)
+    local sees = target and (me.blind or 0) <= 0 and Vision.sees(world.arena, me, target.x, target.y, Config.player.radius)
     if sees then
         self.seenFor = self.seenFor + 1
         self.lastSeen = { x = target.x, y = target.y }

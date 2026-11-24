@@ -265,7 +265,8 @@ function Room:sendState()
         member:Stream("state", {
             t = tick, k = self.world:ack(member.slot),
             p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims,
-            dd = view.doors, gg = view.glass, ts = view.teams, ov = view.over, ph = view.phase, rd = view.ready
+            dd = view.doors, gg = view.glass, ts = view.teams, ov = view.over, ph = view.phase, rd = view.ready,
+            gd = view.gadgets, sm = view.smokes
         })
     end
 end

@@ -31,6 +31,14 @@ Sounds.silencer = {
         { wave = "sine", from = 260, to = 120, length = 0.06, volume = 0.3 }
     }
 }
+Sounds.bang = {
+    volume = 0.7, cooldown = 0.05, voices = 2,
+    layers = {
+        { wave = "noise", from = 9000, to = 1200, length = 0.45, volume = 0.7, cutoff = 9000, cutoffTo = 400, curve = 2 },
+        { wave = "sine", from = 3200, to = 3000, length = 0.9, volume = 0.18 },
+        { wave = "triangle", from = 90, to = 40, length = 0.3, volume = 0.5 }
+    }
+}
 Sounds.empty = {
     volume = 0.35, cooldown = 0.12,
     layers = { { wave = "square", duty = 0.2, from = 1800, length = 0.02, volume = 0.4 }, { wave = "noise", from = 9000, length = 0.015, volume = 0.2 } }

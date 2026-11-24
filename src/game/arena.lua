@@ -78,7 +78,8 @@ function Arena.new(def)
         doors = copy(def.doors, { open = false, timer = 0, kind = "door" }),
         glass = copy(def.glass, { broken = false, timer = 0, kind = "glass" }),
         spawns = def.spawns,
-        loot = def.loot or {}
+        loot = def.loot or {},
+        smokes = {}
     }, Arena)
 end
 
@@ -180,7 +181,27 @@ function Arena:raycast(x, y, dx, dy, maxLength, mode)
             best, target = t, rect
         end
     end)
+    if mode == "vision" then
+        for _, smoke in ipairs(self.smokes) do
+            local t = Arena.circle(x, y, dx, dy, smoke.x, smoke.y, smoke.r)
+            if t and t < best then
+                best, target = t, smoke
+            end
+        end
+    end
     return best, target
+end
+
+--- @return number?
+function Arena.circle(x, y, dx, dy, cx, cy, r)
+    local fx, fy = x - cx, y - cy
+    local c = fx * fx + fy * fy - r * r
+    if c <= 0 then return 0 end
+    local b = fx * dx + fy * dy
+    if b > 0 then return nil end
+    local disc = b * b - c
+    if disc < 0 then return nil end
+    return -b - sqrt(disc)
 end
 
 local function overlaps(rect, players, radius)

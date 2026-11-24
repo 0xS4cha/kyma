@@ -265,6 +265,32 @@ drawLaser = function(p, arena)
     lg.setLineWidth(1)
 end
 
+local GADGET_COLORS = { { 0.62, 0.65, 0.7 }, { 0.98, 0.95, 0.75 }, { 0.88, 0.14, 0.12 } }
+
+local function drawGadgets(world)
+    local lg = love.graphics
+    local now = love.timer.getTime()
+    for k, smoke in ipairs(world.arena.smokes or {}) do
+        if smoke.r > 1 then
+            for n = 0, 6 do
+                local a = n / 7 * 2 * math.pi + now * 0.15 + k
+                local ox, oy = cos(a) * smoke.r * 0.45, sin(a) * smoke.r * 0.45
+                lg.setColor(T.cloud[1], T.cloud[2], T.cloud[3], 0.7)
+                lg.circle("fill", smoke.x + ox, smoke.y + oy, smoke.r * 0.62)
+            end
+            lg.setColor(T.cloud[1], T.cloud[2], T.cloud[3], 0.95)
+            lg.circle("fill", smoke.x, smoke.y, smoke.r * 0.8)
+        end
+    end
+    for _, gadget in ipairs(world.gadgets or {}) do
+        local c = GADGET_COLORS[gadget.k or 1] or GADGET_COLORS[1]
+        lg.setColor(0.1, 0.11, 0.13, 1)
+        lg.circle("fill", gadget.x, gadget.y, 6)
+        lg.setColor(c[1], c[2], c[3], 0.6 + 0.4 * math.sin(now * 20))
+        lg.circle("fill", gadget.x, gadget.y, 3)
+    end
+end
+
 local function drawAims(world)
     for _, aim in ipairs(world.aims or {}) do
         drawLaser({ x = aim.x, y = aim.y, angle = Player.unpackAngle(aim.a), weapon = Weapons.unpack(aim.g) }, world.arena)
@@ -486,6 +512,7 @@ function Renderer.draw(session)
             end
         end
         drawFog(world, me)
+        drawGadgets(world)
         drawSpotted(opponents)
         drawAims(world)
         session.effects:drawWorld()

@@ -8,6 +8,7 @@ local Hud = {}
 Hud.__index = Hud
 
 local Kit = require("src.ui.kit")
+local GadgetConfig = require("src.config.gadgets")
 
 local min, max, sin, pi = math.min, math.max, math.sin, math.pi
 
@@ -532,6 +533,29 @@ function Hud:drawVitals(session)
     end
 end
 
+function Hud:drawBlind(session)
+    local blind = session.world.me.blind or 0
+    if blind <= 0 or session.world.me.dead > 0 then return end
+    local W, H = love.graphics.getDimensions()
+    love.graphics.setColor(1, 1, 0.98, math.min(1, blind / 50) * 0.97)
+    love.graphics.rectangle("fill", 0, 0, W, H)
+end
+
+function Hud:drawGadget(session)
+    local me = session.world.me
+    if not me.gadget or me.dead > 0 then return end
+    local W, H = love.graphics.getDimensions()
+    local def = GadgetConfig[me.gadget]
+    local w, h = 300, 40
+    local x, y = W - MARGIN - w, H - MARGIN - 112 - 12 - h
+    local left = me.gadgets or 0
+    card(x, y, w, h, 1, 12)
+    local kw = measureHint(Keys.label("gadget"), def.name, 14)
+    hint(Keys.label("gadget"), def.name, x + 14, y + 8, left > 0 and 1 or 0.35, 14)
+    text(left > 0 and ("x" .. left) or "used", 13, x + w - 16, y + 12, left > 0 and INK or RED, left > 0 and 0.6 or 0.8, "right")
+    return kw
+end
+
 function Hud:drawWeapon(session)
     local me = session.world.me
     local W, H = love.graphics.getDimensions()
@@ -791,6 +815,7 @@ function Hud:drawHelp()
         { both("quiet"), "Walk quietly" },
         { Keys.label("reload"), "Reload" },
         { Keys.label("throw"), "Throw your weapon" },
+        { Keys.label("gadget"), "Use your gadget" },
         { Keys.label("pickup"), "Swap with a weapon on the floor" },
         { Keys.label("scoreboard"), "Hold for the scoreboard" },
         { Keys.label("ready"), "Ready up during the warmup" },
@@ -868,12 +893,14 @@ function Hud:draw(session)
         return
     end
     if session.world then
+        self:drawBlind(session)
         self:drawDamage(session)
         self:drawNoises(session)
         self:drawSpotted(session)
         self:drawScore(session)
         self:drawVitals(session)
         self:drawWeapon(session)
+        self:drawGadget(session)
         self:drawPrompt()
         self:drawFeed()
         self:drawDeath(session)

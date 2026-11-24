@@ -21,7 +21,8 @@ function Screen.kitName(kit)
     local def = WeaponConfig[WeaponConfig.order[kit.w]]
     local mod = Loadout.mods[kit.m]
     local name = #def.name <= 3 and def.name or (def.name:sub(1, 1) .. def.name:sub(2):lower())
-    return name .. (mod.id ~= "none" and (" + " .. mod.name:lower()) or "")
+    local gadget = require("src.config.gadgets")[Loadout.gadgets[kit.g or 1]]
+    return name .. (gadget and (" + " .. gadget.name:lower()) or "") .. (mod.id ~= "none" and (" + " .. mod.name:lower()) or "")
 end
 
 --- @param values table
