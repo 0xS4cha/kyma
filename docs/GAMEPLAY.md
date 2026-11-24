@@ -102,6 +102,10 @@ Every map has four spawns per team and works in all modes. Except the Labyrinth,
 
 Every action has its own synthesized sound: one shot per weapon, reloads and dry fire, dashes, slides, strikes and punches, hits, eliminations, doors, breaking glass, pickups, ammo, healing, level ups, the countdown, the start and the end of a match, and the menu. Sounds from the world get quieter with distance and come from the left or the right of the screen, which turns with you, so you can hear where a fight is. The volume is in Settings.
 
+## Feel
+
+The camera shakes with every shot you fire, harder for the shotgun and the sniper than for the pistol and barely with the silencer. Taking a hit shakes it more the bigger the hit, dying shakes it hard, landing a punch, a hit or a kill gives a small jolt, and shots fired near you shake it a little. Settings > Screen shake sets it to Full, Low or Off.
+
 ## Screen
 
 - Top left: the game state (waiting for an opponent or duel, the dot pulses while waiting) and the `H` reminder. Top middle: the score. Top right: your ping and the eliminations, which slide in and fade out.

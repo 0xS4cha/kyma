@@ -8,7 +8,7 @@ Settings.SENSITIVITY = { 0.002, 0.0028, 0.0035, 0.0045, 0.006 }
 Settings.ZOOM = { 1.3, 1.6, 2.0 }
 Settings.ZOOM_LABELS = { "Far", "Normal", "Close" }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake" }
 
 --- @return table
 function Settings.defaults()
@@ -27,7 +27,8 @@ function Settings.defaults()
         volume = 4,
         body = 1,
         accent = 1,
-        head = 1
+        head = 1,
+        shake = 3
     }
 end
 
@@ -55,6 +56,7 @@ function Settings.parse(text)
     values.body = math.max(1, math.min(#Profile.bodies, math.floor(values.body)))
     values.accent = math.max(1, math.min(#Profile.accents, math.floor(values.accent)))
     values.head = math.max(1, math.min(#Profile.heads, math.floor(values.head)))
+    values.shake = math.max(1, math.min(#require("src.config.feel").strength, math.floor(values.shake)))
     values.map = require("src.maps.index").valid(values.map)
     return values
 end

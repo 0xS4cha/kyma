@@ -8,6 +8,7 @@ local function rows()
     return {
         { id = "volume", label = "Sound volume", hint = "Sounds are synthesized live, no audio files", kind = "segments", options = { "Off", "25%", "50%", "75%", "100%" } },
         { id = "sensitivity", label = "Mouse sensitivity", hint = "How fast the view turns with the mouse", kind = "segments", options = { "1", "2", "3", "4", "5" } },
+        { id = "shake", label = "Screen shake", hint = "How much the camera shakes on shots, hits and kills", kind = "segments", options = require("src.config.feel").labels },
         { id = "zoom", label = "Camera distance", hint = "Close shows details, far shows more of the arena", kind = "segments", options = Settings.ZOOM_LABELS },
         { id = "fullscreen", label = "Fullscreen", hint = "Borderless desktop fullscreen", kind = "toggle" },
         { id = "vsync", label = "VSync", hint = "Sync frames with your display", kind = "toggle" },
