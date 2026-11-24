@@ -45,7 +45,7 @@ Every key below can be changed in Settings > Key bindings (two keys per action, 
 - With empty hands, left click strikes: 25 damage at arm's reach (about 46 units, in front of you), every half second. The strike stuns for 0.4 s (slow, no shooting, no dash, no pickup) and knocks the opponent's weapon to the floor, so throwing your weapon and rushing in is a real play.
 - While dashing you can't shoot, but bullets and thrown weapons go through you: time it to dodge.
 - Pressing dash while running forward turns it into a slide: longer (about 210 units), fast at first then slowing down, and you can shoot during it. You are only untouchable during its first 8 ticks, so a slide that ends in the open can be punished. The dash card reads `Slide` when it would slide. It shares the dash cooldown and makes noise.
-- You only see what is in front of you (a cone of about 110 degrees) and a small circle around you, and walls block the view. Everything else is greyed out, and the opponent is invisible there.
+- You only see what is in front of you (a cone of about 110 degrees, up to 380 units away, fading into the fog over its last part) and a small circle around you, and walls block the view. You can still shoot further than you see. Everything else is greyed out, and the opponent is invisible there.
 
 ## Modes
 

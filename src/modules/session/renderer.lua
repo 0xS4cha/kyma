@@ -316,6 +316,25 @@ local function drawItems(world)
     lg.setLineWidth(1)
 end
 
+local fadeMesh
+
+local function rangeMesh()
+    if fadeMesh then return fadeMesh end
+    local def = Config.vision
+    local fog = COLORS.fog
+    local inner, outer = def.range * def.fade, def.range + 2
+    local vertices = {}
+    local steps = 96
+    for k = 0, steps do
+        local a = k / steps * 2 * math.pi
+        local ca, sa = cos(a), sin(a)
+        vertices[#vertices + 1] = { ca * inner, sa * inner, 0, 0, fog[1], fog[2], fog[3], 0 }
+        vertices[#vertices + 1] = { ca * outer, sa * outer, 0, 0, fog[1], fog[2], fog[3], fog[4] }
+    end
+    fadeMesh = love.graphics.newMesh(vertices, "strip", "static")
+    return fadeMesh
+end
+
 local function drawFog(world, me)
     local lg = love.graphics
     local arena = world.arena
@@ -331,6 +350,11 @@ local function drawFog(world, me)
     lg.setStencilTest("equal", 0)
     lg.setColor(COLORS.fog)
     lg.rectangle("fill", -2000, -2000, arena.width + 4000, arena.height + 4000)
+    if me.dead == 0 then
+        lg.setStencilTest("equal", 1)
+        lg.setColor(1, 1, 1, 1)
+        lg.draw(rangeMesh(), me.x, me.y)
+    end
     lg.setStencilTest()
 end
 

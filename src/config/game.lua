@@ -16,7 +16,8 @@ local CONFIG = {
     vision = {
         halfAngle = 0.95,
         nearRadius = 90,
-        range = 1500,
+        range = 380,
+        fade = 0.4,
         serverMargin = 0.2,
         serverNearRadius = 130
     },
