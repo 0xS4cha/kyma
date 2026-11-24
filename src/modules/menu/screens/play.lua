@@ -87,8 +87,19 @@ function Play.build(menu)
         left = function() menu:setOption("bot", math.max(1, menu.settings.bot - 1)) end,
         right = function() menu:setOption("bot", math.min(levels, menu.settings.bot + 1)) end
     }
+    local watchW = 96
     list[#list + 1] = {
-        id = "practice", x = rx + 20, y = l.gridY + 136, w = rw - 40, h = 50,
+        id = "watch", x = rx + rw - 20 - watchW, y = l.gridY + 136, w = watchW, h = 50,
+        press = function()
+            local mode = Settings.gameMode(menu.settings)
+            menu:Play({
+                mode = "practice", spectate = true, bot = Settings.botLevel(menu.settings), game = mode, map = menu.settings.map,
+                label = "Watching bots on " .. selectedMap(menu).name
+            })
+        end
+    }
+    list[#list + 1] = {
+        id = "practice", x = rx + 20, y = l.gridY + 136, w = rw - 50 - watchW, h = 50,
         press = function()
             local mode = Settings.gameMode(menu.settings)
             menu:Play({
@@ -192,6 +203,10 @@ function Play.draw(menu, elements, p)
     local practice = find(elements, "practice")
     Kit.button("practice", practice.x, practice.y + (cy - l.gridY), practice.w, practice.h, "Start practice", {
         hot = menu.focus == "practice", primary = true, size = 17, align = "center", alpha = ra
+    })
+    local watch = find(elements, "watch")
+    Kit.button("watch", watch.x, watch.y + (cy - l.gridY), watch.w, watch.h, "Watch", {
+        hot = menu.focus == "watch", size = 15, align = "center", alpha = ra, arrow = false
     })
 
     local hy = cy + 222

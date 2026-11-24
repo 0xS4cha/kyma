@@ -113,7 +113,8 @@ Every action has its own synthesized sound: one shot per weapon, reloads and dry
 ## Main menu
 
 - **Play**: pick a mode and one of the ten maps (each tile shows its layout, the panel below its doors, glass and loot), then practice against bots (easy, medium or hard: they see, turn and react like players, with more delay and less precision at lower levels; they fill every free slot) or host the game on your network.
-- **Multiplayer**: games hosted on your network show up by themselves with their mode and map, click one to join; or type the address of a dedicated server.
+- **Multiplayer**: games hosted on your network show up by themselves with their mode and map, click one to join (or to watch it when it is full); or type the address of a dedicated server and Connect or Watch.
+- **Spectating**: Watch next to Start practice fills the chosen mode and map with bots and lets you watch them; Watch in Multiplayer follows a real game. The camera follows one player with their view; the arrow keys, or a click, switch to the next one. Spectators can chat and don't take a player slot.
 - **Profile**: your name, the color of your body (only you see it, so enemies stay red and allies blue for everyone), an accent color and a head shape (hex, round, crest or visor) that everyone sees, with a live preview.
 - **How to play**: the mechanics and weapons on one page. **Settings**: mouse sensitivity, camera distance, fullscreen, VSync, the live duel behind the menu and the controls reminder, saved automatically.
 - Behind the menu two bots fight a live duel. Navigate with the mouse or with the arrows, `Enter` and `Escape`.

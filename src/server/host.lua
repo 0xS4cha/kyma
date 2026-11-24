@@ -41,6 +41,26 @@ function Host:matchmake(client, options)
     local practice = type(options.bot) == "string" and options.bot or nil
     local mode = type(options.mode) == "string" and options.mode or nil
     local map = type(options.map) == "string" and options.map or nil
+    if options.spectate == true then
+        local watched
+        for _, room in pairs(self.rooms) do
+            local fits = (not mode or room.mode == mode) and (not map or room.map == map)
+            if fits and not room.practice and room:Count() > 0 and (not watched or room.id < watched.id) then
+                watched = room
+            end
+        end
+        if not watched and practice then
+            watched = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, watch = true })
+            self.nextRoomId = self.nextRoomId + 1
+            self.rooms[watched.id] = watched
+        end
+        if not watched then
+            client:Send("error", { message = "There is no game to watch" })
+            return
+        end
+        watched:Watch(client)
+        return
+    end
     local best
     for _, room in pairs(self.rooms) do
         local fits = (not mode or room.mode == mode) and (not map or room.map == map)

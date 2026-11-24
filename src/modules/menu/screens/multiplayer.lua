@@ -17,9 +17,9 @@ local function layout()
     return { M = M, list = { x = M, y = y, w = listW, h = h }, panel = { x = M + listW + gap, y = y, w = panelW, h = h } }
 end
 
-local function join(menu, address, label)
+local function join(menu, address, label, spectate)
     menu:saveSettings()
-    menu:Play({ mode = "connect", address = address, label = label })
+    menu:Play({ mode = "connect", address = address, label = label, spectate = spectate })
 end
 
 function Multiplayer.build(menu)
@@ -33,6 +33,8 @@ function Multiplayer.build(menu)
             press = function()
                 if game.players < game.max then
                     join(menu, game.address, "Joining " .. game.name)
+                else
+                    join(menu, game.address, "Watching " .. game.name, true)
                 end
             end
         }
@@ -49,7 +51,11 @@ function Multiplayer.build(menu)
         text = Common.textHandler(menu, "server", 64, Common.SERVER_PATTERN)
     }
     list[#list + 1] = {
-        id = "connect", x = px, y = l.panel.y + 250, w = pw, h = 56,
+        id = "watchServer", x = px + pw - 110, y = l.panel.y + 250, w = 110, h = 56,
+        press = function() join(menu, menu.settings.server, "Watching " .. menu.settings.server, true) end
+    }
+    list[#list + 1] = {
+        id = "connect", x = px, y = l.panel.y + 250, w = pw - 122, h = 56,
         press = function() join(menu, menu.settings.server, "Connecting to " .. menu.settings.server) end
     }
     return list
@@ -78,7 +84,7 @@ function Multiplayer.draw(menu, elements, p)
             Kit.dot(bx + 36, y + element.h / 2, 5, full and Kit.AMBER or Kit.GREEN, e)
             Kit.text(game.name, 16, bx + 52 + hot * 4, y + 7, Kit.INK, e)
             Kit.text(game.address, 12, bx + 52 + hot * 4, y + 28, Kit.INK, 0.45 * e)
-            Kit.text(full and "Full" or string.format("%d / %d  -  Join", game.players, game.max), 13, bx + 16 + element.w - 16, y + 16, full and Kit.AMBER or Kit.INK, (0.5 + 0.5 * hot) * e, "right")
+            Kit.text(full and "Full  -  Watch" or string.format("%d / %d  -  Join", game.players, game.max), 13, bx + 16 + element.w - 16, y + 16, full and Kit.AMBER or Kit.INK, (0.5 + 0.5 * hot) * e, "right")
         end
     end
     if games == 0 then
@@ -107,6 +113,8 @@ function Multiplayer.draw(menu, elements, p)
     Kit.text("Server address", 12, server.x, server.y - 20 + dy, Kit.INK, 0.5 * e)
     Kit.field("server", server.x, server.y + dy, server.w, server.h, menu.settings.server, "localhost:6789", menu.editing == "server", menu.focus == "server", e)
     Kit.button("connect", connect.x, connect.y + dy, connect.w, connect.h, "Connect", { hot = menu.focus == "connect", primary = true, size = 18, hint = "Enter", alpha = e })
+    local watch = menu.find(elements, "watchServer")
+    Kit.button("watchServer", watch.x, watch.y + dy, watch.w, watch.h, "Watch", { hot = menu.focus == "watchServer", size = 15, align = "center", alpha = e, arrow = false })
     local hintY = connect.y + dy + connect.h + 24
     Common.paragraph("Run a dedicated server with  love . --server  or the Docker image, then type its address here.", 13, name.x, hintY, name.w, Kit.INK, 0.45 * e)
 end
