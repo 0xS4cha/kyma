@@ -654,6 +654,7 @@ function GM.Session:opponents()
                 sliding = (b.j or 0) > 0,
                 team = b.t,
                 hp = b.h,
+                mod = b.md,
                 look = self:lookOf(slot),
                 spotted = b.sp == 1,
                 stun = b.st or 0,
@@ -736,6 +737,7 @@ function GM.Session:liveView()
         punch = not b.weapon and b.meleeCooldown > WeaponConfig.melee.cooldown - WeaponConfig.melee.strikeTicks
             and (WeaponConfig.melee.cooldown - b.meleeCooldown) / WeaponConfig.melee.strikeTicks or nil,
         weapon = b.weapon,
+        mod = b.mod and b.modWeapon == b.weapon and b.mod or nil,
         dead = b.dead,
         hp = b.hp,
         name = GM.Multiplayer.name

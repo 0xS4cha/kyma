@@ -60,11 +60,11 @@ function Screen.build(menu)
     return list
 end
 
-local function drawWeapon(kind, x, y, scale, alpha)
+local function drawWeapon(kind, x, y, scale, alpha, mod)
     love.graphics.push()
     love.graphics.translate(x, y)
     love.graphics.scale(scale)
-    Character.drawWeapon(kind, 0, 0, 0, alpha)
+    Character.drawWeapon(kind, 0, 0, 0, alpha, mod)
     love.graphics.pop()
 end
 
@@ -90,7 +90,7 @@ function Screen.draw(menu, elements, p)
             local pick = Kit.ease("lwsel:" .. element.id, selected)
             lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], (0.04 + 0.04 * hot) * a)
             lg.rectangle("fill", element.x, element.y, element.w, element.h, 12, 12)
-            drawWeapon(element.kind, element.x + element.w / 2, element.y + 38, 3, a)
+            drawWeapon(element.kind, element.x + element.w / 2, element.y + 38, 3, a, Character.modId(s[modKey]))
             local def = WeaponConfig[element.kind]
             Kit.text(title(def.name), 14, element.x, element.y + element.h - 26, Kit.INK, (0.6 + 0.4 * pick) * a, "center", element.w)
             if pick > 0.01 then
@@ -124,7 +124,7 @@ function Screen.draw(menu, elements, p)
     local mod = Loadout.mods[s[modKey]]
     local player = { weapon = kind, mod = s[modKey] > 1 and s[modKey] or nil, modWeapon = kind }
     local base = { weapon = kind }
-    drawWeapon(kind, pv.x + pv.w / 2, py + 92, 6.5, pe)
+    drawWeapon(kind, pv.x + pv.w / 2, py + 92, 6.5, pe, Character.modId(s[modKey]))
     Kit.text(title(def.name) .. (mod.id ~= "none" and ("  +  " .. mod.name) or ""), 22, pv.x + 26, py + 170, Kit.INK, pe)
     Kit.text(def.tag or "", 13, pv.x + 26, py + 202, def.exposed and Kit.RED or Kit.INK, 0.55 * pe)
     local sy = py + 236
