@@ -29,6 +29,7 @@ local CONFIG = {
         clank = 420,
         slide = 380,
         door = 380,
+        melee = 300,
         glass = 650,
         stepTicks = 20,
         stepSpeed = 110,

@@ -114,7 +114,11 @@ end
 --- @param command table
 function World:apply(player, command)
     if Player.step(player, command, self.arena, self.dt) then
-        Combat.fire(self, player, command)
+        if player.weapon then
+            Combat.fire(self, player, command)
+        else
+            Combat.melee(self, player, command)
+        end
     end
     self:footsteps(player, command)
     if command.t == 1 then
@@ -247,11 +251,12 @@ function World:snapshot(viewer)
         if self:visible(viewer, slot) then
             local entry = {
                 i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy,
-                e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp, t = p.team
+                e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp, t = p.team, st = p.stun
             }
             if slot == viewer then
                 entry.w, entry.m, entry.n = p.cooldown, p.dashX, p.dashY
                 entry.sx, entry.sy = p.slideX, p.slideY
+                entry.mc = p.meleeCooldown
                 entry.q, entry.r, entry.l, entry.c = p.ammo, p.reserve, p.reload, p.fireCooldown
                 entry.z = p.trigger and 1 or 0
             end

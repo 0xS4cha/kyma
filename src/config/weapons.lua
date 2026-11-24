@@ -91,6 +91,16 @@ local WEAPONS = {
         speed = 0.72
     },
 
+    melee = {
+        damage = 25,
+        range = 46,
+        arc = 0.75,
+        cooldown = 30,
+        stun = 24,
+        stunSpeed = 0.35,
+        strikeTicks = 8
+    },
+
     throw = {
         damage = 45,
         speed = 750,

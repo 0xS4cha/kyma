@@ -168,13 +168,15 @@ local function drawGun(gun, angle)
     end
 end
 
-local function drawArms(c, gun, angle)
+local function drawArms(c, gun, angle, punch)
     if not gun then
-        segment(c, 0.5, 10, 3.5, 11.5, 5, 4.4, angle)
-        segment(c, 3.5, 11.5, 7, 9, 4.4, 3.6, angle)
+        local reach = math.sin(math.min(1, punch or 0) * math.pi)
+        local fx, fy = 7 + 17 * reach, 9 - 7 * reach
+        segment(c, 0.5, 10, 3.5 + 6 * reach, 11.5 - 2 * reach, 5, 4.4, angle)
+        segment(c, 3.5 + 6 * reach, 11.5 - 2 * reach, fx, fy, 4.4, 3.6, angle)
+        gem(c, fx + 0.4, fy - 0.4, 2.8 + reach, 2.6 + reach, 5, 0.7, angle)
         segment(c, 0.5, -10, 3.5, -11.5, 5, 4.4, angle)
         segment(c, 3.5, -11.5, 7, -9, 4.4, 3.6, angle)
-        gem(c, 7.4, 8.6, 2.4, 2.2, 5, 0.7, angle)
         gem(c, 7.4, -8.6, 2.4, 2.2, 5, 0.7, angle)
         return
     end
@@ -271,11 +273,19 @@ function Character.draw(p, palette, ghost)
     local gun = GUNS[p.weapon or ""]
     facets(c, TORSO, -0.5, 0, 0.8, angle)
     if gun then drawGun(gun, angle) end
-    drawArms(c, gun, angle)
+    drawArms(c, gun, angle, p.punch)
     lg.setColor(c[1] * 0.45, c[2] * 0.45, c[3] * 0.45, 0.55 * opacity)
     lg.ellipse("fill", 0.2, 0, 6.6, 6.2)
     facets({ c[1] * 1.12, c[2] * 1.12, c[3] * 1.12 }, HEAD, 0.8, 0, 1, angle)
     lg.pop()
+    if (p.stun or 0) > 0 and not ghost then
+        local now = love.timer.getTime()
+        for k = 0, 2 do
+            local a = now * 6 + k * 2 * pi / 3
+            lg.setColor(1, 0.82, 0.25, 0.9)
+            lg.circle("fill", p.x + cos(a) * 11, p.y + sin(a) * 11, 2.2)
+        end
+    end
     opacity = 1
 end
 

@@ -368,8 +368,14 @@ function Hud:drawWeapon(session)
     card(x, y, w, h, 1)
 
     if not def then
-        text("Unarmed", 22, x + 18, y + 18, INK, 0.9)
-        text("Walk over a weapon to pick it up", 13, x + 18, y + 54, INK, 0.5)
+        local melee = WeaponConfig.melee
+        text("Unarmed", 22, x + 18, y + 16, INK, 0.9)
+        text("Walk over a weapon to pick it up", 13, x + 18, y + 48, INK, 0.5)
+        local ready = me.meleeCooldown == 0
+        hint("Left click", "Strike: knocks their weapon out", x + 18, y + 72, ready and 1 or 0.45, 13)
+        if not ready then
+            bar(x + 18, y + h - 10, w - 36, 3, 1 - me.meleeCooldown / melee.cooldown, INK, 0.6)
+        end
         return
     end
 
