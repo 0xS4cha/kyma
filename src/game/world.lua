@@ -234,13 +234,28 @@ end
 --- @param viewer number?
 --- @param slot number
 --- @return boolean
-function World:visible(viewer, slot)
-    if not viewer or viewer == slot then return true end
-    if not self:enemies(viewer, slot) then return true end
+function World:sees(viewer, slot)
     local from, target = self.players[viewer], self.players[slot]
-    if not from or not target then return false end
+    if not from or not target or from.dead > 0 then return false end
     local vision = Config.vision
     return Vision.sees(self.arena, from, target.x, target.y, Config.player.radius, vision.serverMargin, vision.serverNearRadius)
+end
+
+--- @param viewer number?
+--- @param slot number
+--- @return boolean, boolean
+function World:visible(viewer, slot)
+    if not viewer or viewer == slot then return true, false end
+    if not self:enemies(viewer, slot) then return true, false end
+    if self:sees(viewer, slot) then return true, false end
+    if self.rules.teams then
+        for ally in pairs(self.players) do
+            if ally ~= viewer and not self:enemies(viewer, ally) and self:sees(ally, slot) then
+                return true, true
+            end
+        end
+    end
+    return false, false
 end
 
 --- @param viewer number?
@@ -248,10 +263,12 @@ end
 function World:snapshot(viewer)
     local players = {}
     for slot, p in pairs(self.players) do
-        if self:visible(viewer, slot) then
+        local seen, shared = self:visible(viewer, slot)
+        if seen then
             local entry = {
                 i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy,
-                e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp, t = p.team, st = p.stun
+                e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp, t = p.team, st = p.stun,
+                sp = shared and 1 or nil
             }
             if slot == viewer then
                 entry.w, entry.m, entry.n = p.cooldown, p.dashX, p.dashY

@@ -497,25 +497,50 @@ function Hud:drawDamage(session)
     lg.setLineWidth(1)
 end
 
-function Hud:drawNoises(session)
-    if #self.noises == 0 then return end
+local function edge(session, x, y)
     local W, H = love.graphics.getDimensions()
     local camera = session.camera
     local ax, ay = camera:anchor()
-    local now = love.timer.getTime()
     local inset = 56
+    local sx, sy = camera:toScreen(x, y)
+    if sx >= inset and sx <= W - inset and sy >= inset and sy <= H - inset then return nil end
+    local dx, dy = sx - ax, sy - ay
+    local scale = math.huge
+    if dx > 0 then scale = min(scale, (W - inset - ax) / dx) end
+    if dx < 0 then scale = min(scale, (inset - ax) / dx) end
+    if dy > 0 then scale = min(scale, (H - inset - ay) / dy) end
+    if dy < 0 then scale = min(scale, (inset - ay) / dy) end
+    return ax + dx * scale, ay + dy * scale, math.atan2(dy, dx)
+end
+
+function Hud:drawSpotted(session)
+    local lg = love.graphics
+    local pulse = 0.6 + 0.4 * sin(love.timer.getTime() * 6)
+    for _, p in ipairs(session:visibleOpponents()) do
+        if p.marked then
+            local px, py, angle = edge(session, p.x, p.y)
+            if px then
+                lg.push()
+                lg.translate(px, py)
+                lg.rotate(angle)
+                color(RED, pulse)
+                lg.setLineWidth(2)
+                lg.circle("line", 0, 0, 11)
+                lg.polygon("fill", 16, 0, 9, 5, 9, -5)
+                lg.setLineWidth(1)
+                lg.pop()
+            end
+        end
+    end
+end
+
+function Hud:drawNoises(session)
+    if #self.noises == 0 then return end
+    local now = love.timer.getTime()
     local lg = love.graphics
     for _, noise in ipairs(self.noises) do
-        local sx, sy = camera:toScreen(noise.x, noise.y)
-        if sx < inset or sx > W - inset or sy < inset or sy > H - inset then
-            local dx, dy = sx - ax, sy - ay
-            local scale = math.huge
-            if dx > 0 then scale = min(scale, (W - inset - ax) / dx) end
-            if dx < 0 then scale = min(scale, (inset - ax) / dx) end
-            if dy > 0 then scale = min(scale, (H - inset - ay) / dy) end
-            if dy < 0 then scale = min(scale, (inset - ay) / dy) end
-            local px, py = ax + dx * scale, ay + dy * scale
-            local angle = math.atan2(dy, dx)
+        local px, py, angle = edge(session, noise.x, noise.y)
+        if px then
             local t = (now - noise.time) / NOISE_LIFE
             local c = noise.kind == "shot" and RED or INK
             local size = noise.kind == "shot" and 12 or 9
@@ -627,6 +652,7 @@ function Hud:draw(session)
     if session.world then
         self:drawDamage(session)
         self:drawNoises(session)
+        self:drawSpotted(session)
         self:drawScore(session)
         self:drawVitals(session)
         self:drawWeapon(session)
