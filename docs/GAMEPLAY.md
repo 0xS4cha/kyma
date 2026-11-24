@@ -106,6 +106,8 @@ Every action has its own synthesized sound: one shot per weapon, reloads and dry
 
 The camera shakes with every shot you fire, harder for the shotgun and the sniper than for the pistol and barely with the silencer. Taking a hit shakes it more the bigger the hit, dying shakes it hard, landing a punch, a hit or a kill gives a small jolt, and shots fired near you shake it a little. Settings > Screen shake sets it to Full, Low or Off.
 
+Big moments also freeze the picture for a split second (a hitstop): your kills (0.1 s), punches that land, your death, and any hit of 40 damage or more, given or taken. Everyone on screen holds still, then eases back into place; the game itself keeps running underneath, so no input is lost.
+
 ## Screen
 
 - Top left: the game state (waiting for an opponent or duel, the dot pulses while waiting) and the `H` reminder. Top middle: the score. Top right: your ping and the eliminations, which slide in and fade out.
