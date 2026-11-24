@@ -398,7 +398,7 @@ function Renderer.draw(session)
         session.effects:drawWorld()
         drawWalls(world.arena, camera)
         session.effects:drawImpacts()
-        if me.dead == 0 then
+        if me.dead == 0 and not world.spectator then
             drawPlayer(me, world.arena, Renderer.selfPalette())
         end
         camera:clear()

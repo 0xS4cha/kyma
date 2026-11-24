@@ -96,8 +96,8 @@ end
 
 --- @param address string
 --- @param name string
-function GM.Multiplayer:Join(address, name)
-    self.queueOptions = nil
+function GM.Multiplayer:Join(address, name, options)
+    self.queueOptions = options
     self.lanHost = false
     return self:Connect(address, name)
 end

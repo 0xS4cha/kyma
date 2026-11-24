@@ -13,7 +13,7 @@ local Arena = require("src.game.arena")
 
 local Room = Class()
 
-local BOT_NAMES = { "Nova", "Echo", "Vega", "Orion", "Lyra", "Atlas", "Iris" }
+local BOT_NAMES = { "Nova", "Echo", "Vega", "Orion", "Lyra", "Atlas", "Iris", "Juno" }
 
 function Room:init(id, options)
     options = type(options) == "table" and options or {}
@@ -26,11 +26,11 @@ function Room:init(id, options)
     self.bots = {}
     self.practice = type(options.bot) == "string"
     if self.practice then
-        local count = self.rules.players - 1
+        local count = self.rules.players - (options.watch and 0 or 1)
         for k = 1, count do
             local slot = self.rules.players - k + 1
             local bot = Bot.new(slot, options.bot, id * 104729 + os.time() + k)
-            bot.label = count == 1 and bot:name() or BOT_NAMES[k]
+            bot.label = count == 1 and bot:name() or BOT_NAMES[k] or ("Bot " .. k)
             self.bots[#self.bots + 1] = bot
             self.world:add(slot, bot.label, self:teamFor()).bot = true
         end
@@ -47,7 +47,37 @@ function Room:Max()
 end
 
 function Room:Count()
-    return #self.members + #self.bots
+    local players = 0
+    for _, member in ipairs(self.members) do
+        if not member.spectator then players = players + 1 end
+    end
+    return players + #self.bots
+end
+
+--- @return number
+function Room:Watchers()
+    local count = 0
+    for _, member in ipairs(self.members) do
+        if member.spectator then count = count + 1 end
+    end
+    return count
+end
+
+--- @param client table
+--- @return boolean
+function Room:Watch(client)
+    client.room = self
+    client.slot = nil
+    client.spectator = true
+    self.members[#self.members + 1] = client
+    client:Send("chatlog", { messages = self.chat })
+    client:Send("joined", {
+        room = self.id, spectator = true, tick = self.world.tick, tickRate = Config.tickRate,
+        mode = self.mode, map = self.map
+    })
+    Logger:info("room", string.format("%s watches room %d", client.name, self.id))
+    self:refresh()
+    return true
 end
 
 function Room:Full()
@@ -76,8 +106,10 @@ end
 function Room:Info()
     local players = {}
     for _, member in ipairs(self.members) do
-        local p = self.world.players[member.slot]
-        players[#players + 1] = { id = member.id, slot = member.slot, name = member.name, team = p and p.team, look = member.look }
+        if not member.spectator then
+            local p = self.world.players[member.slot]
+            players[#players + 1] = { id = member.id, slot = member.slot, name = member.name, team = p and p.team, look = member.look }
+        end
     end
     for _, bot in ipairs(self.bots) do
         local p = self.world.players[bot.slot]
@@ -89,7 +121,7 @@ function Room:Info()
     table.sort(players, function(a, b) return a.slot < b.slot end)
     return {
         id = self.id, state = self.state, players = players, practice = self.practice,
-        mode = self.mode, map = self.map, max = self:Max()
+        mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers()
     }
 end
 
@@ -138,6 +170,7 @@ function Room:Remove(client)
     Logger:info("room", string.format("%s left room %d", tostring(client.name), self.id))
     client.room = nil
     client.slot = nil
+    client.spectator = nil
     self:refresh()
 end
 

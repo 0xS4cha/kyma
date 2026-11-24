@@ -118,7 +118,7 @@ function World:lobby()
             if self.ready[slot] then ready = ready + 1 end
         end
     end
-    local go = count >= 2 and humans > 0 and ready == humans
+    local go = count >= 2 and ready == humans
     if self.phase == "warmup" and go then
         self.phase = "countdown"
         self.countdown = Config.countdownTicks

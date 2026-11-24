@@ -54,6 +54,7 @@ function love.load(args)
     parser:add_argument("screen", { default = nil, type = "value" })
     parser:add_argument("mode", { default = nil, type = "value" })
     parser:add_argument("map", { default = nil, type = "value" })
+    parser:add_argument("watch", { default = false, type = "boolean" })
     flags = parser:parse(args)
     GM.Flags = flags
 
@@ -64,11 +65,11 @@ function love.load(args)
     local game = flags.mode and tostring(flags.mode) or nil
     local map = flags.map and tostring(flags.map) or nil
     if flags.connect then
-        GM.Session:Start({ mode = "connect", address = tostring(flags.connect), name = name })
+        GM.Session:Start({ mode = "connect", address = tostring(flags.connect), name = name, spectate = flags.watch })
     elseif flags.host then
         GM.Session:Start({ mode = "host", name = name, game = game, map = map })
     elseif flags.practice then
-        GM.Session:Start({ mode = "practice", bot = tostring(flags.practice), name = name, game = game, map = map })
+        GM.Session:Start({ mode = "practice", bot = tostring(flags.practice), name = name, game = game, map = map, spectate = flags.watch })
     elseif flags.play or flags.autoplay then
         GM.Session:Start({ mode = "local", name = name, game = game, map = map })
     else

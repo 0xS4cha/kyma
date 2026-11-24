@@ -106,9 +106,9 @@ function GM.Session:Start(options)
     self.camera.scale = Config.camera.scale
     GM.State = "game"
     if options.mode == "connect" then
-        mp:Join(options.address, name)
+        mp:Join(options.address, name, options.spectate and { spectate = true } or nil)
     else
-        local queue = { mode = options.game or "duel", map = options.map }
+        local queue = { mode = options.game or "duel", map = options.map, spectate = options.spectate or nil }
         if options.mode == "practice" then queue.bot = options.bot or "medium" end
         mp:PlayLocal(name, options.mode == "host", queue)
     end
@@ -135,7 +135,7 @@ end
 --- @param data table
 function GM.Session:join(data)
     local arena = Arena.new(Maps.get(data.map))
-    local slot = data.slot
+    local slot = data.spectator and 0 or data.slot
     local me = Player.new(slot, GM.Multiplayer.name, arena:spawn(slot))
     if data.x and data.y then
         me.x, me.y = data.x, data.y
@@ -166,6 +166,8 @@ function GM.Session:join(data)
         strikes = {},
         phase = "warmup",
         countdown = 0,
+        spectator = data.spectator == true,
+        following = nil,
         ready = {},
         items = {},
         score = {},
@@ -173,7 +175,7 @@ function GM.Session:join(data)
         autoplayTurn = 1
     }
     self.status = "playing"
-    if self.autoplay then
+    if self.autoplay and not data.spectator then
         GM.Multiplayer:Send("ready", { ready = true })
     end
     if not GM.Menu or GM.Menu.settings.showHelp then
@@ -243,6 +245,7 @@ end
 
 function GM.Session:tick()
     local world = self.world
+    if world.spectator then return end
     local command = self:sample()
     world.lastCommand = command
     Player.copy(world.me, world.previous)
@@ -441,6 +444,7 @@ function GM.Session:friendly(slot)
     local world = self.world
     if not world then return false end
     if slot == world.slot then return true end
+    if world.spectator then return world.rules.teams and self:teamOf(slot) == 1 end
     return world.rules.teams and world.team ~= nil and self:teamOf(slot) == world.team
 end
 
@@ -518,6 +522,10 @@ function GM.Session:receive(data)
         world.clock = data.t
     end
 
+    if world.spectator then
+        self:follow(0)
+        return
+    end
     local own = players[world.slot]
     if not own then return end
     local ack = data.k or 0
@@ -588,11 +596,12 @@ function GM.Session:opponents()
                 dashing = (b.e or 0) > 0,
                 sliding = (b.j or 0) > 0,
                 team = b.t,
+                hp = b.h,
                 look = self:lookOf(slot),
                 spotted = b.sp == 1,
                 stun = b.st or 0,
                 punch = world.strikes and world.strikes[slot] and (love.timer.getTime() - world.strikes[slot]) / 0.14 or nil,
-                ally = world.rules.teams and b.t ~= nil and b.t == world.team,
+                ally = world.rules.teams and b.t ~= nil and b.t == (world.spectator and 1 or world.team),
                 weapon = Weapons.unpack(b.g),
                 dead = b.o or 0,
                 name = self:nameOf(slot)
@@ -612,8 +621,42 @@ function GM.Session:nameOf(slot)
 end
 
 --- @return table
+--- @param step number
+function GM.Session:follow(step)
+    local world = self.world
+    local latest = world.snapshots[#world.snapshots]
+    if not latest then return end
+    local slots = {}
+    for slot in pairs(latest.players) do slots[#slots + 1] = slot end
+    table.sort(slots)
+    if #slots == 0 then return end
+    local index = 1
+    for k, slot in ipairs(slots) do
+        if slot == world.following then index = k end
+    end
+    if not latest.players[world.following or -1] then step = 0 end
+    world.following = slots[(index - 1 + step) % #slots + 1]
+end
+
+--- @return table?
+function GM.Session:followed()
+    local world = self.world
+    for _, p in ipairs(self:opponents()) do
+        if p.slot == world.following then return p end
+    end
+    return nil
+end
+
 function GM.Session:localView()
     local world = self.world
+    if world.spectator then
+        local p = self:followed()
+        if p then
+            p.dead = p.dead or 0
+            return p
+        end
+        return { slot = 0, x = world.arena.width / 2, y = world.arena.height / 2, angle = -math.pi / 2, dead = 0, vx = 0, vy = 0 }
+    end
     local alpha = world.accumulator / DT
     local a, b = world.previous, world.me
     return {
@@ -644,7 +687,7 @@ function GM.Session:visibleOpponents()
     for _, p in ipairs(self:opponents()) do
         if p.dead == 0 then
             world.lastSeen[p.slot] = { x = p.x, y = p.y, angle = p.angle }
-            if p.ally or (me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius)) then
+            if world.spectator or p.ally or (me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius)) then
                 list[#list + 1] = p
             elseif p.spotted then
                 p.marked = true
@@ -747,6 +790,10 @@ end
 
 function GM.Session:MousePressed(_, _, button)
     if not self.active or self:paused() then return end
+    if self.world and self.world.spectator then
+        if button == 1 then self:follow(1) elseif button == 2 then self:follow(-1) end
+        return
+    end
     if self.world and not self.captured then
         self:capture(true)
     elseif button == 2 then
@@ -785,6 +832,16 @@ function GM.Session:KeyPressed(key, scancode)
     end
     if key == "escape" then
         if GM.Menu then GM.Menu:Pause() end
+        return
+    end
+    if self.world and self.world.spectator then
+        if Keys.is("turnRight", scancode) or Keys.is("right", scancode) then
+            self:follow(1)
+        elseif Keys.is("turnLeft", scancode) or Keys.is("left", scancode) then
+            self:follow(-1)
+        elseif Keys.is("help", scancode) then
+            self.hud:toggleHelp()
+        end
         return
     end
     if Keys.is("dash", scancode) and self.world and self.world.killcam and self:killcam() then

@@ -174,6 +174,9 @@ function Hud:drawStatus(session)
     local duel = room and #room.players >= 2
     local rules = session.world and session.world.rules
     local label = duel and (rules and rules.name or "Duel") or "Waiting for an opponent"
+    if session.world and session.world.spectator then
+        label = "Watching - " .. (rules and rules.name or "Duel")
+    end
     local phase = session.world and session.world.phase
     if phase == "warmup" or phase == "countdown" then
         label = "Warmup - " .. (rules and rules.name or "Duel")
@@ -225,8 +228,8 @@ function Hud:drawScore(session)
         local mine = world.team or 1
         local other = mine == 1 and 2 or 1
         card(x, MARGIN, w, 70, 1, 16)
-        text("Your team", 14, x + 18, MARGIN + 10, Kit.ALLY, 0.9)
-        text("Enemy team", 14, x + w - 18, MARGIN + 10, RED, 0.85, "right")
+        text(world.spectator and "Blue team" or "Your team", 14, x + 18, MARGIN + 10, Kit.ALLY, 0.9)
+        text(world.spectator and "Red team" or "Enemy team", 14, x + w - 18, MARGIN + 10, RED, 0.85, "right")
         text(limit, 11, x, MARGIN + 12, INK, 0.4, "center", w)
         scoreNumber(self, world.teamScore[mine] or 0, x + 70, MARGIN + 46, "team" .. mine, Kit.ALLY)
         text(":", 24, x + w / 2 - 4, MARGIN + 30, INK, 0.3)
@@ -235,6 +238,16 @@ function Hud:drawScore(session)
     end
 
     local standings = session:standings()
+    if world.spectator then
+        if #standings == 0 then return end
+        card(x, MARGIN, w, 70, 1, 16)
+        text(rules.name .. "  -  first to " .. rules.scoreLimit, 13, x + 18, MARGIN + 10, INK, 0.5)
+        local first, second = standings[1], standings[2]
+        local value = function(entry) return rules.ladder and ("Lv " .. math.min(#rules.ladder, entry.kills + 1)) or tostring(entry.kills) end
+        text(first.name .. "  " .. value(first), 18, x + 18, MARGIN + 34, INK, 1)
+        if second then text(second.name .. "  " .. value(second), 15, x + w - 18, MARGIN + 37, INK, 0.55, "right") end
+        return
+    end
     if rules.ladder then
         local level = math.min(#rules.ladder, (world.score[world.slot] or 0) + 1)
         local function label(step)
@@ -393,6 +406,29 @@ function Hud:drawChat(session)
             text(body, 14, x + 20 + nw, y, INK, 0.85 * alpha)
         end
     end
+end
+
+function Hud:drawSpectator(session)
+    local W, H = love.graphics.getDimensions()
+    local p = session:followed()
+    local w = 420
+    local x, y = (W - w) / 2, H - MARGIN - 96
+    card(x, y, w, 96, 1, 16)
+    dot(x + 24, y + 26, 5, RED, love.timer.getTime() % 1.2 < 0.8 and 1 or 0.3)
+    text("Spectating", 13, x + 36, y + 17, RED, 1)
+    local watchers = session.room and session.room.watchers or 1
+    text(watchers .. (watchers == 1 and " watcher" or " watchers"), 12, x + w - 20, y + 18, INK, 0.45, "right")
+    if p then
+        local def = Weapons.def(p.weapon)
+        local weapon = def and (def.name:sub(1, 1) .. def.name:sub(2):lower()) or "Fists"
+        local c = session.world.rules.teams and (p.team == 1 and Kit.ALLY or RED) or INK
+        local nw = text(p.name or "?", 22, x + 20, y + 38, c, 1)
+        text(weapon .. (p.hp and ("  -  " .. math.max(0, p.hp) .. " hp") or ""), 14, x + 30 + nw, y + 45, INK, 0.6)
+    else
+        text("Waiting for players", 18, x + 20, y + 40, INK, 0.6)
+    end
+    local hw = measureHint(Keys.label("turnLeft") .. " " .. Keys.label("turnRight"), "or click to switch player", 12)
+    hint(Keys.label("turnLeft") .. " " .. Keys.label("turnRight"), "or click to switch player", x + (w - hw) / 2, y + 68, 0.7, 12)
 end
 
 function Hud:drawBoard(session)
@@ -820,6 +856,17 @@ end
 
 --- @param session table
 function Hud:draw(session)
+    if session.world and session.world.spectator then
+        self:drawScore(session)
+        self:drawFeed()
+        self:drawMatchOver(session)
+        self:drawBoard(session)
+        self:drawStatus(session)
+        self:drawSpectator(session)
+        self:drawChat(session)
+        self:drawOverlay(session)
+        return
+    end
     if session.world then
         self:drawDamage(session)
         self:drawNoises(session)
