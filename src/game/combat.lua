@@ -7,7 +7,7 @@ local Combat = {}
 
 local sqrt, cos, sin, max, min = math.sqrt, math.cos, math.sin, math.max, math.min
 
-local HISTORY = 64
+local HISTORY = 180
 
 local function rayCircle(x, y, dx, dy, cx, cy, radius)
     local fx, fy = x - cx, y - cy
@@ -44,6 +44,7 @@ function Combat.setup(world)
     world.pads = {}
     world.events = {}
     world.shots = {}
+    world.shotLog = {}
     world.noises = {}
     world.score = {}
     world.nextItem = 1
@@ -171,9 +172,47 @@ end
 function Combat.record(world)
     local snapshot = {}
     for slot, p in pairs(world.players) do
-        snapshot[slot] = { x = p.x, y = p.y, evading = Player.evading(p), alive = p.hp > 0 and p.dead == 0 }
+        snapshot[slot] = {
+            x = p.x, y = p.y, angle = p.angle, weapon = p.weapon,
+            evading = Player.evading(p), alive = p.hp > 0 and p.dead == 0
+        }
     end
     world.history[world.tick % HISTORY] = { tick = world.tick, players = snapshot }
+    local log = world.shotLog
+    while log[1] and world.tick - log[1].tick > HISTORY do
+        table.remove(log, 1)
+    end
+end
+
+--- @param world table
+--- @param killer number
+--- @param victim number
+--- @return table?
+function Combat.killcam(world, killer, victim)
+    local ticks = Config.killcamTicks
+    local frames = {}
+    for tick = world.tick - ticks, world.tick, 2 do
+        local entry = world.history[tick % HISTORY]
+        if entry and entry.tick == tick then
+            local k, v = entry.players[killer], entry.players[victim]
+            if k and v then
+                frames[#frames + 1] = {
+                    t = tick,
+                    kx = math.floor(k.x + 0.5), ky = math.floor(k.y + 0.5), ka = Player.packAngle(k.angle), kg = Weapons.pack(k.weapon),
+                    vx = math.floor(v.x + 0.5), vy = math.floor(v.y + 0.5), va = Player.packAngle(v.angle), vg = Weapons.pack(v.weapon),
+                    al = v.alive and 1 or 0
+                }
+            end
+        end
+    end
+    if #frames < 4 then return nil end
+    local shots = {}
+    for _, shot in ipairs(world.shotLog) do
+        if shot.o == killer and shot.tick >= world.tick - ticks then
+            shots[#shots + 1] = { t = shot.tick, x = math.floor(shot.x), y = math.floor(shot.y), X = math.floor(shot.X), Y = math.floor(shot.Y) }
+        end
+    end
+    return { k = killer, f = frames, s = shots }
 end
 
 local function rewound(world, slot, tick)
@@ -225,6 +264,7 @@ function Combat.fire(world, shooter, command)
             X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length, h = hit,
             q = def.silent and 1 or nil
         }
+        world.shotLog[#world.shotLog + 1] = { tick = world.tick, o = shooter.slot, x = ray.x, y = ray.y, X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length }
     end
     for slot, amount in pairs(hits) do
         Combat.damage(world, world.players[slot], amount, shooter.slot, shooter.x, shooter.y)

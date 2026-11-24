@@ -49,6 +49,11 @@ function GM.Session:Initialize()
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
     mp:On("melee", function(data) self:onMelee(data) end)
+    mp:On("killcam", function(data)
+        if self.world and type(data.f) == "table" and #data.f >= 2 then
+            self.world.killcam = { data = data, start = love.timer.getTime() }
+        end
+    end)
     mp:On("start", function()
         if self.hud then self.hud.startAt = love.timer.getTime() end
     end)
@@ -271,6 +276,36 @@ function GM.Session:onKill(data)
     end
     local killer = data.k and data.k ~= victim and name(data.k) or nil
     self.hud:announce(killer, name(victim), data.k and self:friendly(data.k), self:friendly(victim))
+end
+
+--- @return table?
+function GM.Session:killcam()
+    local world = self.world
+    local cam = world and world.killcam
+    if not cam or world.me.dead == 0 then return nil end
+    local duration = Config.killcamTicks / Config.tickRate * 0.85
+    local progress = (love.timer.getTime() - cam.start) / duration
+    if progress >= 1 or cam.skipped then return nil end
+    local frames = cam.data.f
+    local position = math.max(0, progress) * (#frames - 1) + 1
+    local k = math.min(#frames - 1, math.floor(position))
+    local a, b = frames[k], frames[k + 1]
+    local t = position - k
+    local function lerp(x, y) return x + (y - x) * t end
+    local function angle(x, y)
+        local ax, bx = Player.unpackAngle(x), Player.unpackAngle(y)
+        return ax + ((bx - ax + math.pi) % (2 * math.pi) - math.pi) * t
+    end
+    local tick = lerp(a.t, b.t)
+    local shots = {}
+    for _, shot in ipairs(cam.data.s or {}) do
+        if shot.t <= tick and tick - shot.t < 12 then shots[#shots + 1] = { shot = shot, age = (tick - shot.t) / 12 } end
+    end
+    return {
+        progress = progress, killer = cam.data.k, shots = shots,
+        killerView = { slot = 900, x = lerp(a.kx, b.kx), y = lerp(a.ky, b.ky), angle = angle(a.ka, b.ka), weapon = Weapons.unpack(b.kg), vx = 0, vy = 0, dead = 0 },
+        victimView = b.al == 1 and { slot = 901, x = lerp(a.vx, b.vx), y = lerp(a.vy, b.vy), angle = angle(a.va, b.va), weapon = Weapons.unpack(b.vg), vx = 0, vy = 0 } or nil
+    }
 end
 
 function GM.Session:toggleReady()
@@ -605,6 +640,10 @@ function GM.Session:KeyPressed(key, scancode)
     if not self.active or self:paused() then return end
     if key == "escape" then
         if GM.Menu then GM.Menu:Pause() end
+        return
+    end
+    if scancode == "space" and self.world and self.world.killcam and self:killcam() then
+        self.world.killcam.skipped = true
         return
     end
     if scancode == "space" or scancode == "lshift" or scancode == "rshift" then

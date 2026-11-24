@@ -5,6 +5,7 @@ local World = require("src.game.world")
 local Inputs = require("src.net.inputs")
 local Bot = require("src.game.bot")
 local Player = require("src.game.player")
+local Combat = require("src.game.combat")
 local GameConfig = require("src.config.game")
 local Maps = require("src.maps.index")
 local Arena = require("src.game.arena")
@@ -180,6 +181,14 @@ function Room:flushEvents()
     end
     for _, data in ipairs(events) do
         self:Broadcast(data.kind, data)
+        if data.kind == "kill" and data.k and data.k ~= data.v then
+            for _, member in ipairs(self.members) do
+                if member.slot == data.v then
+                    local recording = Combat.killcam(self.world, data.k, data.v)
+                    if recording then member:Send("killcam", recording) end
+                end
+            end
+        end
     end
 end
 

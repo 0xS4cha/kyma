@@ -637,7 +637,34 @@ function Hud:drawNoises(session)
     end
 end
 
+function Hud:drawKillcam(session, cam)
+    local W, H = love.graphics.getDimensions()
+    local lg = love.graphics
+    local d = math.min(W, H) * 0.05
+    Kit.color(RED, 0.9)
+    lg.setLineWidth(4)
+    lg.rectangle("line", d * 0.4, d * 0.4, W - d * 0.8, H - d * 0.8, 18, 18)
+    lg.setLineWidth(1)
+    local name = session:nameOf(cam.killer)
+    local def = Weapons.def(cam.killerView.weapon)
+    local weapon = def and (def.name:sub(1, 1) .. def.name:sub(2):lower()) or "Fists"
+    local w = 380
+    local x, y = (W - w) / 2, H - 150
+    card(x, y, w, 96, 1, 16)
+    dot(x + 24, y + 26, 5, RED, love.timer.getTime() % 1 < 0.6 and 1 or 0.3)
+    text("Killcam", 13, x + 36, y + 17, RED, 1)
+    text("Space to skip", 12, x + w - 20, y + 18, INK, 0.45, "right")
+    local nw = text(name, 22, x + 20, y + 40, RED, 1)
+    text("with " .. weapon, 15, x + 30 + nw, y + 46, INK, 0.6)
+    bar(x + 20, y + 80, w - 40, 4, cam.progress, RED, 0.8)
+end
+
 function Hud:drawDeath(session)
+    local cam = session:killcam()
+    if cam then
+        self:drawKillcam(session, cam)
+        return
+    end
     if self.death < 0.01 then return end
     local W, H = love.graphics.getDimensions()
     local me = session.world.me
@@ -743,11 +770,12 @@ function Hud:draw(session)
         self:drawPrompt()
         self:drawFeed()
         self:drawDeath(session)
-        self:drawLobby(session)
+        local replay = session:killcam() ~= nil
+        if not replay then self:drawLobby(session) end
         self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)
-        self:drawHelp()
+        if not replay then self:drawHelp() end
     end
     self:drawOverlay(session)
 end
