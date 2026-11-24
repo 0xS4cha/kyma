@@ -9,6 +9,8 @@ local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local Hud = require("src.modules.session.hud")
+local Text = require("src.core.text")
+local CHAT_LOG = 40
 
 local function sound(name, gain, pan)
     if GM.Audio then GM.Audio:Play(name, gain, pan) end
@@ -50,6 +52,7 @@ function GM.Session:Initialize()
     self.autoplay = GM.Flags and GM.Flags.autoplay or false
     self.effects = Effects.new()
     self.hud = Hud.new()
+    self.chat = { open = false, text = "", team = false, log = {} }
 
     local mp = GM.Multiplayer
     mp:On("joined", function(data) self:join(data) end)
@@ -59,6 +62,11 @@ function GM.Session:Initialize()
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
     mp:On("melee", function(data) self:onMelee(data) end)
+    mp:On("chat", function(data) self:onChat(data, true) end)
+    mp:On("chatlog", function(data)
+        self.chat.log = {}
+        for _, message in ipairs(type(data.messages) == "table" and data.messages or {}) do self:onChat(message, false) end
+    end)
     mp:On("killcam", function(data)
         if self.world and type(data.f) == "table" and #data.f >= 2 then
             self.world.killcam = { data = data, start = love.timer.getTime() }
@@ -93,6 +101,7 @@ function GM.Session:Start(options)
     self.room = nil
     self.effects = Effects.new()
     self.hud = Hud.new()
+    self.chat = { open = false, text = "", team = false, log = {} }
     self.camera.scale = Config.camera.scale
     GM.State = "game"
     if options.mode == "connect" then
@@ -111,6 +120,8 @@ function GM.Session:Stop()
     self.world = nil
     self.room = nil
     self.status = "idle"
+    if self.chat.open then self:closeChat(false) end
+    self.chat.log = {}
     self:capture(false)
     GM.State = "menu"
 end
@@ -199,7 +210,7 @@ function GM.Session:sample()
         world.requests.dash = world.sequence % 90 == 45
         world.requests.throw = world.sequence % 600 == 300
         fire = world.sequence % 20 < 2
-    elseif not self:paused() then
+    elseif not self:paused() and not self.chat.open then
         local down = love.keyboard.isScancodeDown
         if down("w") or down("up") then forward = forward + 1 end
         if down("s") or down("down") then forward = forward - 1 end
@@ -342,6 +353,42 @@ function GM.Session:killcam()
         killerView = { slot = 900, x = lerp(a.kx, b.kx), y = lerp(a.ky, b.ky), angle = angle(a.ka, b.ka), weapon = Weapons.unpack(b.kg), vx = 0, vy = 0, dead = 0 },
         victimView = b.al == 1 and { slot = 901, x = lerp(a.vx, b.vx), y = lerp(a.vy, b.vy), angle = angle(a.va, b.va), weapon = Weapons.unpack(b.vg), vx = 0, vy = 0 } or nil
     }
+end
+
+--- @param data table
+--- @param live boolean
+function GM.Session:onChat(data, live)
+    if type(data.x) ~= "string" or type(data.n) ~= "string" then return end
+    local log = self.chat.log
+    log[#log + 1] = { name = data.n, slot = data.s, text = data.x, team = data.tm == 1, time = live and love.timer.getTime() or -100 }
+    if #log > CHAT_LOG then table.remove(log, 1) end
+    if live and self.world and data.s ~= self.world.slot then sound("chat") end
+end
+
+--- @return boolean
+function GM.Session:typing()
+    return self.chat.open
+end
+
+function GM.Session:openChat()
+    self.chat.open, self.chat.text = true, ""
+    self.hud.helpUntil, self.hud.helpOpen = 0, false
+    self.chat.team = false
+    love.keyboard.setKeyRepeat(true)
+end
+
+function GM.Session:closeChat(send)
+    local chat = self.chat
+    if send and chat.text:match("%S") then
+        GM.Multiplayer:Send("chat", { text = chat.text, team = chat.team })
+    end
+    chat.open, chat.text = false, ""
+    love.keyboard.setKeyRepeat(false)
+end
+
+function GM.Session:TextInput(text)
+    if not self.active or not self.chat.open then return end
+    if #self.chat.text < 200 then self.chat.text = self.chat.text .. text end
 end
 
 function GM.Session:toggleReady()
@@ -638,7 +685,7 @@ end
 
 --- @param action string
 function GM.Session:request(action)
-    if self.world and self.captured and not self.autoplay then
+    if self.world and self.captured and not self.autoplay and not self.chat.open then
         self.world.requests[action] = true
     end
 end
@@ -719,6 +766,22 @@ end
 
 function GM.Session:KeyPressed(key, scancode)
     if not self.active or self:paused() then return end
+    if self.chat.open then
+        if key == "escape" then
+            self:closeChat(false)
+        elseif key == "return" or key == "kpenter" then
+            self:closeChat(true)
+        elseif key == "backspace" then
+            self.chat.text = Text.dropLast(self.chat.text)
+        elseif key == "tab" and self.world and self.world.rules.teams then
+            self.chat.team = not self.chat.team
+        end
+        return
+    end
+    if (key == "return" or key == "kpenter") and GM.Multiplayer.state == "online" then
+        self:openChat()
+        return
+    end
     if key == "escape" then
         if GM.Menu then GM.Menu:Pause() end
         return

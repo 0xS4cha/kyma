@@ -81,6 +81,12 @@ function Host:bind()
         self:matchmake(client, data)
     end)
 
+    server:On("chat", function(client, data)
+        if client.room then
+            client.room:Chat(client, data)
+        end
+    end)
+
     server:On("ready", function(client, data)
         if client.room then
             client.room:Ready(client, data)
