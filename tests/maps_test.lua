@@ -16,9 +16,9 @@ end
 
 return {
     {
-        name = "there are ten maps with a name and a description",
+        name = "there are fourteen maps with a name and a description",
         run = function()
-            assert(#Maps.order == 10)
+            assert(#Maps.order == 14)
             each(function(id, def)
                 assert(def.id == id and def.name and def.description, id)
             end)
@@ -80,6 +80,23 @@ return {
         name = "unknown map names fall back to the default",
         run = function()
             assert(Maps.valid("nope") == Maps.default and Maps.get(nil).id == Maps.default)
+        end
+    },
+    {
+        name = "teammates never spawn on top of each other",
+        run = function()
+            local World = require("src.game.world")
+            for _, id in ipairs(Maps.order) do
+                local world = World.new(Arena.new(Maps.get(id)), "teams", true)
+                for slot = 1, 8 do world:add(slot, "P" .. slot, slot % 2 + 1) end
+                world:restart("playing")
+                for a = 1, 8 do
+                    for b = a + 1, 8 do
+                        local p, q = world.players[a], world.players[b]
+                        assert((p.x - q.x) ^ 2 + (p.y - q.y) ^ 2 >= 60 * 60, id .. ": " .. a .. " and " .. b)
+                    end
+                end
+            end
         end
     }
 }
