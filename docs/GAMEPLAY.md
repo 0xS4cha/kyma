@@ -80,8 +80,12 @@ Every key below can be changed in Settings > Key bindings (two keys per action, 
 | Chasm | 2600 x 1400 | A chasm you can see and shoot across, crossed by three bridges |
 | Courtyard | 2200 x 2200 | A ring of rooms with windows around an open courtyard |
 | Warehouse | 2400 x 1600 | Shelves, crate stacks and glass offices hiding the heavy guns |
+| Rooftops | 2400 x 1400 | Three roofs split by gaps you see and shoot across, four planks to cross, two snipers |
+| Metro | 2600 x 1200 | Two platforms and the tracks between them, three crossings, the sniper sits on the middle one |
+| Bunker | 1600 x 1600 | Nine rooms joined by doors, close fights everywhere, the LMG in the middle room |
+| Gallery | 2200 x 1400 | Glass display cases: you see everyone through them but must break the glass to shoot |
 
-Every map has four spawns per team and works in all modes. Except the Labyrinth, they are point symmetric, so both teams get the same ground.
+Every map has four spawns per team and works in all modes; teammates never spawn on top of each other. Except the Labyrinth, they are point symmetric, so both teams get the same ground.
 
 ## Map elements
 
@@ -120,7 +124,7 @@ Every shot kicks the gun back into the shooter's body, then it settles: the snip
 
 ## Main menu
 
-- **Play**: pick a mode and one of the ten maps (each tile shows its layout, the panel below its doors, glass and loot), then practice against bots (easy, medium or hard: they see, turn and react like players, with more delay and less precision at lower levels; they fill every free slot) or host the game on your network.
+- **Play**: pick a mode and one of the fourteen maps (each tile shows its layout, the panel below its doors, glass and loot), then practice against bots (easy, medium or hard: they see, turn and react like players, with more delay and less precision at lower levels; they fill every free slot) or host the game on your network.
 - **Multiplayer**: games hosted on your network show up by themselves with their mode and map, click one to join (or to watch it when it is full); or type the address of a dedicated server and Connect or Watch.
 - **Spectating**: Watch next to Start practice fills the chosen mode and map with bots and lets you watch them; Watch in Multiplayer follows a real game. The camera follows one player with their view; the arrow keys, or a click, switch to the next one. Spectators can chat and don't take a player slot.
 - **Profile**: your name, the color of your body (only you see it, so enemies stay red and allies blue for everyone), an accent color and a head shape (hex, round, crest or visor) that everyone sees, with a live preview.
