@@ -29,3 +29,7 @@ make test             # love . --test
 
 - [Gameplay guide](docs/GAMEPLAY.md)
 - [Technical guide](docs/TECHNICAL.md)
+
+## Credits
+
+- [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License (`assets/fonts/OFL.txt`).

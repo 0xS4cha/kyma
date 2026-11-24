@@ -20,7 +20,9 @@ local eased = {}
 --- @return love.Font
 function Kit.font(size)
     if not fonts[size] then
-        fonts[size] = love.graphics.newFont(size)
+        local file = size >= 20 and "assets/fonts/Inter-SemiBold.ttf" or "assets/fonts/Inter-Regular.ttf"
+        local ok, f = pcall(love.graphics.newFont, file, size, "light")
+        fonts[size] = ok and f or love.graphics.newFont(size)
     end
     return fonts[size]
 end
