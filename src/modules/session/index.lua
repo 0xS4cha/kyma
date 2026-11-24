@@ -9,6 +9,16 @@ local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local Hud = require("src.modules.session.hud")
+
+local function sound(name, gain, pan)
+    if GM.Audio then GM.Audio:Play(name, gain, pan) end
+end
+
+local function soundAt(name, x, y, gain)
+    if GM.Audio then GM.Audio:PlayAt(name, x, y, gain) end
+end
+
+local NOISE_SOUNDS = { step = "step", dash = "dash", slide = "slide", throw = "throw", clank = "clank", melee = "swing" }
 local NetConfig = require("src.net.config")
 local Renderer = require("src.modules.session.renderer")
 
@@ -56,10 +66,18 @@ function GM.Session:Initialize()
     end)
     mp:On("start", function()
         if self.hud then self.hud.startAt = love.timer.getTime() end
+        sound("start")
+    end)
+    mp:On("over", function(data)
+        local world = self.world
+        if not world then return end
+        local won = data.tm == 1 and data.w == world.team or data.tm ~= 1 and data.w == world.slot
+        sound(won and "win" or "lose")
     end)
     mp:On("level", function(data)
         if self.world and data.p == self.world.slot then
             self.hud.levelAt = love.timer.getTime()
+            sound("level")
         end
     end)
 end
@@ -216,13 +234,23 @@ function GM.Session:tick()
     local command = self:sample()
     world.lastCommand = command
     Player.copy(world.me, world.previous)
-    if Player.step(world.me, command, world.arena, DT) then
-        if world.me.weapon then
-            self:shoot(world.me, command.s, TRACER_SELF)
+    local me = world.me
+    local reloading, trigger = me.reload > 0, me.trigger
+    if Player.step(me, command, world.arena, DT) then
+        if me.weapon then
+            self:shoot(me, command.s, TRACER_SELF)
+            sound(me.weapon)
         else
-            self.effects:swing(world.me.x, world.me.y, world.me.angle)
+            self.effects:swing(me.x, me.y, me.angle)
+            sound("swing")
         end
+    elseif command.b == 1 and not trigger and me.weapon and me.ammo == 0 and me.reserve == 0 then
+        sound("empty")
     end
+    if not reloading and me.reload > 0 then sound("reload") end
+    if me.dash == Config.dash.ticks - 1 then sound("dash") end
+    if me.slide == Config.slide.ticks - 1 then sound("slide") end
+    if command.t == 1 and me.weapon then sound("throw") end
     world.pending[#world.pending + 1] = command
 
     local batch = {}
@@ -249,11 +277,13 @@ function GM.Session:onHit(data)
     local world = self.world
     if not world then return end
     if data.t == world.slot then
+        sound("hurt")
         self.effects:hurtFlash()
         if data.x and data.y then
             self.hud:damageFrom(world.me.x, world.me.y, data.x, data.y)
         end
     elseif data.a == world.slot then
+        sound("hit")
         self.effects:hitMarker()
     end
 end
@@ -264,11 +294,17 @@ function GM.Session:onKill(data)
     if not world then return end
     local victim = data.v
     if victim == world.slot then
+        sound("death")
         self.effects:shatter(world.me.x, world.me.y, SELF_COLOR)
     else
         local seen = world.lastSeen[victim]
         if seen then
             self.effects:shatter(seen.x, seen.y, OPPONENT_COLOR)
+            if data.k == world.slot then
+                sound("kill")
+            else
+                soundAt("kill", seen.x, seen.y, 0.6)
+            end
         end
     end
     local function name(slot)
@@ -323,8 +359,12 @@ function GM.Session:onMelee(data)
     world.strikes[data.o] = love.timer.getTime()
     if data.o ~= world.slot then
         local seen = world.lastSeen[data.o]
-        if seen then self.effects:swing(seen.x, seen.y, seen.angle or 0) end
+        if seen then
+            self.effects:swing(seen.x, seen.y, seen.angle or 0)
+            soundAt(data.t and "punch" or "swing", seen.x, seen.y)
+        end
     elseif data.t then
+        sound("punch")
         self.effects:hitMarker()
     end
 end
@@ -376,7 +416,17 @@ function GM.Session:receive(data)
     end
     world.snapshots[#world.snapshots + 1] = { t = data.t, players = players }
     world.items = type(data.d) == "table" and data.d or {}
-    world.arena:applyState(data.dd, data.gg)
+    local arena = world.arena
+    local doors, panes = {}, {}
+    for k, door in ipairs(arena.doors) do doors[k] = door.open end
+    for k, pane in ipairs(arena.glass) do panes[k] = pane.broken end
+    arena:applyState(data.dd, data.gg)
+    for k, door in ipairs(arena.doors) do
+        if door.open and not doors[k] then soundAt("door", door.x + door.w / 2, door.y + door.h / 2, 0.8) end
+    end
+    for k, pane in ipairs(arena.glass) do
+        if pane.broken and not panes[k] then soundAt("glass", pane.x + pane.w / 2, pane.y + pane.h / 2) end
+    end
     world.aims = type(data.l) == "table" and data.l or {}
     for _, entry in ipairs(data.sc or {}) do
         world.score[entry.i] = entry.k
@@ -393,9 +443,11 @@ function GM.Session:receive(data)
     for _, noise in ipairs(data.n or {}) do
         self.effects:echo(noise.x, noise.y, noise.k)
         self.hud:noise(noise.x, noise.y, noise.k)
+        if NOISE_SOUNDS[noise.k] then soundAt(NOISE_SOUNDS[noise.k], noise.x, noise.y, 0.8) end
     end
     for _, shot in ipairs(data.s or {}) do
         if shot.o ~= world.slot then
+            soundAt(Weapons.unpack(shot.g) or "pistol", shot.x, shot.y)
             self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT, shot.h)
         elseif shot.h == 2 then
             self.effects:spray(shot.X, shot.Y, OPPONENT_COLOR, 8)
@@ -420,6 +472,7 @@ function GM.Session:receive(data)
 
     local me = world.me
     local beforeX, beforeY = me.x, me.y
+    local beforeWeapon, beforeReserve, beforeHp, beforeDead = me.weapon, me.reserve, me.hp, me.dead
     me.x, me.y, me.vx, me.vy = own.x, own.y, own.u, own.v
     me.dash, me.cooldown, me.dashX, me.dashY = own.e or 0, own.w or 0, own.m or 0, own.n or 0
     me.slide, me.slideX, me.slideY = own.j or 0, own.sx or 0, own.sy or 0
@@ -427,6 +480,14 @@ function GM.Session:receive(data)
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.trigger = own.z == 1
+    if me.dead == 0 and beforeDead == 0 then
+        if me.weapon and me.weapon ~= beforeWeapon then
+            sound("pickup")
+        elseif me.weapon and me.weapon == beforeWeapon and me.reserve > beforeReserve and me.reload == 0 then
+            sound("ammo")
+        end
+        if me.hp > beforeHp then sound("heal") end
+    end
     me.stun, me.meleeCooldown = own.st or 0, own.mc or 0
     me.team = own.t
     for _, command in ipairs(kept) do
@@ -589,6 +650,15 @@ function GM.Session:Think(dt)
     GM.Multiplayer:Flush()
 
     self.effects:update(dt)
+    if world.phase == "countdown" then
+        local second = math.ceil(world.countdown / Config.tickRate)
+        if second ~= world.beeped then
+            world.beeped = second
+            sound("beep")
+        end
+    else
+        world.beeped = nil
+    end
     local dustColor = { 0.6, 0.63, 0.68 }
     local views = self:visibleOpponents()
     views[#views + 1] = self:localView()
