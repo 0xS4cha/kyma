@@ -53,6 +53,7 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 | Teams | up to 4 against 4 | First team to 25 |
 
 - In Teams, your teammates (blue) are always visible, can't be hurt by you and don't show up as echoes. Enemies are red.
+- Team vision is shared: an enemy seen by a living teammate shows up for the whole team as a faded figure with a pulsing red target, even outside your own view, and a red arrow on the edge of the screen points to it when it is off screen.
 - You respawn on the spawn farthest from your enemies (your own side in Teams).
 - When someone reaches the score, the match ends for everyone: the scoreboard shows for 8 seconds and a new match starts on the same map.
 - Hold `Tab` for the scoreboard. In practice, bots fill every free slot.

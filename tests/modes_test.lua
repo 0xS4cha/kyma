@@ -121,5 +121,55 @@ return {
             assert(clients[2].room ~= clients[1].room)
             assert(clients[4].room ~= nil, "no mode joins any open room")
         end
+    },
+    {
+        name = "in teams, enemies seen by a teammate are shared and marked",
+        run = function()
+            local world = open("teams")
+            world:add(1, "me", 1)
+            world:add(2, "ally", 1)
+            world:add(3, "enemy", 2)
+            local me, ally, enemy = world.players[1], world.players[2], world.players[3]
+            me.x, me.y, me.angle = 500, 500, math.pi
+            ally.x, ally.y, ally.angle = 1500, 1500, 0
+            enemy.x, enemy.y = 1700, 1500
+            local entry
+            for _, p in ipairs(world:snapshot(1).players) do
+                if p.i == 3 then entry = p end
+            end
+            assert(entry and entry.sp == 1, "the enemy is spotted through the teammate")
+            ally.dead = 10
+            local hidden = true
+            for _, p in ipairs(world:snapshot(1).players) do
+                if p.i == 3 then hidden = false end
+            end
+            assert(hidden, "a dead teammate spots nothing")
+        end
+    },
+    {
+        name = "free for all players share nothing",
+        run = function()
+            local world = open("ffa", { { x = 500, y = 500, angle = math.pi }, { x = 1500, y = 1500, angle = 0 }, { x = 1700, y = 1500, angle = 0 } })
+            world:add(1, "a")
+            world:add(2, "b")
+            world:add(3, "c")
+            world.players[1].x, world.players[1].y, world.players[1].angle = 500, 500, math.pi
+            world.players[2].x, world.players[2].y, world.players[2].angle = 1500, 1500, 0
+            world.players[3].x, world.players[3].y = 1700, 1500
+            local seen, shared = world:visible(1, 3)
+            assert(not seen and not shared)
+        end
+    },
+    {
+        name = "enemies you see yourself are not marked as spotted",
+        run = function()
+            local world = open("teams")
+            world:add(1, "me", 1)
+            world:add(3, "enemy", 2)
+            world.players[1].x, world.players[1].y, world.players[1].angle = 1000, 1000, 0
+            world.players[3].x, world.players[3].y = 1200, 1000
+            local seen, shared = world:visible(1, 3)
+            assert(seen and not shared)
+        end
     }
 }

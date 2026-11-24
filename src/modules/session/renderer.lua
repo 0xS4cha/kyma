@@ -258,6 +258,24 @@ local function drawAims(world)
     end
 end
 
+local function drawSpotted(list)
+    local lg = love.graphics
+    local pulse = 0.6 + 0.4 * sin(love.timer.getTime() * 6)
+    for _, p in ipairs(list) do
+        if p.marked then
+            Character.draw(p, Character.PALETTES.opponent, { alpha = 0.55, phase = Character.phase(p.slot) })
+            Kit.color(Kit.RED, pulse)
+            lg.setLineWidth(2)
+            lg.circle("line", p.x, p.y, 22)
+            lg.line(p.x - 30, p.y, p.x - 24, p.y)
+            lg.line(p.x + 24, p.y, p.x + 30, p.y)
+            lg.line(p.x, p.y - 30, p.x, p.y - 24)
+            lg.line(p.x, p.y + 24, p.x, p.y + 30)
+            lg.setLineWidth(1)
+        end
+    end
+end
+
 local function drawItems(world)
     local lg = love.graphics
     local pulse = 0.5 + 0.5 * sin(love.timer.getTime() * 4)
@@ -332,9 +350,12 @@ function Renderer.draw(session)
         drawFloor(world.arena)
         drawItems(world)
         for _, p in ipairs(opponents) do
-            drawPlayer(p, world.arena, p.ally and Character.PALETTES.ally or Character.PALETTES.opponent)
+            if not p.marked then
+                drawPlayer(p, world.arena, p.ally and Character.PALETTES.ally or Character.PALETTES.opponent)
+            end
         end
         drawFog(world, me)
+        drawSpotted(opponents)
         drawAims(world)
         session.effects:drawWorld()
         drawWalls(world.arena, camera)

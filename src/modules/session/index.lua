@@ -408,6 +408,7 @@ function GM.Session:opponents()
                 dashing = (b.e or 0) > 0,
                 sliding = (b.j or 0) > 0,
                 team = b.t,
+                spotted = b.sp == 1,
                 stun = b.st or 0,
                 punch = world.strikes and world.strikes[slot] and (love.timer.getTime() - world.strikes[slot]) / 0.14 or nil,
                 ally = world.rules.teams and b.t ~= nil and b.t == world.team,
@@ -462,6 +463,9 @@ function GM.Session:visibleOpponents()
         if p.dead == 0 then
             world.lastSeen[p.slot] = { x = p.x, y = p.y, angle = p.angle }
             if p.ally or (me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius)) then
+                list[#list + 1] = p
+            elseif p.spotted then
+                p.marked = true
                 list[#list + 1] = p
             end
         end
