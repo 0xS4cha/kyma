@@ -50,7 +50,7 @@ local function drawTitle(menu, x, y, alpha)
     local by = y + f:getHeight() - 4
     Kit.color(Kit.RED, alpha)
     lg.polygon("fill", x, by, x + width, by, x + width - 10, by + 10, x, by + 10)
-    Kit.text("One on one in a white world.", 18, x + 2, by + 22, Kit.INK, 0.55 * alpha * reveal)
+    Kit.text(require("src.ui.theme").dark() and "One on one in a dark world." or "One on one in a white world.", 18, x + 2, by + 22, Kit.INK, 0.55 * alpha * reveal)
 end
 
 local function drawLive(menu, x, y, w, alpha)

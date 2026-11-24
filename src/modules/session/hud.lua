@@ -400,7 +400,7 @@ function Hud:drawChat(session)
             local f = font(14)
             local body = entry.text
             while #body > 0 and f:getWidth(body) > w - nw - 30 do body = body:sub(1, -2) end
-            love.graphics.setColor(1, 1, 1, 0.82 * alpha)
+            love.graphics.setColor(Kit.SURFACE[1], Kit.SURFACE[2], Kit.SURFACE[3], 0.82 * alpha)
             love.graphics.rectangle("fill", x, y - 3, nw + f:getWidth(body) + 30, 22, 8, 8)
             text(name, 14, x + 10, y, c, alpha)
             text(body, 14, x + 20 + nw, y, INK, 0.85 * alpha)
@@ -481,7 +481,7 @@ function Hud:drawMatchOver(session)
         end
         self.overTitle, self.overWon, self.overTimer = title, won, over.c
     end
-    love.graphics.setColor(0.96, 0.97, 0.98, 0.6 * a)
+    love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.6 * a)
     love.graphics.rectangle("fill", 0, 0, W, H)
     local t = easeOutBack(a)
     local y = H * 0.28 + (1 - t) * 20
@@ -760,7 +760,7 @@ function Hud:drawDeath(session)
     local W, H = love.graphics.getDimensions()
     local me = session.world.me
     local a = self.death
-    love.graphics.setColor(0.96, 0.97, 0.98, 0.55 * a)
+    love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.55 * a)
     love.graphics.rectangle("fill", 0, 0, W, H)
     local t = easeOutBack(a)
     local y = H * 0.3 + (1 - t) * 20
@@ -823,7 +823,7 @@ function Hud:drawOverlay(session)
         end
         local w, h = 360, 120
         local x, y = (W - w) / 2, (H - h) / 2
-        love.graphics.setColor(0.93, 0.95, 0.97, c)
+        love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], c)
         love.graphics.rectangle("fill", 0, 0, W, H)
         if session.world then return end
         card(x, y, w, h, c, 18)
@@ -842,7 +842,7 @@ function Hud:drawOverlay(session)
 
     local o = self.overlay
     if o > 0.01 and session.world and not session:paused() then
-        love.graphics.setColor(0.93, 0.95, 0.97, 0.6 * o)
+        love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.6 * o)
         love.graphics.rectangle("fill", 0, 0, W, H)
         local w, h = 340, 96
         local x = (W - w) / 2

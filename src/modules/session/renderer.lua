@@ -11,19 +11,21 @@ local Renderer = {}
 
 local cos, sin = math.cos, math.sin
 
+local T = require("src.ui.theme").colors
+
 local COLORS = {
-    background = { 0.93, 0.95, 0.97 },
-    floor = { 0.8, 0.82, 0.85 },
-    grid = { 0.66, 0.69, 0.74, 0.3 },
-    wallTop = { 0.98, 0.985, 0.99 },
-    wallSide = { 0.82, 0.86, 0.9 },
-    wallShadow = { 0.35, 0.4, 0.48, 0.14 },
+    background = T.background,
+    floor = T.floor,
+    grid = T.grid,
+    wallTop = T.wallTop,
+    wallSide = T.wallSide,
+    wallShadow = T.wallShadow,
     hud = { 0.13, 0.14, 0.16 },
     laser = { 0.88, 0.14, 0.12 },
     opponent = { 0.88, 0.14, 0.12 },
     muted = { 0.13, 0.14, 0.16, 0.55 },
-    fog = { 0.4, 0.44, 0.5, 0.5 },
-    pad = { 0.13, 0.14, 0.16, 0.12 }
+    fog = T.fog,
+    pad = T.pad
 }
 
 local WALL = {
@@ -41,10 +43,10 @@ local trails = {}
 local font = Kit.font
 
 local STYLES = {
-    wall = { top = { 0.98, 0.985, 0.99 }, side = { 0.82, 0.86, 0.9 }, height = 70 },
-    door = { top = { 0.84, 0.86, 0.9 }, side = { 0.66, 0.7, 0.76 }, height = 70, stripe = true },
-    glass = { top = { 0.78, 0.9, 0.98, 0.45 }, side = { 0.62, 0.8, 0.95, 0.3 }, height = 70, edge = true },
-    cover = { top = { 0.93, 0.94, 0.96 }, side = { 0.7, 0.74, 0.8 }, height = 24 }
+    wall = { top = T.wallTop, side = T.wallSide, height = 70 },
+    door = { top = T.doorTop, side = T.doorSide, height = 70, stripe = true },
+    glass = { top = T.glassTop, side = T.glassSide, height = 70, edge = true },
+    cover = { top = T.coverTop, side = T.coverSide, height = 24 }
 }
 
 local function shadow(rect, ox, oy)
@@ -77,11 +79,11 @@ local function drawFloor(arena)
     for y = 0, arena.height, 80 do lg.line(0, y, arena.width, y) end
     local ox, oy = -cos(Character.LIGHT) * 18, -sin(Character.LIGHT) * 18
     for _, pit in ipairs(arena.pits or {}) do
-        lg.setColor(0.36, 0.4, 0.46)
+        lg.setColor(T.pitRim)
         lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
-        lg.setColor(0.2, 0.23, 0.28)
+        lg.setColor(T.pitDeep)
         lg.rectangle("fill", pit.x + 8, pit.y + 8, pit.w - 16, pit.h - 16)
-        lg.setColor(1, 1, 1, 0.5)
+        lg.setColor(T.pitEdge)
         lg.setLineWidth(2)
         lg.rectangle("line", pit.x, pit.y, pit.w, pit.h)
         lg.setLineWidth(1)
@@ -195,9 +197,9 @@ end
 
 local function drawHealth(x, y)
     local lg = love.graphics
-    lg.setColor(0.05, 0.07, 0.1, 0.15)
+    lg.setColor(T.shadow[1], T.shadow[2], T.shadow[3], 0.15)
     lg.rectangle("fill", x - 9, y - 7, 18, 18, 4, 4)
-    lg.setColor(1, 1, 1, 1)
+    lg.setColor(T.surface)
     lg.rectangle("fill", x - 9, y - 9, 18, 18, 4, 4)
     Kit.color(Kit.RED, 1)
     lg.rectangle("fill", x - 2.5, y - 6, 5, 12, 1, 1)
@@ -299,16 +301,16 @@ local function drawItems(world)
         local kind = Weapons.unpack(item.k)
         if kind then
             if item.f == 0 then
-                lg.setColor(1, 1, 1, 0.35 + 0.35 * pulse)
+                lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.35 + 0.35 * pulse)
                 lg.circle("fill", item.x, item.y, 16)
             end
             Character.drawWeapon(kind, item.x, item.y, item.a or 0)
         elseif item.k == -1 then
-            lg.setColor(1, 1, 1, 0.3 + 0.3 * pulse)
+            lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.3 + 0.3 * pulse)
             lg.circle("fill", item.x, item.y, 15)
             drawHealth(item.x, item.y)
         elseif item.k == 0 then
-            lg.setColor(1, 1, 1, 0.3 + 0.3 * pulse)
+            lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.3 + 0.3 * pulse)
             lg.circle("fill", item.x, item.y, 13)
             Character.drawAmmo(item.x, item.y, item.a or 0)
         end
@@ -378,7 +380,8 @@ end
 function Renderer.selfPalette()
     local settings = GM and GM.Menu and GM.Menu.settings
     local body = settings and require("src.config.profile").bodies[settings.body]
-    return body and { body = body.color } or Character.PALETTES.self
+    local Theme = require("src.ui.theme")
+    return { body = Theme.lifted(body and body.color or Character.PALETTES.self.body) }
 end
 
 --- @param session table

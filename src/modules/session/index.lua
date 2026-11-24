@@ -37,9 +37,10 @@ local SNAPSHOTS = 32
 local CORRECTION_DECAY = 18
 local pi = math.pi
 
+local Theme = require("src.ui.theme")
 local SELF_COLOR = { 0.24, 0.25, 0.28 }
 local OPPONENT_COLOR = { 0.88, 0.14, 0.12 }
-local TRACER_SELF = { 0.15, 0.15, 0.17 }
+local TRACER_SELF = Theme.colors.tracerSelf
 local TRACER_OPPONENT = { 0.88, 0.14, 0.12 }
 
 local function lerpAngle(a, b, t)
@@ -329,7 +330,7 @@ function GM.Session:onKill(data)
     local victim = data.v
     if victim == world.slot then
         sound("death")
-        self.effects:shatter(world.me.x, world.me.y, SELF_COLOR)
+        self.effects:shatter(world.me.x, world.me.y, Theme.lifted(SELF_COLOR))
         self:shake(Feel.shake.death)
         self:freeze(Feel.hitstop.death)
     else

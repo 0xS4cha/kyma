@@ -1,3 +1,5 @@
+local T = require("src.ui.theme").colors
+
 local Effects = {}
 Effects.__index = Effects
 
@@ -198,7 +200,7 @@ function Effects:drawWorld()
         local age = now - tracer.time
         local c = tracer.color
         local smoke = 1 - age / tracer.trail
-        lg.setColor(0.45, 0.48, 0.53, 0.35 * smoke * smoke)
+        lg.setColor(T.smoke[1], T.smoke[2], T.smoke[3], 0.35 * smoke * smoke)
         lg.setLineWidth(3 + 4 * (1 - smoke))
         lg.line(tracer.x1, tracer.y1, tracer.x2, tracer.y2)
         if age < TRACER_LIFE then
@@ -219,9 +221,9 @@ function Effects:drawImpacts()
     local now = love.timer.getTime()
     for _, impact in ipairs(self.impacts) do
         local fade = math.min(1, (IMPACT_LIFE - (now - impact.time)) / 2)
-        lg.setColor(0.18, 0.2, 0.24, 0.75 * fade)
+        lg.setColor(T.impactRim[1], T.impactRim[2], T.impactRim[3], 0.75 * fade)
         lg.polygon("fill", impact.points)
-        lg.setColor(0.05, 0.06, 0.08, 0.9 * fade)
+        lg.setColor(T.impactHole[1], T.impactHole[2], T.impactHole[3], 0.9 * fade)
         lg.circle("fill", impact.x, impact.y, 1.3)
     end
     for _, d in ipairs(self.dust) do

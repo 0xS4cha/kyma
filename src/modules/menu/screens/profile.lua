@@ -71,7 +71,7 @@ function Screen.draw(menu, elements, p)
             local hot = Kit.ease("swatch:" .. element.id, menu.focus == element.id or selected)
             local c = element.swatch.color
             local lg = love.graphics
-            lg.setColor(0.05, 0.07, 0.1, 0.12 * e)
+            lg.setColor(Kit.SHADOW[1], Kit.SHADOW[2], Kit.SHADOW[3], 0.12 * e)
             lg.circle("fill", element.x + element.w / 2, element.y + element.h / 2 + 2, element.w / 2)
             lg.setColor(c[1], c[2], c[3], e)
             lg.circle("fill", element.x + element.w / 2, element.y + element.h / 2, element.w / 2 - 2)
@@ -99,7 +99,7 @@ function Screen.draw(menu, elements, p)
     Character.draw({
         slot = 777, x = 0, y = 0, angle = -math.pi / 2 + math.sin(t * 0.8) * 0.9, vx = 0, vy = 0,
         weapon = "rifle", look = { h = s.head, a = s.accent }
-    }, { body = Profile.bodies[s.body].color }, { alpha = a, phase = 0 })
+    }, { body = require("src.ui.theme").lifted(Profile.bodies[s.body].color) }, { alpha = a, phase = 0 })
     lg.pop()
     Kit.text(s.name ~= "" and s.name or "Player", 22, pv.x, pv.y + 24, Kit.INK, a, "center", pv.w)
     Kit.text(Profile.bodies[s.body].name .. " body, " .. Profile.accents[s.accent].name:lower() .. " accent, " .. Profile.heads[s.head]:lower() .. " head",

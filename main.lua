@@ -55,6 +55,7 @@ function love.load(args)
     parser:add_argument("mode", { default = nil, type = "value" })
     parser:add_argument("map", { default = nil, type = "value" })
     parser:add_argument("watch", { default = false, type = "boolean" })
+    parser:add_argument("theme", { default = nil, type = "value" })
     flags = parser:parse(args)
     GM.Flags = flags
 

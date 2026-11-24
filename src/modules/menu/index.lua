@@ -25,6 +25,9 @@ local Screens = {
 function GM.Menu:Initialize()
     self.settings = Settings.load()
     local flags = GM.Flags or {}
+    if flags.theme then
+        self.settings.theme = flags.theme == "dark" and 2 or 1
+    end
     Settings.apply(self.settings, not flags.frames)
     self.background = Background()
     self.screen = "root"
