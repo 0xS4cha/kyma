@@ -285,6 +285,7 @@ function GM.Menu:Draw()
 end
 
 function GM.Menu:Think(dt)
+    self.consumed = nil
     if self.wipe then
         self:updateWipe()
     end
@@ -344,6 +345,10 @@ function GM.Menu:TextInput(text)
 end
 
 function GM.Menu:KeyPressed(key, scancode)
+    if self.consumed == key then
+        self.consumed = nil
+        return
+    end
     if not self:active() or self.wipe then return end
     local capture = Screens[self.screen].capture
     if capture and capture(self, key, scancode) then return end
