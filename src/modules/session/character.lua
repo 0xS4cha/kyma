@@ -1,5 +1,6 @@
 local Config = require("src.config.game")
 local Feel = require("src.config.feel")
+local Loadout = require("src.config.loadout")
 
 local Character = {}
 
@@ -191,14 +192,52 @@ local function drawFeet(c, phase, p, speed)
     end
 end
 
-local function drawGun(gun, angle)
+local TAPE = { 0.78, 0.74, 0.6 }
+local POUCH = { 0.32, 0.34, 0.3 }
+local BRASS = { 0.72, 0.6, 0.32 }
+
+local function drawMod(gun, mod, angle)
+    local b, m = gun.barrel, gun.mag
+    if mod == "steady" then
+        segment(GUN, b[2] - 0.5, LINE, b[2] + 2.6, LINE, b[3] * 1.9, b[3] * 1.9, angle)
+        local gx = gun.left[1] + 1
+        segment(GUN, gx, LINE + 1.2, gx + 0.6, LINE + 5.8, 2.2, 1.9, angle)
+    elseif mod == "pouch" then
+        local top = math.huge
+        for _, point in ipairs(gun.body) do top = math.min(top, point[2]) end
+        local px = gun.scope and gun.scope[1] - 4.4 or gun.center - 2
+        local py = top - 1.5
+        facets(POUCH, { { px + 4, py - 1.8 }, { px + 4, py + 1.8 }, { px - 4, py + 1.8 }, { px - 4, py - 1.8 } }, px, py, 0.6, angle)
+        for k = -1, 1 do
+            segment(BRASS, px + k * 2.4, py - 1.6, px + k * 2.4, py - 3.4, 1.3, 1, angle)
+        end
+    end
+end
+
+local function drawMag(m, mod, angle)
+    if mod == "extended" then
+        local dx, dy = m[3] - m[1], m[4] - m[2]
+        segment(GUN, m[1], m[2], m[1] + dx * 1.9, m[2] + dy * 1.9, m[5], m[6] * 1.1, angle)
+        return
+    end
+    segment(GUN, m[1], m[2], m[3], m[4], m[5], m[6], angle)
+    if mod == "hands" then
+        local off = m[5] + 0.4
+        segment(GUN, m[1] - off, m[2] + 0.6, m[3] - off, m[4] + 0.6, m[5], m[6], angle)
+        local tx, ty = (m[1] + m[3]) / 2 - off / 2, (m[2] + m[4]) / 2 + 0.3
+        segment(TAPE, tx - off / 2 - m[5] * 0.6, ty, tx + off / 2 + m[5] * 0.6, ty, 1.6, 1.6, angle)
+    end
+end
+
+local function drawGun(gun, angle, mod)
     local b, m = gun.barrel, gun.mag
     facets(GUN, gun.body, gun.center, LINE, 0.8, angle)
     segment(GUN, b[1], LINE, b[2], LINE, b[3], b[4], angle)
-    segment(GUN, m[1], m[2], m[3], m[4], m[5], m[6], angle)
+    drawMag(m, mod, angle)
     if gun.scope then
         segment(SCOPE, gun.scope[1], LINE - 1.6, gun.scope[2], LINE - 1.6, 2.6, 2.6, angle)
     end
+    if mod then drawMod(gun, mod, angle) end
 end
 
 local function drawArms(c, gun, angle, punch)
@@ -221,6 +260,13 @@ local function drawArms(c, gun, angle, punch)
     segment(c, elbow, -7.2, l[1], l[2], 4.4, 3.6, angle)
     gem(c, r[1] + 0.2, r[2] - 0.6, 2.4, 2.2, 5, 0.7, angle)
     gem(c, l[1] + 0.3, l[2] + 0.4, 2.4, 2.2, 5, 0.7, angle)
+end
+
+--- @param index number?
+--- @return string?
+function Character.modId(index)
+    local mod = index and Loadout.mods[index]
+    return mod and mod.id ~= "none" and mod.id or nil
 end
 
 function Character.reset()
@@ -279,7 +325,8 @@ end
 --- @param y number
 --- @param angle number
 --- @param alpha number?
-function Character.drawWeapon(kind, x, y, angle, alpha)
+--- @param mod string?
+function Character.drawWeapon(kind, x, y, angle, alpha, mod)
     local gun = GUNS[kind]
     if not gun then return end
     local lg = love.graphics
@@ -288,7 +335,7 @@ function Character.drawWeapon(kind, x, y, angle, alpha)
     lg.translate(x, y)
     lg.rotate(angle)
     lg.translate(-gun.center, -LINE)
-    drawGun(gun, angle)
+    drawGun(gun, angle, mod)
     lg.pop()
     opacity = 1
 end
@@ -343,7 +390,7 @@ function Character.draw(p, palette, ghost)
     lg.push()
     lg.translate(-kick * 0.75, 0)
     lg.rotate(-kick * 0.012)
-    if gun then drawGun(gun, angle) end
+    if gun then drawGun(gun, angle, Character.modId(p.mod)) end
     drawArms(c, gun, angle, p.punch)
     lg.pop()
     lg.setColor(c[1] * 0.45, c[2] * 0.45, c[3] * 0.45, 0.55 * opacity)
