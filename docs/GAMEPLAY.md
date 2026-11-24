@@ -111,6 +111,7 @@ Every action has its own synthesized sound: one shot per weapon, reloads and dry
 
 - **Play**: pick a mode and one of the ten maps (each tile shows its layout, the panel below its doors, glass and loot), then practice against bots (easy, medium or hard: they see, turn and react like players, with more delay and less precision at lower levels; they fill every free slot) or host the game on your network.
 - **Multiplayer**: games hosted on your network show up by themselves with their mode and map, click one to join; or type the address of a dedicated server.
+- **Profile**: your name, the color of your body (only you see it, so enemies stay red and allies blue for everyone), an accent color and a head shape (hex, round, crest or visor) that everyone sees, with a live preview.
 - **How to play**: the mechanics and weapons on one page. **Settings**: mouse sensitivity, camera distance, fullscreen, VSync, the live duel behind the menu and the controls reminder, saved automatically.
 - Behind the menu two bots fight a live duel. Navigate with the mouse or with the arrows, `Enter` and `Escape`.
 - In game, `Escape` opens the pause menu: resume, settings, leave the duel or quit. The duel keeps running while it is open.

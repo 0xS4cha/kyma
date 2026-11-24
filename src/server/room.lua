@@ -75,11 +75,14 @@ function Room:Info()
     local players = {}
     for _, member in ipairs(self.members) do
         local p = self.world.players[member.slot]
-        players[#players + 1] = { id = member.id, slot = member.slot, name = member.name, team = p and p.team }
+        players[#players + 1] = { id = member.id, slot = member.slot, name = member.name, team = p and p.team, look = member.look }
     end
     for _, bot in ipairs(self.bots) do
         local p = self.world.players[bot.slot]
-        players[#players + 1] = { id = "bot" .. bot.slot, slot = bot.slot, name = bot.label, bot = true, team = p and p.team }
+        players[#players + 1] = {
+            id = "bot" .. bot.slot, slot = bot.slot, name = bot.label, bot = true, team = p and p.team,
+            look = { h = bot.slot % 4 + 1, a = bot.slot % 8 + 1 }
+        }
     end
     table.sort(players, function(a, b) return a.slot < b.slot end)
     return {
