@@ -55,6 +55,7 @@ local CONFIG = {
         }
     },
     matchEndTicks = 60 * 8,
+    countdownTicks = 60 * 5,
 
     bots = {
         order = { "easy", "medium", "hard" },

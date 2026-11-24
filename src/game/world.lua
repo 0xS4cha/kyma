@@ -11,7 +11,7 @@ World.__index = World
 
 --- @param arena table?
 --- @return table
-function World.new(arena, mode)
+function World.new(arena, mode, warmup)
     mode = Config.modes[mode or ""] and mode or "duel"
     local world = setmetatable({
         arena = arena or Arena.new(),
@@ -22,7 +22,11 @@ function World.new(arena, mode)
         players = {},
         inputs = {},
         teamScore = { 0, 0 },
-        over = nil
+        over = nil,
+        phase = warmup and "warmup" or "playing",
+        warmup = warmup == true,
+        ready = {},
+        countdown = 0
     }, World)
     Combat.setup(world)
     return world
@@ -96,8 +100,50 @@ function World:finish(winner, team)
     self.events[#self.events + 1] = { kind = "over", w = winner, tm = team and 1 or 0 }
 end
 
-function World:restart()
+--- @param slot number
+--- @param ready boolean
+function World:setReady(slot, ready)
+    if self.players[slot] then
+        self.ready[slot] = ready == true or nil
+    end
+end
+
+function World:lobby()
+    if self.phase == "playing" then return end
+    local count, humans, ready = 0, 0, 0
+    for slot, p in pairs(self.players) do
+        count = count + 1
+        if not p.bot then
+            humans = humans + 1
+            if self.ready[slot] then ready = ready + 1 end
+        end
+    end
+    local go = count >= 2 and humans > 0 and ready == humans
+    if self.phase == "warmup" and go then
+        self.phase = "countdown"
+        self.countdown = Config.countdownTicks
+        self.events[#self.events + 1] = { kind = "countdown" }
+    elseif self.phase == "countdown" then
+        if not go then
+            self.phase = "warmup"
+            self.events[#self.events + 1] = { kind = "cancel" }
+        else
+            self.countdown = self.countdown - 1
+            if self.countdown <= 0 then
+                self:restart("playing")
+                self.events[#self.events + 1] = { kind = "start" }
+            end
+        end
+    end
+end
+
+--- @param phase string?
+function World:restart(phase)
     self.over = nil
+    if phase then
+        self.phase = phase
+        if phase == "warmup" then self.ready = {} end
+    end
     self.teamScore = { 0, 0 }
     for slot in pairs(self.score) do self.score[slot] = 0 end
     for k = #self.items, 1, -1 do
@@ -119,6 +165,7 @@ function World:remove(slot)
     self.players[slot] = nil
     self.inputs[slot] = nil
     self.score[slot] = nil
+    self.ready[slot] = nil
 end
 
 --- @param player table
@@ -177,9 +224,10 @@ function World:step()
     if self.over then
         self.over.timer = self.over.timer - 1
         if self.over.timer <= 0 then
-            self:restart()
+            self:restart(self.warmup and "warmup" or nil)
         end
     end
+    self:lobby()
 end
 
 --- @param player table
@@ -317,9 +365,13 @@ function World:snapshot(viewer)
 
     local doors, glass = self.arena:state()
     local over = self.over and { w = self.over.winner, tm = self.over.team and 1 or 0, c = self.over.timer } or nil
+    local readyList = {}
+    for slot in pairs(self.ready) do readyList[#readyList + 1] = slot end
+    table.sort(readyList)
     return {
         players = players, items = items, score = score, aims = aims, doors = doors, glass = glass,
-        teams = self.rules.teams and self.teamScore or nil, over = over
+        teams = self.rules.teams and self.teamScore or nil, over = over,
+        phase = { p = self.phase, c = self.countdown }, ready = readyList
     }
 end
 
