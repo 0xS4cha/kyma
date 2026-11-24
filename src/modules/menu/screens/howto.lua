@@ -24,7 +24,7 @@ local CARDS = {
             { "Pistol", "3 hits, one shot per click" },
             { "Rifle", "Automatic" },
             { "Shotgun", "Deadly up close" },
-            { "Sniper", "One shot, its laser shows" },
+            { "Sniper", "One shot, the only laser others see" },
             { "Silencer", "Silent, no echo" },
             { "LMG", "60 rounds, slows you down" }
         }
