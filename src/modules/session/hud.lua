@@ -2,6 +2,7 @@ local GM = require("src.core.index")
 local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Weapons = require("src.game.weapons")
+local Keys = require("src.input.keybinds")
 
 local Hud = {}
 Hud.__index = Hud
@@ -152,7 +153,7 @@ function Hud:update(session, dt)
     self.prompt = approach(self.prompt, promptText and 1 or 0, 14, dt)
 
     self.death = approach(self.death, me.dead > 0 and 1 or 0, 8, dt)
-    local holding = love.keyboard and love.keyboard.isScancodeDown("tab") and not session:paused() and not session.chat.open
+    local holding = love.keyboard and Keys.down("scoreboard") and not session:paused() and not session.chat.open
     self.board = approach(self.board, holding and 1 or 0, 14, dt)
     if world.rules.teams then
         for team = 1, 2 do
@@ -185,7 +186,7 @@ function Hud:drawStatus(session)
 
     local hx = MARGIN
     local hy = MARGIN + 46
-    hint("H", "Controls", hx, hy, 0.75 * (1 - self.help), 14, { INK[1], INK[2], INK[3], 0.6 })
+    hint(Keys.label("help"), "Controls", hx, hy, 0.75 * (1 - self.help), 14, { INK[1], INK[2], INK[3], 0.6 })
 
     local ping = mp:Ping()
     if ping and not mp.isLocal then
@@ -327,8 +328,9 @@ function Hud:drawLobby(session)
     text("Warmup", 20, x + 20, y + 16, INK, 1)
     text("Kills don't count yet", 12, x + w - 20, y + 22, INK, 0.45, "right")
     local mine = world.ready[world.slot]
-    local label = mine and "Ready - press F to cancel" or "Press F when you are ready"
-    hint("F", label, x + 20, y + 52, mine and 0.6 or (0.7 + 0.3 * sin(now * 4)), 14, mine and GREEN or INK)
+    local readyKey = Keys.label("ready")
+    local label = mine and ("Ready - press " .. readyKey .. " to cancel") or ("Press " .. readyKey .. " when you are ready")
+    hint(readyKey, label, x + 20, y + 52, mine and 0.6 or (0.7 + 0.3 * sin(now * 4)), 14, mine and GREEN or INK)
     for k, entry in ipairs(players) do
         local ry = y + 92 + (k - 1) * 26
         local ready = entry.bot or world.ready[entry.slot]
@@ -487,7 +489,8 @@ function Hud:drawVitals(session)
     bar(x + 64, y + 78, w - 64 - 18 - 74, 8, self.charge, ready and INK or { INK[1], INK[2], INK[3], 0.35 }, 1)
     lg.pop()
     if ready then
-        keycap("Space", x + w - 18 - 64, y + 70, 1, 12)
+        local dashKey = Keys.label("dash")
+        keycap(dashKey, x + w - 18 - (font(12):getWidth(dashKey) + 14), y + 70, 1, 12)
     else
         text(string.format("%.1fs", (1 - self.charge) * Config.dash.cooldown / Config.tickRate), 13, x + w - 18, y + 70, INK, 0.45, "right")
     end
@@ -565,12 +568,12 @@ function Hud:drawWeapon(session)
         ring(right - 22, y + 46, 18, progress, 4, INK, 1)
         text("Reloading", 13, right - 50, y + 14, INK, 0.6, "right")
     elseif empty and me.reserve == 0 then
-        local iw = measureHint("G", "Throw it", 14)
-        hint("G", "Throw it", right - iw, y + 38, 1, 14, RED)
+        local iw = measureHint(Keys.label("throw"), "Throw it", 14)
+        hint(Keys.label("throw"), "Throw it", right - iw, y + 38, 1, 14, RED)
     elseif me.ammo <= def.magazine * 0.25 and me.reserve > 0 then
-        local iw = measureHint("R", "Reload", 14)
+        local iw = measureHint(Keys.label("reload"), "Reload", 14)
         local blink = 0.55 + 0.45 * sin(now * 6)
-        hint("R", "Reload", right - iw, y + 38, blink, 14)
+        hint(Keys.label("reload"), "Reload", right - iw, y + 38, blink, 14)
     end
 end
 
@@ -579,11 +582,11 @@ function Hud:drawPrompt()
     local W, H = love.graphics.getDimensions()
     local t = easeOutBack(self.prompt)
     local label = self.promptText
-    local w = measureHint("E", label, 16) + 32
+    local w = measureHint(Keys.label("pickup"), label, 16) + 32
     local x = (W - w) / 2
     local y = H - MARGIN - 112 - 64 + (1 - t) * 16
     card(x, y, w, 44, self.prompt, 22)
-    hint("E", label, x + 16, y + 9, self.prompt, 16)
+    hint(Keys.label("pickup"), label, x + 16, y + 9, self.prompt, 16)
 end
 
 function Hud:drawFeed()
@@ -705,7 +708,7 @@ function Hud:drawKillcam(session, cam)
     card(x, y, w, 96, 1, 16)
     dot(x + 24, y + 26, 5, RED, love.timer.getTime() % 1 < 0.6 and 1 or 0.3)
     text("Killcam", 13, x + 36, y + 17, RED, 1)
-    text("Space to skip", 12, x + w - 20, y + 18, INK, 0.45, "right")
+    text(Keys.label("dash") .. " to skip", 12, x + w - 20, y + 18, INK, 0.45, "right")
     local nw = text(name, 22, x + 20, y + 40, RED, 1)
     text("with " .. weapon, 15, x + 30 + nw, y + 46, INK, 0.6)
     bar(x + 20, y + 80, w - 40, 4, cam.progress, RED, 0.8)
@@ -739,20 +742,24 @@ function Hud:drawHelp()
     if self.help < 0.01 then return end
     local W, H = love.graphics.getDimensions()
     local a = self.help
+    local function both(id)
+        local keys = Keys.keys(id)
+        local first = Keys.name(keys[1] or keys[2])
+        return keys[1] and keys[2] and (first .. " / " .. Keys.name(keys[2])) or first
+    end
     local rows = {
-        { "W A S D", "Move" },
+        { Keys.label("forward") .. " " .. Keys.label("left") .. " " .. Keys.label("back") .. " " .. Keys.label("right"), "Move" },
         { "Mouse", "Aim and turn" },
-        { "Left click", "Fire" },
-        { "Space", "Dash, dodges bullets" },
-        { "Space", "While running: slide, you can shoot" },
-        { "C", "Walk quietly" },
-        { "R", "Reload" },
-        { "G", "Throw your weapon" },
-        { "E", "Swap with a weapon on the floor" },
-        { "Tab", "Hold for the scoreboard" },
-        { "F", "Ready up during the warmup" },
-        { "Enter", "Chat, Tab for your team" },
-        { "H", "Show or hide controls" }
+        { "Left click", "Fire, or strike when unarmed" },
+        { both("dash"), "Dash, slide while running" },
+        { both("quiet"), "Walk quietly" },
+        { Keys.label("reload"), "Reload" },
+        { Keys.label("throw"), "Throw your weapon" },
+        { Keys.label("pickup"), "Swap with a weapon on the floor" },
+        { Keys.label("scoreboard"), "Hold for the scoreboard" },
+        { Keys.label("ready"), "Ready up during the warmup" },
+        { Keys.label("chat"), "Chat, Tab for your team" },
+        { Keys.label("help"), "Show or hide controls" }
     }
     local w, rowH = 360, 34
     local h = 64 + #rows * rowH

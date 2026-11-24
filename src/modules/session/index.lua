@@ -10,6 +10,7 @@ local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local Hud = require("src.modules.session.hud")
 local Text = require("src.core.text")
+local Keys = require("src.input.keybinds")
 local CHAT_LOG = 40
 
 local function sound(name, gain, pan)
@@ -211,15 +212,15 @@ function GM.Session:sample()
         world.requests.throw = world.sequence % 600 == 300
         fire = world.sequence % 20 < 2
     elseif not self:paused() and not self.chat.open then
-        local down = love.keyboard.isScancodeDown
-        if down("w") or down("up") then forward = forward + 1 end
-        if down("s") or down("down") then forward = forward - 1 end
-        if down("d") then strafe = strafe + 1 end
-        if down("a") then strafe = strafe - 1 end
-        if down("left") then world.aim = world.aim - Config.turnSpeed * DT end
-        if down("right") then world.aim = world.aim + Config.turnSpeed * DT end
+        local down = Keys.down
+        if down("forward") then forward = forward + 1 end
+        if down("back") then forward = forward - 1 end
+        if down("right") then strafe = strafe + 1 end
+        if down("left") then strafe = strafe - 1 end
+        if down("turnLeft") then world.aim = world.aim - Config.turnSpeed * DT end
+        if down("turnRight") then world.aim = world.aim + Config.turnSpeed * DT end
         fire = self.captured and love.mouse.isDown(1)
-        quiet = down("c") or down("lctrl")
+        quiet = down("quiet")
     end
     local requests = world.requests
     world.requests = {}
@@ -778,7 +779,7 @@ function GM.Session:KeyPressed(key, scancode)
         end
         return
     end
-    if (key == "return" or key == "kpenter") and GM.Multiplayer.state == "online" then
+    if Keys.is("chat", scancode) and GM.Multiplayer.state == "online" then
         self:openChat()
         return
     end
@@ -786,21 +787,21 @@ function GM.Session:KeyPressed(key, scancode)
         if GM.Menu then GM.Menu:Pause() end
         return
     end
-    if scancode == "space" and self.world and self.world.killcam and self:killcam() then
+    if Keys.is("dash", scancode) and self.world and self.world.killcam and self:killcam() then
         self.world.killcam.skipped = true
         return
     end
-    if scancode == "space" or scancode == "lshift" or scancode == "rshift" then
+    if Keys.is("dash", scancode) then
         self:request("dash")
-    elseif scancode == "r" then
+    elseif Keys.is("reload", scancode) then
         self:request("reload")
-    elseif scancode == "g" then
+    elseif Keys.is("throw", scancode) then
         self:request("throw")
-    elseif scancode == "e" then
+    elseif Keys.is("pickup", scancode) then
         self:request("pickup")
-    elseif scancode == "h" then
+    elseif Keys.is("help", scancode) then
         self.hud:toggleHelp()
-    elseif scancode == "f" then
+    elseif Keys.is("ready", scancode) then
         self:toggleReady()
     end
 end

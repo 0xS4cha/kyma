@@ -6,6 +6,8 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 
 ## Controls
 
+Every key below can be changed in Settings > Key bindings (two keys per action, Backspace clears one, Restore defaults resets them all). Keys are stored by their position on the keyboard, so the defaults work on QWERTY and AZERTY alike, and every hint in the game shows your own keys.
+
 | Action | Keys |
 | --- | --- |
 | Move forward / back | `W` / `S` (`Z` / `S` on AZERTY), or arrow up / down |
