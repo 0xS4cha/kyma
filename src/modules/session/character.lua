@@ -69,10 +69,41 @@ local TORSO = {
     { -6.2, 0 }, { -5.5, 7 }, { -2.5, 11.8 }, { 1.5, 11.5 }, { 4.2, 6.5 }
 }
 
+local Profile = require("src.config.profile")
+
 local HEAD = {
     { 5.4, 0 }, { 3, -3.6 }, { -1.2, -4.6 }, { -4.4, -2.2 },
     { -4.4, 2.2 }, { -1.2, 4.6 }, { 3, 3.6 }
 }
+
+local ROUND = {}
+for k = 0, 9 do
+    local a = k / 10 * 2 * pi
+    ROUND[#ROUND + 1] = { 0.6 + cos(a) * 4.9, sin(a) * 4.9 }
+end
+
+local VISOR = {
+    { 4.6, -3.4 }, { 4.6, 3.4 }, { 1, 4.8 }, { -3.8, 3.6 }, { -4.6, 0 }, { -3.8, -3.6 }, { 1, -4.8 }
+}
+
+local function drawHead(c, look, angle)
+    local head = look and look.h or 1
+    local accent = Profile.accents[look and look.a or 1].color
+    local bright = { c[1] * 1.12, c[2] * 1.12, c[3] * 1.12 }
+    if head == 2 then
+        facets(bright, ROUND, 0.6, 0, 1, angle)
+        segment(accent, -3.6, 0, 4.2, 0, 1.6, 1.6, angle)
+    elseif head == 3 then
+        facets(bright, HEAD, 0.8, 0, 1, angle)
+        segment(accent, -4.8, 0, 4.4, 0, 2.6, 1.2, angle)
+    elseif head == 4 then
+        facets(bright, VISOR, 0.4, 0, 1, angle)
+        segment(accent, 3.4, -3.6, 3.4, 3.6, 2, 2, angle)
+    else
+        facets(bright, HEAD, 0.8, 0, 1, angle)
+        segment(accent, -1.4, -4.2, -1.4, 4.2, 1.4, 1.4, angle)
+    end
+end
 
 local GUNS = {
     rifle = {
@@ -272,11 +303,16 @@ function Character.draw(p, palette, ghost)
     local angle = p.angle + sway
     local gun = GUNS[p.weapon or ""]
     facets(c, TORSO, -0.5, 0, 0.8, angle)
+    if p.look then
+        local accent = Profile.accents[p.look.a or 1].color
+        gem(accent, -0.5, 11, 2.2, 1.4, 4, 0.5, angle)
+        gem(accent, -0.5, -11, 2.2, 1.4, 4, 0.5, angle)
+    end
     if gun then drawGun(gun, angle) end
     drawArms(c, gun, angle, p.punch)
     lg.setColor(c[1] * 0.45, c[2] * 0.45, c[3] * 0.45, 0.55 * opacity)
     lg.ellipse("fill", 0.2, 0, 6.6, 6.2)
-    facets({ c[1] * 1.12, c[2] * 1.12, c[3] * 1.12 }, HEAD, 0.8, 0, 1, angle)
+    drawHead(c, p.look, angle)
     lg.pop()
     if (p.stun or 0) > 0 and not ghost then
         local now = love.timer.getTime()

@@ -2,6 +2,7 @@ local Class = require("src.core.class")
 local Server = require("src.server.server")
 local Room = require("src.server.room")
 local Config = require("src.net.config")
+local Profile = require("src.config.profile")
 
 local Host = Class()
 
@@ -71,6 +72,7 @@ function Host:bind()
         end
         local name = type(data.name) == "string" and data.name:gsub("[%c]", ""):sub(1, 24) or ""
         client.name = name ~= "" and name or "Player"
+        client.look = Profile.sanitize(data.look)
         client:Send("welcome", { id = client.id })
     end)
 

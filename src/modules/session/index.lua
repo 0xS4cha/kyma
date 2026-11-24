@@ -370,6 +370,15 @@ function GM.Session:onMelee(data)
 end
 
 --- @param slot number
+--- @return table?
+function GM.Session:lookOf(slot)
+    for _, player in ipairs(self.room and self.room.players or {}) do
+        if player.slot == slot then return player.look end
+    end
+    return nil
+end
+
+--- @param slot number
 --- @return number?
 function GM.Session:teamOf(slot)
     for _, player in ipairs(self.room and self.room.players or {}) do
@@ -531,6 +540,7 @@ function GM.Session:opponents()
                 dashing = (b.e or 0) > 0,
                 sliding = (b.j or 0) > 0,
                 team = b.t,
+                look = self:lookOf(slot),
                 spotted = b.sp == 1,
                 stun = b.st or 0,
                 punch = world.strikes and world.strikes[slot] and (love.timer.getTime() - world.strikes[slot]) / 0.14 or nil,
@@ -568,6 +578,7 @@ function GM.Session:localView()
         dashing = b.dash > 0,
         sliding = b.slide > 0,
         stun = b.stun,
+        look = GM.Menu and { h = GM.Menu.settings.head, a = GM.Menu.settings.accent } or nil,
         punch = not b.weapon and b.meleeCooldown > WeaponConfig.melee.cooldown - WeaponConfig.melee.strikeTicks
             and (WeaponConfig.melee.cooldown - b.meleeCooldown) / WeaponConfig.melee.strikeTicks or nil,
         weapon = b.weapon,

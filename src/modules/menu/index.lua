@@ -17,6 +17,7 @@ local Screens = {
     multiplayer = require("src.modules.menu.screens.multiplayer"),
     settings = require("src.modules.menu.screens.settings"),
     howto = require("src.modules.menu.screens.howto"),
+    profile = require("src.modules.menu.screens.profile"),
     pause = require("src.modules.menu.screens.pause")
 }
 

@@ -1,3 +1,4 @@
+local GM = require("src.core.index")
 local Config = require("src.config.game")
 local Character = require("src.modules.session.character")
 local Kit = require("src.ui.kit")
@@ -364,6 +365,13 @@ local function drawKillcam(session, cam)
     camera:clear()
 end
 
+--- @return table
+function Renderer.selfPalette()
+    local settings = GM and GM.Menu and GM.Menu.settings
+    local body = settings and require("src.config.profile").bodies[settings.body]
+    return body and { body = body.color } or Character.PALETTES.self
+end
+
 --- @param session table
 function Renderer.draw(session)
     local lg = love.graphics
@@ -391,7 +399,7 @@ function Renderer.draw(session)
         drawWalls(world.arena, camera)
         session.effects:drawImpacts()
         if me.dead == 0 then
-            drawPlayer(me, world.arena, Character.PALETTES.self)
+            drawPlayer(me, world.arena, Renderer.selfPalette())
         end
         camera:clear()
         for _, p in ipairs(opponents) do
