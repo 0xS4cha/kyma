@@ -125,6 +125,7 @@ function GM.Session:Stop()
     if not self.active then return end
     GM.Multiplayer:Leave()
     self.active = false
+    self.halted = nil
     self.world = nil
     self.room = nil
     self.status = "idle"
@@ -137,6 +138,27 @@ end
 --- @return boolean
 function GM.Session:paused()
     return GM.Menu ~= nil and GM.Menu.paused == true
+end
+
+--- @return boolean
+function GM.Session:canHold()
+    local room = self.room
+    if not room or not room.practice or not self.world or self.world.spectator then return false end
+    local humans = 0
+    for _, player in ipairs(room.players or {}) do
+        if not player.bot then humans = humans + 1 end
+    end
+    return humans == 1 and (room.watchers or 0) == 0
+end
+
+--- @param on boolean
+function GM.Session:hold(on)
+    if on and not self:canHold() then return end
+    if not on and not self.halted then return end
+    self.halted = on or nil
+    if self.world then self.world.accumulator = 0 end
+    GM.Multiplayer:Send("hold", { on = on })
+    GM.Multiplayer:Flush()
 end
 
 --- @param data table
@@ -785,11 +807,13 @@ function GM.Session:Think(dt)
         self.status = mp.error and "error" or (mp.state == "online" and "queued" or "connecting")
         return
     end
-    world.clock = world.clock + dt * NetConfig.tickRate
-    world.accumulator = math.min(world.accumulator + dt, DT * 8)
-    while world.accumulator >= DT do
-        world.accumulator = world.accumulator - DT
-        self:tick()
+    if not self.halted then
+        world.clock = world.clock + dt * NetConfig.tickRate
+        world.accumulator = math.min(world.accumulator + dt, DT * 8)
+        while world.accumulator >= DT do
+            world.accumulator = world.accumulator - DT
+            self:tick()
+        end
     end
     GM.Multiplayer:Flush()
 
@@ -890,7 +914,10 @@ function GM.Session:KeyPressed(key, scancode)
         return
     end
     if key == "escape" then
-        if GM.Menu then GM.Menu:Pause() end
+        if GM.Menu then
+            GM.Menu:Pause()
+            GM.Menu.consumed = key
+        end
         return
     end
     if self.world and self.world.spectator then

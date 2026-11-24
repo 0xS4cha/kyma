@@ -65,6 +65,7 @@ function GM.Menu:Pause()
     if self.paused or GM.State ~= "game" then return end
     self.paused = true
     GM.Session:capture(false)
+    GM.Session:hold(true)
     self:switch("pause", 1)
     self.previous = nil
 end
@@ -73,6 +74,7 @@ function GM.Menu:Resume()
     if not self.paused then return end
     self.paused = false
     self.focus, self.editing = nil, nil
+    GM.Session:hold(false)
     if GM.Session.world then
         GM.Session:capture(true)
     end
@@ -285,6 +287,7 @@ function GM.Menu:Draw()
 end
 
 function GM.Menu:Think(dt)
+    self.consumed = nil
     if self.wipe then
         self:updateWipe()
     end
@@ -344,6 +347,10 @@ function GM.Menu:TextInput(text)
 end
 
 function GM.Menu:KeyPressed(key, scancode)
+    if self.consumed == key then
+        self.consumed = nil
+        return
+    end
     if not self:active() or self.wipe then return end
     local capture = Screens[self.screen].capture
     if capture and capture(self, key, scancode) then return end

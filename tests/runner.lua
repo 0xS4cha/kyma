@@ -31,6 +31,7 @@ local SUITES = {
     "tests.laser_test",
     "tests.theme_test",
     "tests.vision_test",
+    "tests.pause_test",
     "tests.loadout_test"
 }
 

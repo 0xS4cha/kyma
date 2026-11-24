@@ -93,7 +93,7 @@ function Howto.draw(menu, elements, p)
 end
 
 function Howto.back(menu)
-    menu:switch("root", -1)
+    menu:switch(menu.paused and "pause" or "root", -1)
 end
 
 return Howto
