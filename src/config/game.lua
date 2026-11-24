@@ -45,10 +45,14 @@ local CONFIG = {
     },
 
     modes = {
-        order = { "duel", "ffa", "teams" },
+        order = { "duel", "ffa", "teams", "gungame" },
         duel = { name = "Duel", players = 2, scoreLimit = 10, teams = false, text = "One on one" },
         ffa = { name = "Free for all", players = 6, scoreLimit = 15, teams = false, text = "Everyone for themselves, up to 6" },
-        teams = { name = "Teams", players = 8, scoreLimit = 25, teams = true, text = "Two teams, up to 4 against 4" }
+        teams = { name = "Teams", players = 8, scoreLimit = 25, teams = true, text = "Two teams, up to 4 against 4" },
+        gungame = {
+            name = "Gun game", players = 6, scoreLimit = 7, teams = false, text = "Every kill gives you the next weapon",
+            ladder = { "pistol", "silencer", "shotgun", "rifle", "lmg", "sniper", "fists" }
+        }
     },
     matchEndTicks = 60 * 8,
 

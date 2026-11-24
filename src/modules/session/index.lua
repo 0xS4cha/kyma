@@ -49,6 +49,11 @@ function GM.Session:Initialize()
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
     mp:On("melee", function(data) self:onMelee(data) end)
+    mp:On("level", function(data)
+        if self.world and data.p == self.world.slot then
+            self.hud.levelAt = love.timer.getTime()
+        end
+    end)
 end
 
 --- @param options table { mode = "practice"|"host"|"local"|"connect", bot, address, name }

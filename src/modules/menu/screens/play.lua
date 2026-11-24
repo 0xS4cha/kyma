@@ -138,7 +138,8 @@ function Play.draw(menu, elements, p)
     Kit.text("Mode", 12, mode.x, mode.y - 20, Kit.INK, 0.5 * a)
     Kit.segments("mode", mode.x, mode.y, mode.w, mode.h, names(Config.modes.order, Config.modes), menu.settings.mode, a)
     local rules = Config.modes[Settings.gameMode(menu.settings)]
-    Kit.text(rules.text .. ", first to " .. rules.scoreLimit .. ".", 13, mode.x + mode.w + 18, mode.y + 11, Kit.INK, 0.55 * a)
+    local summary = rules.ladder and (rules.text .. ", win with your fists.") or (rules.text .. ", first to " .. rules.scoreLimit .. ".")
+    Common.paragraph(summary, 13, mode.x + mode.w + 18, mode.y + 2, l.left.w - mode.w - 18, Kit.INK, 0.55 * a)
 
     Kit.text("Map", 12, l.left.x, l.gridY - 20, Kit.INK, 0.5 * a)
     local k = 0
