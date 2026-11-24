@@ -911,7 +911,10 @@ function GM.Session:KeyPressed(key, scancode)
         return
     end
     if key == "escape" then
-        if GM.Menu then GM.Menu:Pause() end
+        if GM.Menu then
+            GM.Menu:Pause()
+            GM.Menu.consumed = key
+        end
         return
     end
     if self.world and self.world.spectator then
