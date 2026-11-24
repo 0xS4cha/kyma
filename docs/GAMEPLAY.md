@@ -122,6 +122,11 @@ Every shot kicks the gun back into the shooter's body, then it settles: the snip
 - A red arc around you points to where the last shots came from, and the screen edges flash red when you are hit.
 - Standing on a weapon shows the `E` prompt to swap it.
 
+## Loadout and match rules
+
+- **Loadout** (home screen): pick your weapon and one mod: Extended mag (+50% magazine), Fast hands (reload 35% faster), Steady aim (half the spread) or Ammo pouch (+50% spare ammo). The panel shows the weapon's damage, fire rate, accuracy, range, magazine and reload, with the mod's gains in green. The mod only works on that weapon: pick up another one and it's a normal weapon.
+- **Match rules** (the Rules line on the Play screen), for the games you start (practice and hosted games): weapons on the floor on or off (ammo and health stay), and what players start with: a pistol (the classic game), their own loadout, or the same set loadout for everyone, which you build like your own. You get it back every time you respawn. Gun game ignores these rules. Bots bring loadouts of their own.
+
 ## Dark mode
 
 Settings > Appearance switches between Light and Dark. Dark turns the whole game around: a dark floor and grey walls, darker fog, light text on dark cards in every menu and in the HUD. Enemies stay red and teammates blue; your own body is lightened so you still stand out on the floor. `--theme dark` starts in dark mode without saving it.

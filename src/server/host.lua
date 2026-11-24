@@ -50,7 +50,7 @@ function Host:matchmake(client, options)
             end
         end
         if not watched and practice then
-            watched = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, watch = true })
+            watched = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, watch = true, rules = options.rules })
             self.nextRoomId = self.nextRoomId + 1
             self.rooms[watched.id] = watched
         end
@@ -69,7 +69,7 @@ function Host:matchmake(client, options)
         end
     end
     if not best then
-        best = Room(self.nextRoomId, { bot = practice, mode = mode, map = map })
+        best = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, rules = options.rules })
         self.nextRoomId = self.nextRoomId + 1
         self.rooms[best.id] = best
         Logger:info("server", "Room created", best.id)
@@ -93,6 +93,7 @@ function Host:bind()
         local name = type(data.name) == "string" and data.name:gsub("[%c]", ""):sub(1, 24) or ""
         client.name = name ~= "" and name or "Player"
         client.look = Profile.sanitize(data.look)
+        client.loadout = require("src.config.loadout").sanitize(data.kit)
         client:Send("welcome", { id = client.id })
     end)
 

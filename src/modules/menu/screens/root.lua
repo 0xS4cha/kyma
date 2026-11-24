@@ -22,6 +22,7 @@ function Root.build(menu)
         { id = "play", label = "Play", sublabel = mode .. " on " .. map .. ", " .. level:lower() .. " bots, or host a game", primary = true, h = 78, press = function() menu:switch("play", 1) end },
         { id = "multiplayer", label = "Multiplayer", sublabel = "Join a duel on your network or a server", h = 62, press = function() menu:switch("multiplayer", 1) end },
         { id = "profile", label = "Profile", sublabel = "Name, colors and head", h = 58, press = function() menu:switch("profile", 1) end },
+        { id = "loadout", label = "Loadout", sublabel = "Your weapon and its mod", h = 58, press = function() menu.loadoutTarget = nil; menu:switch("loadout", 1) end },
         { id = "howto", label = "How to play", h = 50, press = function() menu:switch("howto", 1) end },
         { id = "settings", label = "Settings", h = 50, press = function() menu:switch("settings", 1) end },
         { id = "quit", label = "Quit", h = 50, press = function() love.event.quit() end }

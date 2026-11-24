@@ -573,7 +573,7 @@ function Hud:drawWeapon(session)
         text("+" .. self.gain, 16, x + 34 + aw + rw, y + 46 - 14 * easeOutCubic(gained), GREEN, 1 - gained)
     end
 
-    local count = def.magazine
+    local count = Weapons.stat(me, "magazine") or def.magazine
     local area = w - 36
     local gap = count > 12 and 2 or 4
     local pw = min(10, (area - gap * (count - 1)) / count)
@@ -600,13 +600,13 @@ function Hud:drawWeapon(session)
 
     local right = x + w - 18
     if me.reload > 0 then
-        local progress = 1 - me.reload / def.reloadTicks
+        local progress = 1 - me.reload / (Weapons.stat(me, "reloadTicks") or def.reloadTicks)
         ring(right - 22, y + 46, 18, progress, 4, INK, 1)
         text("Reloading", 13, right - 50, y + 14, INK, 0.6, "right")
     elseif empty and me.reserve == 0 then
         local iw = measureHint(Keys.label("throw"), "Throw it", 14)
         hint(Keys.label("throw"), "Throw it", right - iw, y + 38, 1, 14, RED)
-    elseif me.ammo <= def.magazine * 0.25 and me.reserve > 0 then
+    elseif me.ammo <= count * 0.25 and me.reserve > 0 then
         local iw = measureHint(Keys.label("reload"), "Reload", 14)
         local blink = 0.55 + 0.45 * sin(now * 6)
         hint(Keys.label("reload"), "Reload", right - iw, y + 38, blink, 14)

@@ -292,10 +292,13 @@ end
 local function drawItems(world)
     local lg = love.graphics
     local pulse = 0.5 + 0.5 * sin(love.timer.getTime() * 4)
+    local noWeapons = world.options and world.options.loot == false
     for _, pad in ipairs(world.arena.loot) do
+        if noWeapons and Weapons.def(pad.kind) then goto continue end
         lg.setColor(COLORS.pad)
         lg.setLineWidth(2)
         lg.circle("line", pad.x, pad.y, 22)
+        ::continue::
     end
     for _, item in ipairs(world.items) do
         local kind = Weapons.unpack(item.k)

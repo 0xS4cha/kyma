@@ -32,10 +32,31 @@ function Weapons.unpack(value)
     return value and Config.order[value] or nil
 end
 
+local INTEGER = { magazine = true, reserve = true, reloadTicks = true }
+
+--- @param p table
+--- @param key string
+--- @return number?
+function Weapons.stat(p, key)
+    local def = Weapons.def(p.weapon)
+    if not def then return nil end
+    local value = def[key]
+    if p.mod and p.modWeapon == p.weapon then
+        local mod = require("src.config.loadout").mods[p.mod]
+        local factor = mod and mod[key]
+        if factor and value then
+            value = value * factor
+            if INTEGER[key] then value = math.floor(value + 0.5) end
+        end
+    end
+    return value
+end
+
 --- @param def table
+--- @param p table?
 --- @return number
-function Weapons.reserveCap(def)
-    return def.reserve * Config.ammoReserveCap
+function Weapons.reserveCap(def, p)
+    return (p and Weapons.stat(p, "reserve") or def.reserve) * Config.ammoReserveCap
 end
 
 --- @param p table
@@ -45,8 +66,8 @@ end
 function Weapons.give(p, kind, ammo, reserve)
     local def = Weapons.def(kind)
     p.weapon = def and kind or nil
-    p.ammo = def and (ammo or def.magazine) or 0
-    p.reserve = def and (reserve or def.reserve) or 0
+    p.ammo = def and (ammo or Weapons.stat(p, "magazine")) or 0
+    p.reserve = def and (reserve or Weapons.stat(p, "reserve")) or 0
     p.reload = 0
     p.fireCooldown = 0
 end
@@ -79,12 +100,12 @@ function Weapons.update(p, input)
     if p.reload > 0 then
         p.reload = p.reload - 1
         if p.reload == 0 then
-            local moved = min(def.magazine - p.ammo, p.reserve)
+            local moved = min(Weapons.stat(p, "magazine") - p.ammo, p.reserve)
             p.ammo, p.reserve = p.ammo + moved, p.reserve - moved
         end
     end
-    if input.l == 1 and p.reload == 0 and p.ammo < def.magazine and p.reserve > 0 then
-        p.reload = def.reloadTicks
+    if input.l == 1 and p.reload == 0 and p.ammo < Weapons.stat(p, "magazine") and p.reserve > 0 then
+        p.reload = Weapons.stat(p, "reloadTicks")
     end
 
     local pull = held and (def.auto or not p.trigger)
@@ -93,13 +114,13 @@ function Weapons.update(p, input)
         return false
     end
     if p.ammo == 0 then
-        if p.reserve > 0 then p.reload = def.reloadTicks end
+        if p.reserve > 0 then p.reload = Weapons.stat(p, "reloadTicks") end
         return false
     end
     p.ammo = p.ammo - 1
     p.fireCooldown = def.fireTicks
     if p.ammo == 0 and p.reserve > 0 then
-        p.reload = def.reloadTicks
+        p.reload = Weapons.stat(p, "reloadTicks")
     end
     return true
 end
@@ -122,7 +143,7 @@ function Weapons.rays(p, sequence)
     local mx, my = Weapons.muzzle(p)
     local list = {}
     for k = 1, def.pellets do
-        local angle = p.angle + def.spread * noise(p.slot, sequence, k)
+        local angle = p.angle + Weapons.stat(p, "spread") * noise(p.slot, sequence, k)
         list[k] = { x = mx, y = my, dx = cos(angle), dy = sin(angle), range = def.range }
     end
     return list
