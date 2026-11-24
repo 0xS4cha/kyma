@@ -42,5 +42,15 @@ return {
             local world = duel()
             assert(Combat.killcam(world, 1, 2) == nil)
         end
+    },
+    {
+        name = "the replay darkens in quickly and stays dark",
+        run = function()
+            local Renderer = require("src.modules.session.renderer")
+            assert(Renderer.replayAmount(0) == 0)
+            local early = Renderer.replayAmount(0.05)
+            assert(early > 0 and early < 1)
+            assert(Renderer.replayAmount(0.3) == 1 and Renderer.replayAmount(1) == 1)
+        end
     }
 }
