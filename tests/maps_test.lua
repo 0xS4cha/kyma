@@ -16,9 +16,9 @@ end
 
 return {
     {
-        name = "there are ten maps with a name and a description",
+        name = "there are fourteen maps with a name and a description",
         run = function()
-            assert(#Maps.order == 10)
+            assert(#Maps.order == 14)
             each(function(id, def)
                 assert(def.id == id and def.name and def.description, id)
             end)

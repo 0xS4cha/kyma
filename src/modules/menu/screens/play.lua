@@ -8,7 +8,7 @@ local Address = require("src.net.address")
 
 local Play = {}
 
-local COLS = 5
+local COLS = math.ceil(#Maps.order / 2)
 
 local function layout()
     local W, H = love.graphics.getDimensions()
