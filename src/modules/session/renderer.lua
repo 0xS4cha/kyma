@@ -372,27 +372,81 @@ Renderer.drawWalls = drawWalls
 Renderer.COLORS = COLORS
 
 local killcamCamera
+local replayCanvas, replayShader
+
+local REPLAY_GRADE = [[
+extern number amount;
+extern vec2 size;
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    vec4 c = Texel(tex, uv);
+    float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 graded = mix(c.rgb, vec3(grey) * vec3(0.9, 0.94, 1.05), 0.8) * 0.5;
+    vec2 d = (uv - 0.5) * vec2(size.x / size.y, 1.0);
+    graded *= mix(0.45, 1.0, 1.0 - smoothstep(0.25, 0.9, length(d)));
+    graded *= 0.95 + 0.05 * sin(screen.y * 3.14159);
+    return vec4(mix(c.rgb, graded, amount), c.a) * color;
+}
+]]
+
+--- @param progress number
+--- @return number
+function Renderer.replayAmount(progress)
+    local duration = Config.killcamTicks / Config.tickRate * 0.85
+    return math.max(0, math.min(1, progress * duration / 0.3))
+end
+
+local function replayTarget()
+    local W, H = love.graphics.getDimensions()
+    if not replayCanvas or replayCanvas:getWidth() ~= W or replayCanvas:getHeight() ~= H then
+        replayCanvas = love.graphics.newCanvas(W, H)
+    end
+    if not replayShader then
+        local ok, shader = pcall(love.graphics.newShader, REPLAY_GRADE)
+        replayShader = ok and shader or false
+    end
+    return replayCanvas, replayShader
+end
 
 local function drawKillcam(session, cam)
     local world = session.world
+    local lg = love.graphics
     killcamCamera = killcamCamera or Camera(Config.camera)
     killcamCamera.scale = session.camera.scale
     local camera = killcamCamera
     local killer = cam.killerView
     camera:follow(killer.x, killer.y, killer.angle)
+    local canvas, shader = replayTarget()
+    lg.setCanvas({ canvas, stencil = true })
+    lg.clear(COLORS.background[1], COLORS.background[2], COLORS.background[3], 1, true, 0)
     camera:apply()
     drawFloor(world.arena)
     if cam.victimView then
         Character.draw(cam.victimView, Character.PALETTES.self)
     end
     drawFog(world, killer)
+    drawWalls(world.arena, camera)
+    camera:clear()
+    lg.setCanvas()
+    local amount = Renderer.replayAmount(cam.progress)
+    lg.setColor(1, 1, 1, 1)
+    if shader then
+        lg.setShader(shader)
+        shader:send("amount", amount)
+        shader:send("size", { canvas:getWidth(), canvas:getHeight() })
+        lg.draw(canvas)
+        lg.setShader()
+    else
+        lg.draw(canvas)
+        lg.setColor(0.05, 0.06, 0.09, 0.45 * amount)
+        lg.rectangle("fill", 0, 0, canvas:getWidth(), canvas:getHeight())
+    end
+    camera:apply()
     for _, entry in ipairs(cam.shots) do
         local shot = entry.shot
         love.graphics.setColor(Kit.RED[1], Kit.RED[2], Kit.RED[3], 0.9 * (1 - entry.age))
         love.graphics.setLineWidth(2.5)
         love.graphics.line(shot.x, shot.y, shot.X, shot.Y)
     end
-    drawWalls(world.arena, camera)
     drawPlayer(killer, world.arena, Character.PALETTES.opponent, true)
     camera:clear()
 end

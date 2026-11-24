@@ -61,7 +61,7 @@ Every key below can be changed in Settings > Key bindings (two keys per action, 
 - In Teams, your teammates (blue) are always visible, can't be hurt by you and don't show up as echoes. Enemies are red.
 - Team vision is shared: an enemy seen by a living teammate shows up for the whole team as a faded figure with a pulsing red target, even outside your own view, and a red arrow on the edge of the screen points to it when it is off screen.
 - Every game opens on a **warmup**: move, shoot and try weapons freely, kills don't count. Press `F` when you are ready; when every player is ready (bots always are) and there are at least two, a 5 second countdown starts the match, and anyone unreadying cancels it. After a match everyone goes back to the warmup, which is also when new players join in.
-- When someone eliminates you, a **killcam** replays the last two seconds from their eyes (their view cone, their shots) while you wait to respawn; `Space` skips it.
+- When someone eliminates you, a **killcam** replays the last two seconds from their eyes (their view cone, their shots) while you wait to respawn; `Space` skips it. The replay is darkened and drained of colour, with a vignette and faint scan lines, so you can tell at once it is not live: only the killer stays red.
 - You respawn on the spawn farthest from your enemies (your own side in Teams).
 - When someone reaches the score, the match ends for everyone: the scoreboard shows for 8 seconds and a new match starts on the same map.
 - Hold `Tab` for the scoreboard. In practice, bots fill every free slot.
