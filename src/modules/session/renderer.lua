@@ -35,14 +35,8 @@ local TRAIL_SPACING = 0.018
 local trails = {}
 
 
-local fonts = {}
 
-local function font(size)
-    if not fonts[size] then
-        fonts[size] = love.graphics.newFont(size)
-    end
-    return fonts[size]
-end
+local font = Kit.font
 
 local STYLES = {
     wall = { top = { 0.98, 0.985, 0.99 }, side = { 0.82, 0.86, 0.9 }, height = 70 },
