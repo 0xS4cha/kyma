@@ -61,7 +61,7 @@ The server is authoritative and simulates at 60 ticks per second. Athena used a 
 
 ## Camera
 
-`src/core/camera.lua` follows the local player at 68% of the screen height and turns the world so the facing direction always points up. The mouse (captured in relative mode) or the arrow keys turn the player; movement is relative to the facing direction.
+`src/core/camera.lua` follows the local player at 68% of the screen height and turns the world so the facing direction always points up. The mouse (captured in relative mode) or the arrow keys turn the player; movement is relative to the facing direction. `Camera:shake(amount)` adds trauma (capped at 1, losing 1.8 per second); `Camera:update(dt, strength)` turns trauma squared into a Perlin noise offset (up to 14 px) and roll (up to 0.035 rad) applied in `anchor()` and `rotation()`, so `toScreen` and `toWorld` stay consistent. Amounts per weapon and event live in `src/config/feel.lua`; the Screen shake setting scales them.
 
 ## Command line
 

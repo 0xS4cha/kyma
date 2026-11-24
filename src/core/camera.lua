@@ -11,7 +11,12 @@ local Class = require("src.core.class")
 --- @field maxScale number
 local Camera = Class()
 
-local cos, sin, pi = math.cos, math.sin, math.pi
+local cos, sin, pi, max, min = math.cos, math.sin, math.pi, math.max, math.min
+
+local SHAKE_DECAY = 1.8
+local SHAKE_OFFSET = 14
+local SHAKE_ROLL = 0.035
+local SHAKE_SPEED = 28
 
 --- @param options table?
 function Camera:init(options)
@@ -24,6 +29,31 @@ function Camera:init(options)
     self.anchorY = options.anchorY or 0.5
     self.minScale = options.minScale or 0.25
     self.maxScale = options.maxScale or 8
+    self.trauma = 0
+    self.shakeTime = 0
+    self.shakeX, self.shakeY, self.roll = 0, 0, 0
+end
+
+--- @param amount number
+function Camera:shake(amount)
+    self.trauma = min(1, self.trauma + max(0, amount))
+end
+
+--- @param dt number
+--- @param strength number?
+function Camera:update(dt, strength)
+    self.trauma = max(0, self.trauma - dt * SHAKE_DECAY)
+    self.shakeTime = self.shakeTime + dt
+    local power = self.trauma * self.trauma * (strength or 1)
+    if power <= 0 then
+        self.shakeX, self.shakeY, self.roll = 0, 0, 0
+        return
+    end
+    local t = self.shakeTime * SHAKE_SPEED
+    local noise = love.math.noise
+    self.shakeX = SHAKE_OFFSET * power * (noise(t, 11.3) * 2 - 1)
+    self.shakeY = SHAKE_OFFSET * power * (noise(t, 37.9) * 2 - 1)
+    self.roll = SHAKE_ROLL * power * (noise(t, 71.1) * 2 - 1)
 end
 
 --- @param x number
@@ -35,13 +65,13 @@ end
 
 --- @return number
 function Camera:rotation()
-    return -pi / 2 - self.angle
+    return -pi / 2 - self.angle + (self.roll or 0)
 end
 
 --- @return number, number
 function Camera:anchor()
     local W, H = love.graphics.getDimensions()
-    return W * self.anchorX, H * self.anchorY
+    return W * self.anchorX + (self.shakeX or 0), H * self.anchorY + (self.shakeY or 0)
 end
 
 --- @param factor number

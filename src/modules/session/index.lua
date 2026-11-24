@@ -8,6 +8,7 @@ local Vision = require("src.game.vision")
 local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
+local Feel = require("src.config.feel")
 local Hud = require("src.modules.session.hud")
 local Text = require("src.core.text")
 local Keys = require("src.input.keybinds")
@@ -255,15 +256,20 @@ function GM.Session:tick()
         if me.weapon then
             self:shoot(me, command.s, TRACER_SELF)
             sound(me.weapon)
+            self:shake(Feel.shake[me.weapon] or 0.1)
         else
             self.effects:swing(me.x, me.y, me.angle)
             sound("swing")
+            self:shake(Feel.shake.fists)
         end
     elseif command.b == 1 and not trigger and me.weapon and me.ammo == 0 and me.reserve == 0 then
         sound("empty")
     end
     if not reloading and me.reload > 0 then sound("reload") end
-    if me.dash == Config.dash.ticks - 1 then sound("dash") end
+    if me.dash == Config.dash.ticks - 1 then
+        sound("dash")
+        self:shake(Feel.shake.dash)
+    end
     if me.slide == Config.slide.ticks - 1 then sound("slide") end
     if command.t == 1 and me.weapon then sound("throw") end
     world.pending[#world.pending + 1] = command
@@ -294,12 +300,14 @@ function GM.Session:onHit(data)
     if data.t == world.slot then
         sound("hurt")
         self.effects:hurtFlash()
+        self:shake(Feel.shake.hurt + (tonumber(data.d) or 0) * Feel.shake.hurtPerDamage)
         if data.x and data.y then
             self.hud:damageFrom(world.me.x, world.me.y, data.x, data.y)
         end
     elseif data.a == world.slot then
         sound("hit")
         self.effects:hitMarker()
+        self:shake(Feel.shake.hitGiven)
     end
 end
 
@@ -311,12 +319,14 @@ function GM.Session:onKill(data)
     if victim == world.slot then
         sound("death")
         self.effects:shatter(world.me.x, world.me.y, SELF_COLOR)
+        self:shake(Feel.shake.death)
     else
         local seen = world.lastSeen[victim]
         if seen then
             self.effects:shatter(seen.x, seen.y, OPPONENT_COLOR)
             if data.k == world.slot then
                 sound("kill")
+                self:shake(Feel.shake.killGiven)
             else
                 soundAt("kill", seen.x, seen.y, 0.6)
             end
@@ -417,6 +427,7 @@ function GM.Session:onMelee(data)
     elseif data.t then
         sound("punch")
         self.effects:hitMarker()
+        self:shake(Feel.shake.punchLanded)
     end
 end
 
@@ -510,6 +521,10 @@ function GM.Session:receive(data)
         if shot.o ~= world.slot then
             soundAt(Weapons.unpack(shot.g) or "pistol", shot.x, shot.y)
             self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT, shot.h)
+            local d = math.sqrt((shot.x - world.me.x) ^ 2 + (shot.y - world.me.y) ^ 2)
+            if d < Feel.shake.nearbyRange then
+                self:shake(Feel.shake.nearbyShot * (1 - d / Feel.shake.nearbyRange))
+            end
         elseif shot.h == 2 then
             self.effects:spray(shot.X, shot.Y, OPPONENT_COLOR, 8)
         end
@@ -775,6 +790,18 @@ function GM.Session:Think(dt)
 
     local view = self:localView()
     self.camera:follow(view.x, view.y, view.angle)
+    self.camera:update(dt, self:shakeStrength())
+end
+
+--- @return number
+function GM.Session:shakeStrength()
+    local settings = GM.Menu and GM.Menu.settings
+    return Feel.strength[settings and settings.shake or #Feel.strength] or 1
+end
+
+--- @param amount number
+function GM.Session:shake(amount)
+    if self.camera then self.camera:shake(amount) end
 end
 
 function GM.Session:Draw()
