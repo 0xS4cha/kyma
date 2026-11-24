@@ -23,7 +23,8 @@ local SUITES = {
     "tests.killcam_test",
     "tests.audio_test",
     "tests.profile_test",
-    "tests.chat_test"
+    "tests.chat_test",
+    "tests.keybinds_test"
 }
 
 local function run(filter)

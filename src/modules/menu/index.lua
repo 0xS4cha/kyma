@@ -18,6 +18,7 @@ local Screens = {
     settings = require("src.modules.menu.screens.settings"),
     howto = require("src.modules.menu.screens.howto"),
     profile = require("src.modules.menu.screens.profile"),
+    keybinds = require("src.modules.menu.screens.keybinds"),
     pause = require("src.modules.menu.screens.pause")
 }
 
@@ -337,8 +338,10 @@ function GM.Menu:TextInput(text)
     end
 end
 
-function GM.Menu:KeyPressed(key)
+function GM.Menu:KeyPressed(key, scancode)
     if not self:active() or self.wipe then return end
+    local capture = Screens[self.screen].capture
+    if capture and capture(self, key, scancode) then return end
     local elements = self:elements()
     if self.editing and key == "backspace" then
         local element = find(elements, self.editing)

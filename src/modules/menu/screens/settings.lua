@@ -12,7 +12,8 @@ local function rows()
         { id = "fullscreen", label = "Fullscreen", hint = "Borderless desktop fullscreen", kind = "toggle" },
         { id = "vsync", label = "VSync", hint = "Sync frames with your display", kind = "toggle" },
         { id = "background", label = "Live duel in the menu", hint = "Two bots fight behind the menu", kind = "toggle" },
-        { id = "showHelp", label = "Controls reminder", hint = "Show the controls for a few seconds when a game starts", kind = "toggle" }
+        { id = "showHelp", label = "Controls reminder", hint = "Show the controls for a few seconds when a game starts", kind = "toggle" },
+        { id = "keybinds", label = "Key bindings", hint = "Change the keys for every action", kind = "action" }
     }
 end
 
@@ -28,7 +29,9 @@ function Screen.build(menu)
     local y = l.y + 22
     for _, row in ipairs(rows()) do
         local element = { id = row.id, x = l.x + 16, y = y, w = l.w - 32, h = l.rowH - 8, row = row }
-        if row.kind == "toggle" then
+        if row.kind == "action" then
+            element.press = function() menu:switch("keybinds", 1) end
+        elseif row.kind == "toggle" then
             element.press = function() menu:setOption(row.id, not menu.settings[row.id]) end
             element.left = function() menu:setOption(row.id, false) end
             element.right = function() menu:setOption(row.id, true) end
@@ -71,7 +74,13 @@ function Screen.draw(menu, elements, p)
         end
         Kit.text(row.label, 17, x + 18, y + 10, Kit.INK, a)
         Kit.text(row.hint, 12, x + 18, y + 35, Kit.INK, 0.5 * a)
-        if row.kind == "toggle" then
+        if row.kind == "action" then
+            Kit.color(Kit.INK, (0.3 + 0.5 * hot) * a)
+            love.graphics.setLineWidth(2)
+            local ax, ay = x + w - 30 + hot * 4, y + h / 2
+            love.graphics.line(ax - 4, ay - 6, ax + 2, ay, ax - 4, ay + 6)
+            love.graphics.setLineWidth(1)
+        elseif row.kind == "toggle" then
             Kit.toggle(row.id, x + w - 66, y + (h - 26) / 2, menu.settings[row.id], a)
         else
             Kit.segments(row.id, x + w - 300, y + (h - 36) / 2, 280, 36, row.options, menu.settings[row.id], a)
