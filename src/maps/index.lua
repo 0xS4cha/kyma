@@ -1,6 +1,6 @@
 local Maps = {}
 
-Maps.order = { "atrium", "offices", "greenhouse", "crossroads", "vault", "colonnade", "labyrinth", "chasm", "courtyard", "warehouse", "rooftops", "metro", "bunker", "gallery" }
+Maps.order = { "atrium", "offices", "greenhouse", "crossroads", "vault", "colonnade", "labyrinth", "chasm", "courtyard", "warehouse", "rooftops", "metro", "bunker", "gallery", "embassy" }
 Maps.default = "atrium"
 
 local cache = {}

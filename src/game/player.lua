@@ -104,7 +104,7 @@ function Player.step(p, input, arena, dt)
     p.angle = angle
 
     if p.dead > 0 then
-        p.dead = p.dead - 1
+        if not p.out or p.dead > 1 then p.dead = p.dead - 1 end
         p.vx, p.vy, p.dash, p.slide = 0, 0, 0, 0
         p.trigger = input.b == 1
         return false

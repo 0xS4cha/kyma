@@ -52,6 +52,21 @@ function Bot:name()
 end
 
 function Bot:pickWaypoint(world)
+    local objectives = world.arena.objectives
+    local me = world.players[self.slot]
+    local role = me and world.rounds and world.rounds.role(world, me)
+    if role and #objectives > 0 then
+        local objective = objectives[(self.slot + (world.round and world.round.number or 0)) % #objectives + 1]
+        if role == "attack" then
+            self.waypoint = { x = objective.x, y = objective.y }
+        else
+            local a = self.rng:random() * 2 * math.pi
+            local r = 80 + self.rng:random() * 220
+            local x, y = world.arena:resolve(objective.x + math.cos(a) * r, objective.y + math.sin(a) * r, 20)
+            self.waypoint = { x = x, y = y }
+        end
+        return
+    end
     local pads = world.arena.loot
     if #pads > 0 and self.rng:random() < 0.7 then
         local pad = pads[self.rng:random(#pads)]
@@ -179,6 +194,9 @@ function Bot:command(world)
         end
         if hurt and me.cooldown == 0 and self.rng:random() < skill.dashChance then
             command.d = 1
+        end
+        if self.seenFor == skill.reaction and (me.gadgets or 0) > 0 and (me.gadget == "smoke" or me.gadget == "flash") and self.rng:random() < 0.6 then
+            command.x = 1
         end
     elseif self.lastSeen then
         if distance(me.x, me.y, self.lastSeen.x, self.lastSeen.y) < 40 then

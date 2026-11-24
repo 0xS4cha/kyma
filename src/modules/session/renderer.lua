@@ -291,6 +291,38 @@ local function drawGadgets(world)
     end
 end
 
+local function drawObjectives(world)
+    local lg = love.graphics
+    local round = world.round
+    local rules = world.rules
+    local now = love.timer.getTime()
+    for k, objective in ipairs(world.arena.objectives or {}) do
+        local progress = round and (round.h[k] or 0) / (rules.hackTicks or 1) or 0
+        local r = rules.hackRadius or 70
+        lg.setColor(Kit.RED[1], Kit.RED[2], Kit.RED[3], 0.08 + 0.06 * math.sin(now * 3))
+        lg.circle("fill", objective.x, objective.y, r)
+        lg.setColor(Kit.RED[1], Kit.RED[2], Kit.RED[3], 0.6)
+        lg.setLineWidth(2)
+        lg.circle("line", objective.x, objective.y, r)
+        if progress > 0 then
+            lg.setLineWidth(6)
+            lg.arc("line", "open", objective.x, objective.y, r - 6, -math.pi / 2, -math.pi / 2 + progress * 2 * math.pi, 48)
+        end
+        lg.setLineWidth(1)
+        lg.setColor(T.surface)
+        lg.rectangle("fill", objective.x - 14, objective.y - 10, 28, 20, 4, 4)
+        lg.setColor(Kit.RED)
+        lg.rectangle("fill", objective.x - 10, objective.y - 6, 20, 12, 2, 2)
+    end
+end
+
+local function drawObjectiveLabels(world, camera)
+    for _, objective in ipairs(world.arena.objectives or {}) do
+        local sx, sy = camera:toScreen(objective.x, objective.y)
+        Kit.text(objective.name, 22, sx - 20, sy - 64, Kit.RED, 0.9, "center", 40)
+    end
+end
+
 local function drawAims(world)
     for _, aim in ipairs(world.aims or {}) do
         drawLaser({ x = aim.x, y = aim.y, angle = Player.unpackAngle(aim.a), weapon = Weapons.unpack(aim.g) }, world.arena)
@@ -504,6 +536,7 @@ function Renderer.draw(session)
         local opponents = session:visibleOpponents()
         camera:apply()
         drawFloor(world.arena)
+        if world.round then drawObjectives(world) end
         drawItems(world)
         for _, p in ipairs(opponents) do
             if not p.marked then
@@ -525,6 +558,7 @@ function Renderer.draw(session)
         for _, p in ipairs(opponents) do
             label(camera, p, p.ally and Character.PALETTES.ally.body or COLORS.opponent)
         end
+        if world.round then drawObjectiveLabels(world, camera) end
     end
     session.effects:drawScreen()
     session.hud:draw(session)

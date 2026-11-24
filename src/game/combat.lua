@@ -131,9 +131,16 @@ function Combat.kill(world, victim, killer)
     if not world.rules.ladder then
         Combat.spawnItem(world, "ammo", nil, nil, world.arena:resolve(victim.x + 12, victim.y + 8, WeaponConfig.throw.radius))
     end
+    if world.round and world.phase == "playing" then
+        victim.out = true
+    end
     if killer and killer ~= victim.slot and world:enemies(killer, victim.slot) and world.phase == "playing" then
         world.score[killer] = (world.score[killer] or 0) + 1
         local rules = world.rules
+        if rules.rounds then
+            event(world, { kind = "kill", k = killer, v = victim.slot })
+            return
+        end
         local team = rules.teams and world.players[killer] and world.players[killer].team
         if team then
             world.teamScore[team] = world.teamScore[team] + 1
