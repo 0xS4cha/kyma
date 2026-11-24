@@ -20,7 +20,7 @@ function Room:init(id, options)
     self.rules = GameConfig.modes[self.mode]
     self.map = Maps.valid(options.map)
     self.members = {}
-    self.world = World.new(Arena.new(Maps.get(self.map)), self.mode)
+    self.world = World.new(Arena.new(Maps.get(self.map)), self.mode, true)
     self.bots = {}
     self.practice = type(options.bot) == "string"
     if self.practice then
@@ -30,7 +30,7 @@ function Room:init(id, options)
             local bot = Bot.new(slot, options.bot, id * 104729 + os.time() + k)
             bot.label = count == 1 and bot:name() or BOT_NAMES[k]
             self.bots[#self.bots + 1] = bot
-            self.world:add(slot, bot.label, self:teamFor())
+            self.world:add(slot, bot.label, self:teamFor()).bot = true
         end
     end
     self.accumulator = 0
@@ -134,6 +134,11 @@ function Room:Remove(client)
     self:refresh()
 end
 
+function Room:Ready(client, data)
+    if not client.slot then return end
+    self.world:setReady(client.slot, type(data) == "table" and data.ready == true)
+end
+
 function Room:Input(client, data)
     if not client.slot then return end
     self.world:queue(client.slot, Inputs.batch(data))
@@ -160,7 +165,7 @@ function Room:sendState()
         member:Stream("state", {
             t = tick, k = self.world:ack(member.slot),
             p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims,
-            dd = view.doors, gg = view.glass, ts = view.teams, ov = view.over
+            dd = view.doors, gg = view.glass, ts = view.teams, ov = view.over, ph = view.phase, rd = view.ready
         })
     end
 end

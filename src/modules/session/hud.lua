@@ -173,6 +173,10 @@ function Hud:drawStatus(session)
     local duel = room and #room.players >= 2
     local rules = session.world and session.world.rules
     local label = duel and (rules and rules.name or "Duel") or "Waiting for an opponent"
+    local phase = session.world and session.world.phase
+    if phase == "warmup" or phase == "countdown" then
+        label = "Warmup - " .. (rules and rules.name or "Duel")
+    end
     local w = font(16):getWidth(label) + 46
     card(MARGIN, MARGIN, w, 36, 1, 18)
     local pulse = duel and 1 or 0.45 + 0.55 * (0.5 + 0.5 * sin(now * 4))
@@ -285,6 +289,56 @@ function Hud:drawScore(session)
     scoreNumber(self, world.score[world.slot] or 0, x + 46, MARGIN + 46, world.slot, INK)
     local lead = leader.me and "You lead" or (leader.name .. "  " .. leader.kills)
     text(lead, 16, x + w - 18, MARGIN + 36, leader.me and INK or RED, 0.85, "right")
+end
+
+function Hud:drawLobby(session)
+    local world = session.world
+    local W = love.graphics.getWidth()
+    local now = love.timer.getTime()
+    local start = now - (self.startAt or -10)
+    if start < 1.2 then
+        local t = start / 1.2
+        local s = 1 + 0.3 * (1 - easeOutCubic(t * 3))
+        local lg = love.graphics
+        lg.push()
+        lg.translate(W / 2, love.graphics.getHeight() * 0.3)
+        lg.scale(s, s)
+        text("Fight!", 64, -300, -40, RED, 1 - clamp((t - 0.6) / 0.4, 0, 1), "center", 600)
+        lg.pop()
+    end
+    if world.phase == "playing" or world.over then return end
+    if world.phase == "countdown" then
+        local seconds = math.ceil(world.countdown / Config.tickRate)
+        local fraction = (world.countdown % Config.tickRate) / Config.tickRate
+        local lg = love.graphics
+        lg.push()
+        lg.translate(W / 2, 170)
+        lg.scale(1 + 0.25 * fraction, 1 + 0.25 * fraction)
+        text(tostring(seconds), 64, -100, -40, INK, 0.4 + 0.6 * fraction, "center", 200)
+        lg.pop()
+        text("Match starts", 15, 0, 214, INK, 0.6, "center", W)
+        return
+    end
+    local players = session:standings()
+    local w = 360
+    local h = 108 + #players * 26
+    local x, y = (W - w) / 2, 112
+    card(x, y, w, h, 1, 16)
+    text("Warmup", 20, x + 20, y + 16, INK, 1)
+    text("Kills don't count yet", 12, x + w - 20, y + 22, INK, 0.45, "right")
+    local mine = world.ready[world.slot]
+    local label = mine and "Ready - press F to cancel" or "Press F when you are ready"
+    hint("F", label, x + 20, y + 52, mine and 0.6 or (0.7 + 0.3 * sin(now * 4)), 14, mine and GREEN or INK)
+    for k, entry in ipairs(players) do
+        local ry = y + 92 + (k - 1) * 26
+        local ready = entry.bot or world.ready[entry.slot]
+        dot(x + 28, ry + 9, 5, ready and GREEN or INK, ready and 1 or 0.25)
+        text(entry.name, 14, x + 42, ry, INK, ready and 0.9 or 0.5)
+        text(entry.bot and "bot" or (ready and "ready" or "warming up"), 12, x + w - 20, ry + 2, ready and GREEN or INK, 0.6, "right")
+    end
+    if #players < 2 then
+        text("Waiting for an opponent to start", 12, x + 20, y + h - 18, INK, 0.45)
+    end
 end
 
 function Hud:drawBoard(session)
@@ -617,6 +671,7 @@ function Hud:drawHelp()
         { "G", "Throw your weapon" },
         { "E", "Swap with a weapon on the floor" },
         { "Tab", "Hold for the scoreboard" },
+        { "F", "Ready up during the warmup" },
         { "H", "Show or hide controls" }
     }
     local w, rowH = 360, 34
@@ -688,6 +743,7 @@ function Hud:draw(session)
         self:drawPrompt()
         self:drawFeed()
         self:drawDeath(session)
+        self:drawLobby(session)
         self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)

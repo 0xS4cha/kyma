@@ -79,6 +79,12 @@ function Host:bind()
         self:matchmake(client, data)
     end)
 
+    server:On("ready", function(client, data)
+        if client.room then
+            client.room:Ready(client, data)
+        end
+    end)
+
     server:On("leave", function(client)
         self:leaveRoom(client)
     end)

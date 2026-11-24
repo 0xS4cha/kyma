@@ -30,7 +30,7 @@ function Background:reset()
     self.bots = {}
     for k, slot in ipairs(SLOTS) do
         local bot = Bot.new(slot, LEVELS[k], os.time() + k * 31)
-        self.world:add(slot, bot:name())
+        self.world:add(slot, bot:name()).bot = true
         self.bots[k] = bot
     end
     self.effects = Effects.new()

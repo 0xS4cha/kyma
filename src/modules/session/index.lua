@@ -49,6 +49,9 @@ function GM.Session:Initialize()
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
     mp:On("melee", function(data) self:onMelee(data) end)
+    mp:On("start", function()
+        if self.hud then self.hud.startAt = love.timer.getTime() end
+    end)
     mp:On("level", function(data)
         if self.world and data.p == self.world.slot then
             self.hud.levelAt = love.timer.getTime()
@@ -126,12 +129,18 @@ function GM.Session:join(data)
         correctionY = 0,
         requests = {},
         strikes = {},
+        phase = "warmup",
+        countdown = 0,
+        ready = {},
         items = {},
         score = {},
         lastSeen = {},
         autoplayTurn = 1
     }
     self.status = "playing"
+    if self.autoplay then
+        GM.Multiplayer:Send("ready", { ready = true })
+    end
     if not GM.Menu or GM.Menu.settings.showHelp then
         self.hud:joined()
     end
@@ -264,6 +273,14 @@ function GM.Session:onKill(data)
     self.hud:announce(killer, name(victim), data.k and self:friendly(data.k), self:friendly(victim))
 end
 
+function GM.Session:toggleReady()
+    local world = self.world
+    if not world or world.phase == "playing" then return end
+    local ready = not world.ready[world.slot]
+    world.ready[world.slot] = ready or nil
+    GM.Multiplayer:Send("ready", { ready = ready })
+end
+
 --- @param data table
 function GM.Session:onMelee(data)
     local world = self.world
@@ -333,6 +350,11 @@ function GM.Session:receive(data)
         world.teamScore = { data.ts[1] or 0, data.ts[2] or 0 }
     end
     world.over = type(data.ov) == "table" and data.ov or nil
+    if type(data.ph) == "table" then
+        world.phase, world.countdown = data.ph.p or "playing", data.ph.c or 0
+    end
+    world.ready = {}
+    for _, slot in ipairs(type(data.rd) == "table" and data.rd or {}) do world.ready[slot] = true end
     for _, noise in ipairs(data.n or {}) do
         self.effects:echo(noise.x, noise.y, noise.k)
         self.hud:noise(noise.x, noise.y, noise.k)
@@ -595,6 +617,8 @@ function GM.Session:KeyPressed(key, scancode)
         self:request("pickup")
     elseif scancode == "h" then
         self.hud:toggleHelp()
+    elseif scancode == "f" then
+        self:toggleReady()
     end
 end
 
