@@ -8,6 +8,8 @@ local LOADOUT = {
         { id = "steady", name = "Steady aim", text = "Half the spread", spread = 0.5 },
         { id = "pouch", name = "Ammo pouch", text = "+50% spare ammo", reserve = 1.5 }
     },
+    gadgets = { "none", "smoke", "flash", "decoy" },
+    gadgetLabels = { "None", "Smoke", "Flash", "Decoy" },
     spawn = { "pistol", "own", "preset" },
     spawnLabels = { "Pistol", "Own loadout", "Same for all" }
 }
@@ -18,9 +20,11 @@ function LOADOUT.sanitize(kit)
     kit = type(kit) == "table" and kit or {}
     local w = math.floor(tonumber(kit.w) or 1)
     local m = math.floor(tonumber(kit.m) or 1)
+    local g = math.floor(tonumber(kit.g) or 1)
     if w < 1 or w > #Weapons.order then w = 1 end
     if m < 1 or m > #LOADOUT.mods then m = 1 end
-    return { w = w, m = m }
+    if g < 1 or g > #LOADOUT.gadgets then g = 1 end
+    return { w = w, m = m, g = g }
 end
 
 --- @param rules any

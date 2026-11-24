@@ -8,7 +8,7 @@ Settings.SENSITIVITY = { 0.002, 0.0028, 0.0035, 0.0045, 0.006 }
 Settings.ZOOM = { 1.3, 1.6, 2.0 }
 Settings.ZOOM_LABELS = { "Far", "Normal", "Close" }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget" }
 
 --- @return table
 function Settings.defaults()
@@ -35,7 +35,9 @@ function Settings.defaults()
         floorWeapons = true,
         spawnWith = 1,
         presetWeapon = 1,
-        presetMods = Settings.cleanMods("")
+        presetMods = Settings.cleanMods(""),
+        kitGadget = 1,
+        presetGadget = 1
     }
 end
 
@@ -68,6 +70,8 @@ function Settings.parse(text)
     local Loadout = require("src.config.loadout")
     values.kitWeapon = Loadout.sanitize({ w = values.kitWeapon }).w
     values.presetWeapon = Loadout.sanitize({ w = values.presetWeapon }).w
+    values.kitGadget = Loadout.sanitize({ g = values.kitGadget }).g
+    values.presetGadget = Loadout.sanitize({ g = values.presetGadget }).g
     values.kitMods = Settings.cleanMods(values.kitMods)
     values.presetMods = Settings.cleanMods(values.presetMods)
     values.spawnWith = Loadout.rules({ s = values.spawnWith }).s
@@ -155,9 +159,9 @@ end
 --- @return table
 function Settings.kit(values, which)
     if which == "preset" then
-        return { w = values.presetWeapon, m = Settings.modAt(values.presetMods, values.presetWeapon) }
+        return { w = values.presetWeapon, m = Settings.modAt(values.presetMods, values.presetWeapon), g = values.presetGadget }
     end
-    return { w = values.kitWeapon, m = Settings.modAt(values.kitMods, values.kitWeapon) }
+    return { w = values.kitWeapon, m = Settings.modAt(values.kitMods, values.kitWeapon), g = values.kitGadget }
 end
 
 --- @param values table

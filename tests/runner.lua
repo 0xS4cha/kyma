@@ -32,7 +32,8 @@ local SUITES = {
     "tests.theme_test",
     "tests.vision_test",
     "tests.pause_test",
-    "tests.loadout_test"
+    "tests.loadout_test",
+    "tests.gadgets_test"
 }
 
 local function run(filter)

@@ -117,6 +117,13 @@ function Effects:swing(x, y, angle)
     self.swings[#self.swings + 1] = { x = x, y = y, angle = angle, time = love.timer.getTime() }
 end
 
+--- @param x number
+--- @param y number
+function Effects:burst(x, y)
+    self.bursts = self.bursts or {}
+    self.bursts[#self.bursts + 1] = { x = x, y = y, time = love.timer.getTime() }
+end
+
 function Effects:hitMarker()
     self.hit = love.timer.getTime()
 end
@@ -207,6 +214,16 @@ function Effects:drawWorld()
             lg.setColor(c[1], c[2], c[3], 0.85 * (1 - age / TRACER_LIFE))
             lg.setLineWidth(2.2)
             lg.line(tracer.x1, tracer.y1, tracer.x2, tracer.y2)
+        end
+    end
+    for k = #(self.bursts or {}), 1, -1 do
+        local burst = self.bursts[k]
+        local t = (now - burst.time) / 0.5
+        if t >= 1 then
+            table.remove(self.bursts, k)
+        else
+            lg.setColor(1, 1, 0.96, 0.9 * (1 - t))
+            lg.circle("fill", burst.x, burst.y, 30 + 220 * t)
         end
     end
     for _, flash in ipairs(self.flashes) do

@@ -25,8 +25,8 @@ local function title(name)
 end
 
 local function keys(menu)
-    if menu.loadoutTarget == "preset" then return "presetWeapon", "presetMods" end
-    return "kitWeapon", "kitMods"
+    if menu.loadoutTarget == "preset" then return "presetWeapon", "presetMods", "presetGadget" end
+    return "kitWeapon", "kitMods", "kitGadget"
 end
 
 local function layout()
@@ -40,7 +40,7 @@ function Screen.build(menu)
     local l = layout()
     local back = menu.loadoutTarget == "preset" and "rules" or (menu.paused and "pause" or "root")
     local list = { Common.backElement(menu, function() menu:switch(back, -1) end) }
-    local weaponKey, modKey = keys(menu)
+    local weaponKey, modKey, gadgetKey = keys(menu)
     local tileW = math.floor((l.w - 44 - (COLS - 1) * 10) / COLS)
     for k, kind in ipairs(WeaponConfig.order) do
         local col, row = (k - 1) % COLS, math.floor((k - 1) / COLS)
@@ -61,6 +61,21 @@ function Screen.build(menu)
             end
         }
     end
+    local gy = my + #Loadout.mods * (MOD_H + 6) + 34
+    local count = #Loadout.gadgets
+    local gw = l.w - 44
+    list[#list + 1] = {
+        id = "gadget", x = l.x + 22, y = gy, w = gw, h = 38,
+        press = function(_, mx)
+            if mx then
+                menu:setOption(gadgetKey, Kit.clamp(math.floor((mx - l.x - 22) / (gw / count)) + 1, 1, count))
+            else
+                menu:setOption(gadgetKey, menu.settings[gadgetKey] % count + 1)
+            end
+        end,
+        left = function() menu:setOption(gadgetKey, math.max(1, menu.settings[gadgetKey] - 1)) end,
+        right = function() menu:setOption(gadgetKey, math.min(count, menu.settings[gadgetKey] + 1)) end
+    }
     return list
 end
 
@@ -77,12 +92,12 @@ function Screen.draw(menu, elements, p)
     local preset = menu.loadoutTarget == "preset"
     Common.header(menu, elements, p, preset and "Set loadout" or "Loadout",
         preset and "What every player starts with in your games." or "What you start with when a game lets you bring your own.")
-    local weaponKey, modKey = keys(menu)
+    local weaponKey, modKey, gadgetKey = keys(menu)
     local s = menu.settings
     local current = Settings.modAt(s[modKey], s[weaponKey])
     local e = menu:stagger(p, 2)
     local mods = #Loadout.mods
-    local panelH = 50 + 2 * (TILE_H + 10) + 44 + mods * (MOD_H + 6) + 12
+    local panelH = 50 + 2 * (TILE_H + 10) + 44 + mods * (MOD_H + 6) + 12 + 80
     Kit.card(l.x, l.y + (1 - e) * 20, l.w, panelH, e, 18)
     Kit.text("Weapon", 12, l.x + 22, l.y + 22, Kit.INK, 0.5 * e)
     Kit.text("Mod", 12, l.x + 22, l.y + 50 + 2 * (TILE_H + 10) + 18, Kit.INK, 0.5 * e)
@@ -104,6 +119,9 @@ function Screen.draw(menu, elements, p)
                 lg.rectangle("line", element.x + 1, element.y + 1, element.w - 2, element.h - 2, 12, 12)
                 lg.setLineWidth(1)
             end
+        elseif element.id == "gadget" then
+            Kit.text("Gadget", 12, element.x, element.y - 20, Kit.INK, 0.5 * a)
+            Kit.segments("gadget", element.x, element.y, element.w, element.h, Loadout.gadgetLabels, s[gadgetKey], a)
         elseif element.mod then
             local selected = current == element.value
             local hot = Kit.ease("lm:" .. element.id, menu.focus == element.id)
@@ -132,6 +150,9 @@ function Screen.draw(menu, elements, p)
     drawWeapon(kind, pv.x + pv.w / 2, py + 92, 6.5, pe, Character.modId(current))
     Kit.text(title(def.name) .. (mod.id ~= "none" and ("  +  " .. mod.name) or ""), 22, pv.x + 26, py + 170, Kit.INK, pe)
     Kit.text(def.tag or "", 13, pv.x + 26, py + 202, def.exposed and Kit.RED or Kit.INK, 0.55 * pe)
+    local gadget = require("src.config.gadgets")[Loadout.gadgets[s[gadgetKey]]]
+    local gtext = gadget and (gadget.name .. ": " .. gadget.text:lower()) or "No gadget"
+    Kit.text(gtext, 13, pv.x + 26, py + ph - 34, Kit.INK, 0.6 * pe)
     local sy = py + 236
     local barX, barW = pv.x + 130, pv.w - 130 - 120
     for _, stat in ipairs(STATS) do

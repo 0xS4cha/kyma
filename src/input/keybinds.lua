@@ -13,6 +13,7 @@ Keybinds.actions = {
     { id = "quiet", label = "Walk quietly", keys = { "c", "lctrl" } },
     { id = "reload", label = "Reload", keys = { "r" } },
     { id = "throw", label = "Throw weapon", keys = { "g" } },
+    { id = "gadget", label = "Use gadget", keys = { "q" } },
     { id = "pickup", label = "Pick up / swap", keys = { "e" } },
     { id = "ready", label = "Ready up", keys = { "f" } },
     { id = "scoreboard", label = "Scoreboard", keys = { "tab" } },

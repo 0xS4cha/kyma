@@ -10,6 +10,7 @@ local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local Feel = require("src.config.feel")
 local Loadout = require("src.config.loadout")
+local GadgetConfig = require("src.config.gadgets")
 local Hitstop = require("src.modules.session.hitstop")
 local Character = require("src.modules.session.character")
 local Hud = require("src.modules.session.hud")
@@ -69,6 +70,7 @@ function GM.Session:Initialize()
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
     mp:On("melee", function(data) self:onMelee(data) end)
+    mp:On("flash", function(data) self:onFlash(data) end)
     mp:On("chat", function(data) self:onChat(data, true) end)
     mp:On("chatlog", function(data)
         self.chat.log = {}
@@ -264,7 +266,8 @@ function GM.Session:sample()
         l = requests.reload and 1 or 0,
         t = requests.throw and 1 or 0,
         e = requests.pickup and 1 or 0,
-        k = quiet and 1 or 0
+        k = quiet and 1 or 0,
+        x = requests.gadget and 1 or 0
     }
     world.quiet = quiet
     if fire then
@@ -452,6 +455,16 @@ function GM.Session:toggleReady()
 end
 
 --- @param data table
+function GM.Session:onFlash(data)
+    local world = self.world
+    if not world or type(data.x) ~= "number" or type(data.y) ~= "number" then return end
+    self.effects:burst(data.x, data.y)
+    soundAt("bang", data.x, data.y)
+    local d = math.sqrt((data.x - world.me.x) ^ 2 + (data.y - world.me.y) ^ 2)
+    if d < GadgetConfig.flash.radius then self:shake(0.5 * (1 - d / GadgetConfig.flash.radius)) end
+end
+
+--- @param data table
 function GM.Session:onMelee(data)
     local world = self.world
     if not world or not data.o then return end
@@ -527,7 +540,15 @@ function GM.Session:receive(data)
     end
     world.snapshots[#world.snapshots + 1] = { t = data.t, players = players }
     world.items = type(data.d) == "table" and data.d or {}
+    world.gadgets = type(data.gd) == "table" and data.gd or {}
     local arena = world.arena
+    local smokes = {}
+    for _, smoke in ipairs(type(data.sm) == "table" and data.sm or {}) do
+        if type(smoke.x) == "number" and type(smoke.y) == "number" and type(smoke.r) == "number" then
+            smokes[#smokes + 1] = { x = smoke.x, y = smoke.y, r = smoke.r }
+        end
+    end
+    arena.smokes = smokes
     local doors, panes = {}, {}
     for k, door in ipairs(arena.doors) do doors[k] = door.open end
     for k, pane in ipairs(arena.glass) do panes[k] = pane.broken end
@@ -601,6 +622,7 @@ function GM.Session:receive(data)
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.mod, me.modWeapon = own.md, Weapons.unpack(own.mw)
+    me.gadget, me.gadgets, me.blind = GadgetConfig.unpack(own.gk), own.gn or 0, own.bl or 0
     me.trigger = own.z == 1
     if me.dead == 0 and beforeDead == 0 then
         if me.weapon and me.weapon ~= beforeWeapon then
@@ -942,6 +964,8 @@ function GM.Session:KeyPressed(key, scancode)
         self:request("reload")
     elseif Keys.is("throw", scancode) then
         self:request("throw")
+    elseif Keys.is("gadget", scancode) then
+        self:request("gadget")
     elseif Keys.is("pickup", scancode) then
         self:request("pickup")
     elseif Keys.is("help", scancode) then
