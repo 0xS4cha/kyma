@@ -50,6 +50,15 @@ function Minimap.draw(def, x, y, w, h, alpha, options)
             Kit.dot(ox + item.x * scale, oy + item.y * scale, math.max(1.5, 2.2 * scale * 6), c, alpha)
         end
     end
+    local marker = options.marker
+    if marker then
+        local mx, my = ox + marker.x * scale, oy + marker.y * scale
+        local ca, sa = math.cos(marker.angle or 0), math.sin(marker.angle or 0)
+        Kit.color(Kit.RED, alpha * 0.25)
+        lg.circle("fill", mx, my, 9)
+        Kit.color(Kit.RED, alpha)
+        lg.polygon("fill", mx + ca * 7, my + sa * 7, mx - ca * 4 - sa * 4.5, my - sa * 4 + ca * 4.5, mx - ca * 4 + sa * 4.5, my - sa * 4 - ca * 4.5)
+    end
 end
 
 return Minimap
