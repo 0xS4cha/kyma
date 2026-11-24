@@ -4,6 +4,7 @@ local Loadout = require("src.config.loadout")
 local WeaponConfig = require("src.config.weapons")
 local Weapons = require("src.game.weapons")
 local Character = require("src.modules.session.character")
+local Settings = require("src.modules.menu.settings")
 
 local Screen = {}
 
@@ -24,8 +25,8 @@ local function title(name)
 end
 
 local function keys(menu)
-    if menu.loadoutTarget == "preset" then return "presetWeapon", "presetMod" end
-    return "kitWeapon", "kitMod"
+    if menu.loadoutTarget == "preset" then return "presetWeapon", "presetMods" end
+    return "kitWeapon", "kitMods"
 end
 
 local function layout()
@@ -54,7 +55,10 @@ function Screen.build(menu)
         list[#list + 1] = {
             id = "mod:" .. mod.id, mod = mod, value = k,
             x = l.x + 22, y = my + (k - 1) * (MOD_H + 6), w = l.w - 44, h = MOD_H,
-            press = function() menu:setOption(modKey, k) end
+            press = function()
+                local values = menu.settings
+                menu:setOption(modKey, Settings.withMod(values[modKey], values[weaponKey], k))
+            end
         }
     end
     return list
@@ -75,6 +79,7 @@ function Screen.draw(menu, elements, p)
         preset and "What every player starts with in your games." or "What you start with when a game lets you bring your own.")
     local weaponKey, modKey = keys(menu)
     local s = menu.settings
+    local current = Settings.modAt(s[modKey], s[weaponKey])
     local e = menu:stagger(p, 2)
     local mods = #Loadout.mods
     local panelH = 50 + 2 * (TILE_H + 10) + 44 + mods * (MOD_H + 6) + 12
@@ -90,7 +95,7 @@ function Screen.draw(menu, elements, p)
             local pick = Kit.ease("lwsel:" .. element.id, selected)
             lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], (0.04 + 0.04 * hot) * a)
             lg.rectangle("fill", element.x, element.y, element.w, element.h, 12, 12)
-            drawWeapon(element.kind, element.x + element.w / 2, element.y + 38, 3, a, Character.modId(s[modKey]))
+            drawWeapon(element.kind, element.x + element.w / 2, element.y + 30, 2.5, a, Character.modId(Settings.modAt(s[modKey], element.value)))
             local def = WeaponConfig[element.kind]
             Kit.text(title(def.name), 14, element.x, element.y + element.h - 26, Kit.INK, (0.6 + 0.4 * pick) * a, "center", element.w)
             if pick > 0.01 then
@@ -100,7 +105,7 @@ function Screen.draw(menu, elements, p)
                 lg.setLineWidth(1)
             end
         elseif element.mod then
-            local selected = s[modKey] == element.value
+            local selected = current == element.value
             local hot = Kit.ease("lm:" .. element.id, menu.focus == element.id)
             local pick = Kit.ease("lmsel:" .. element.id, selected)
             lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], (0.03 + 0.04 * hot + 0.03 * pick) * a)
@@ -121,10 +126,10 @@ function Screen.draw(menu, elements, p)
     Kit.card(pv.x, py, pv.w, ph, pe, 18)
     local kind = WeaponConfig.order[s[weaponKey]]
     local def = WeaponConfig[kind]
-    local mod = Loadout.mods[s[modKey]]
-    local player = { weapon = kind, mod = s[modKey] > 1 and s[modKey] or nil, modWeapon = kind }
+    local mod = Loadout.mods[current]
+    local player = { weapon = kind, mod = current > 1 and current or nil, modWeapon = kind }
     local base = { weapon = kind }
-    drawWeapon(kind, pv.x + pv.w / 2, py + 92, 6.5, pe, Character.modId(s[modKey]))
+    drawWeapon(kind, pv.x + pv.w / 2, py + 92, 6.5, pe, Character.modId(current))
     Kit.text(title(def.name) .. (mod.id ~= "none" and ("  +  " .. mod.name) or ""), 22, pv.x + 26, py + 170, Kit.INK, pe)
     Kit.text(def.tag or "", 13, pv.x + 26, py + 202, def.exposed and Kit.RED or Kit.INK, 0.55 * pe)
     local sy = py + 236

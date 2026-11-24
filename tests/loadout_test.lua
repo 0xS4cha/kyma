@@ -99,5 +99,33 @@ return {
             local packed = Settings.matchRules(values)
             assert(packed.f == false and packed.s == 1)
         end
+    },
+    {
+        name = "each weapon keeps its own mod",
+        run = function()
+            local values = Settings.parse(nil)
+            values.kitMods = Settings.withMod(values.kitMods, index("rifle"), mod("extended"))
+            values.kitMods = Settings.withMod(values.kitMods, index("shotgun"), mod("steady"))
+            assert(Settings.modAt(values.kitMods, index("rifle")) == mod("extended"))
+            assert(Settings.modAt(values.kitMods, index("shotgun")) == mod("steady"))
+            assert(Settings.modAt(values.kitMods, index("pistol")) == 1, "others untouched")
+            values.kitWeapon = index("shotgun")
+            local kit = Settings.kit(values)
+            assert(kit.w == index("shotgun") and kit.m == mod("steady"))
+            local saved = Settings.parse(Settings.serialize(values))
+            assert(saved.kitMods == values.kitMods, "saved per weapon")
+            assert(Settings.cleanMods("9,x,3") == "1,1,3" .. string.rep(",1", #WeaponConfig.order - 3))
+        end
+    },
+    {
+        name = "the set loadout keeps its own mods too",
+        run = function()
+            local values = Settings.parse(nil)
+            values.presetWeapon = index("lmg")
+            values.presetMods = Settings.withMod(values.presetMods, index("lmg"), mod("hands"))
+            local rules = Settings.matchRules(values)
+            assert(rules.p.w == index("lmg") and rules.p.m == mod("hands"))
+            assert(Settings.kit(values).m == 1, "your own loadout is separate")
+        end
     }
 }
