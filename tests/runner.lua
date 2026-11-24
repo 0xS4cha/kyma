@@ -19,7 +19,8 @@ local SUITES = {
     "tests.maps_test",
     "tests.melee_test",
     "tests.gungame_test",
-    "tests.warmup_test"
+    "tests.warmup_test",
+    "tests.killcam_test"
 }
 
 local function run(filter)

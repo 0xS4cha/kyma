@@ -1,6 +1,7 @@
 local Config = require("src.config.game")
 local Character = require("src.modules.session.character")
 local Kit = require("src.ui.kit")
+local Camera = require("src.core.camera")
 local Weapons = require("src.game.weapons")
 local Player = require("src.game.player")
 local Vision = require("src.game.vision")
@@ -337,12 +338,41 @@ Renderer.drawHealth = drawHealth
 Renderer.drawWalls = drawWalls
 Renderer.COLORS = COLORS
 
+local killcamCamera
+
+local function drawKillcam(session, cam)
+    local world = session.world
+    killcamCamera = killcamCamera or Camera(Config.camera)
+    killcamCamera.scale = session.camera.scale
+    local camera = killcamCamera
+    local killer = cam.killerView
+    camera:follow(killer.x, killer.y, killer.angle)
+    camera:apply()
+    drawFloor(world.arena)
+    if cam.victimView then
+        Character.draw(cam.victimView, Character.PALETTES.self)
+    end
+    drawFog(world, killer)
+    for _, entry in ipairs(cam.shots) do
+        local shot = entry.shot
+        love.graphics.setColor(Kit.RED[1], Kit.RED[2], Kit.RED[3], 0.9 * (1 - entry.age))
+        love.graphics.setLineWidth(2.5)
+        love.graphics.line(shot.x, shot.y, shot.X, shot.Y)
+    end
+    drawWalls(world.arena, camera)
+    drawPlayer(killer, world.arena, Character.PALETTES.opponent)
+    camera:clear()
+end
+
 --- @param session table
 function Renderer.draw(session)
     local lg = love.graphics
     lg.clear(COLORS.background)
     local world = session.world
-    if world then
+    local cam = world and session:killcam()
+    if cam then
+        drawKillcam(session, cam)
+    elseif world then
         local camera = session.camera
         local me = session:localView()
         local opponents = session:visibleOpponents()
