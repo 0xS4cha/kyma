@@ -1,17 +1,21 @@
+local Theme = require("src.ui.theme")
+
 local Kit = {}
 
 local exp, min, max, sin, floor, pi = math.exp, math.min, math.max, math.sin, math.floor, math.pi
 
-Kit.INK = { 0.1, 0.11, 0.13 }
+Kit.INK = Theme.colors.ink
 Kit.RED = { 0.88, 0.14, 0.12 }
 Kit.GREEN = { 0.22, 0.68, 0.4 }
 Kit.AMBER = { 0.92, 0.6, 0.12 }
 Kit.ALLY = { 0.24, 0.42, 0.62 }
-Kit.CARD = { 1, 1, 1 }
-Kit.PAPER = { 0.93, 0.95, 0.97 }
+Kit.CARD = Theme.colors.card
+Kit.PAPER = Theme.colors.paper
+Kit.SURFACE = Theme.colors.surface
+Kit.SHADOW = Theme.colors.shadow
 Kit.RADIUS = 12
 
-local INK, CARD = Kit.INK, Kit.CARD
+local INK, CARD, SURFACE, SHADOW = Kit.INK, Kit.CARD, Kit.SURFACE, Kit.SHADOW
 
 local fonts = {}
 local eased = {}
@@ -73,7 +77,7 @@ function Kit.card(x, y, w, h, alpha, radius, lift)
     local lg = love.graphics
     radius = radius or Kit.RADIUS
     lift = lift or 0
-    lg.setColor(0.05, 0.07, 0.1, (0.1 + 0.06 * lift) * alpha)
+    lg.setColor(SHADOW[1], SHADOW[2], SHADOW[3], (0.1 + 0.06 * lift) * alpha * (Theme.dark() and 2.5 or 1))
     lg.rectangle("fill", x, y + 3 + 3 * lift, w, h, radius, radius)
     lg.setColor(CARD[1], CARD[2], CARD[3], 0.94 * alpha)
     lg.rectangle("fill", x, y, w, h, radius, radius)
@@ -101,7 +105,7 @@ function Kit.keycap(label, x, y, alpha, size)
     local h = size + 12
     lg.setColor(INK[1], INK[2], INK[3], 0.08 * alpha)
     lg.rectangle("fill", x, y + 2, w, h, 6, 6)
-    lg.setColor(1, 1, 1, alpha)
+    lg.setColor(SURFACE[1], SURFACE[2], SURFACE[3], alpha)
     lg.rectangle("fill", x, y, w, h, 6, 6)
     lg.setColor(INK[1], INK[2], INK[3], 0.35 * alpha)
     lg.setLineWidth(1.5)
@@ -127,7 +131,7 @@ function Kit.bar(x, y, w, h, fill, c, alpha, ghost)
     lg.setColor(INK[1], INK[2], INK[3], 0.08 * alpha)
     lg.rectangle("fill", x, y, w, h, h / 2, h / 2)
     if ghost and ghost > fill then
-        lg.setColor(1, 0.8, 0.75, alpha)
+        Kit.color(Theme.colors.ghost, alpha)
         lg.rectangle("fill", x, y, w * Kit.clamp(ghost, 0, 1), h, h / 2, h / 2)
     end
     if fill > 0 then
@@ -169,7 +173,7 @@ function Kit.button(id, x, y, w, h, label, options)
     local lift = hot * 3
     y = y - lift
     if primary then
-        lg.setColor(0.05, 0.07, 0.1, (0.16 + 0.1 * hot) * alpha)
+        lg.setColor(SHADOW[1], SHADOW[2], SHADOW[3], (0.16 + 0.1 * hot) * alpha)
         lg.rectangle("fill", x, y + 4 + lift, w, h, Kit.RADIUS, Kit.RADIUS)
         local r = Kit.RED
         lg.setColor(r[1] * (0.92 + 0.08 * hot), r[2], r[3], alpha)
@@ -236,7 +240,7 @@ function Kit.segments(id, x, y, w, h, options, selected, alpha)
     lg.setColor(INK[1], INK[2], INK[3], 0.07 * alpha)
     lg.rectangle("fill", x, y, w, h, h / 2, h / 2)
     local pos = Kit.ease("segments:" .. id, selected, 16)
-    lg.setColor(1, 1, 1, alpha)
+    lg.setColor(SURFACE[1], SURFACE[2], SURFACE[3], alpha)
     lg.rectangle("fill", x + (pos - 1) * cell + 3, y + 3, cell - 6, h - 6, (h - 6) / 2, (h - 6) / 2)
     for k, label in ipairs(options) do
         local active = 1 - Kit.clamp(math.abs(pos - k), 0, 1)

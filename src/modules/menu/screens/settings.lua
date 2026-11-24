@@ -6,6 +6,7 @@ local Screen = {}
 
 local function rows()
     return {
+        { id = "theme", label = "Appearance", hint = "Light or dark, for the game and every screen", kind = "segments", options = require("src.ui.theme").labels },
         { id = "volume", label = "Sound volume", hint = "Sounds are synthesized live, no audio files", kind = "segments", options = { "Off", "25%", "50%", "75%", "100%" } },
         { id = "sensitivity", label = "Mouse sensitivity", hint = "How fast the view turns with the mouse", kind = "segments", options = { "1", "2", "3", "4", "5" } },
         { id = "shake", label = "Screen shake", hint = "How much the camera shakes on shots, hits and kills", kind = "segments", options = require("src.config.feel").labels },
@@ -19,9 +20,10 @@ local function rows()
 end
 
 local function layout()
-    local W = love.graphics.getWidth()
+    local W, H = love.graphics.getDimensions()
     local M = Common.margin()
-    return { x = M, y = 130, w = math.min(720, W - M * 2), rowH = 70 }
+    local rowH = math.floor(Kit.clamp((H - 200) / #rows(), 58, 70))
+    return { x = M, y = 130, w = math.min(720, W - M * 2), rowH = rowH }
 end
 
 function Screen.build(menu)

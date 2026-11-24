@@ -29,7 +29,8 @@ function Minimap.draw(def, x, y, w, h, alpha, options)
     local scale = math.min(w / def.width, h / def.height)
     local mw, mh = def.width * scale, def.height * scale
     local ox, oy = x + (w - mw) / 2, y + (h - mh) / 2
-    lg.setColor(0.82, 0.84, 0.87, alpha)
+    local floor = require("src.ui.theme").colors.minimapFloor
+    lg.setColor(floor[1], floor[2], floor[3], alpha)
     lg.rectangle("fill", ox, oy, mw, mh, 4, 4)
     rects(def.pits, { 0.3, 0.33, 0.38 }, alpha, scale, ox, oy)
     rects(def.cover, { 0.6, 0.64, 0.7 }, alpha, scale, ox, oy)

@@ -8,7 +8,7 @@ Settings.SENSITIVITY = { 0.002, 0.0028, 0.0035, 0.0045, 0.006 }
 Settings.ZOOM = { 1.3, 1.6, 2.0 }
 Settings.ZOOM_LABELS = { "Far", "Normal", "Close" }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme" }
 
 --- @return table
 function Settings.defaults()
@@ -28,7 +28,8 @@ function Settings.defaults()
         body = 1,
         accent = 1,
         head = 1,
-        shake = 3
+        shake = 3,
+        theme = 1
     }
 end
 
@@ -57,6 +58,7 @@ function Settings.parse(text)
     values.accent = math.max(1, math.min(#Profile.accents, math.floor(values.accent)))
     values.head = math.max(1, math.min(#Profile.heads, math.floor(values.head)))
     values.shake = math.max(1, math.min(#require("src.config.feel").strength, math.floor(values.shake)))
+    values.theme = math.max(1, math.min(#require("src.ui.theme").order, math.floor(values.theme)))
     values.map = require("src.maps.index").valid(values.map)
     return values
 end
@@ -85,6 +87,8 @@ end
 --- @param values table
 --- @param display boolean?
 function Settings.apply(values, display)
+    local Theme = require("src.ui.theme")
+    Theme.apply(Theme.order[values.theme or 1])
     Config.mouseSensitivity = Settings.SENSITIVITY[values.sensitivity]
     Config.camera.scale = Settings.ZOOM[values.zoom]
     if display and love.window and love.window.isOpen() then

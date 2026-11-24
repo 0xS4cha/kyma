@@ -122,6 +122,10 @@ Every shot kicks the gun back into the shooter's body, then it settles: the snip
 - A red arc around you points to where the last shots came from, and the screen edges flash red when you are hit.
 - Standing on a weapon shows the `E` prompt to swap it.
 
+## Dark mode
+
+Settings > Appearance switches between Light and Dark. Dark turns the whole game around: a dark floor and grey walls, darker fog, light text on dark cards in every menu and in the HUD. Enemies stay red and teammates blue; your own body is lightened so you still stand out on the floor. `--theme dark` starts in dark mode without saving it.
+
 ## Main menu
 
 - **Play**: pick a mode and one of the fourteen maps (each tile shows its layout, the panel below its doors, glass and loot), then practice against bots (easy, medium or hard: they see, turn and react like players, with more delay and less precision at lower levels; they fill every free slot) or host the game on your network.
