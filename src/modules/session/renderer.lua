@@ -226,13 +226,22 @@ end
 
 local drawLaser
 
-local function drawPlayer(p, arena, palette)
-    local lg = love.graphics
+--- @param p table
+--- @param own boolean?
+--- @return boolean
+function Renderer.showsLaser(p, own)
+    if not p.weapon then return false end
+    if own then return true end
+    local def = Weapons.def(p.weapon)
+    return def ~= nil and def.exposed == true
+end
+
+local function drawPlayer(p, arena, palette, own)
     drawTrail(p, palette)
     Character.draw(p, palette)
-    if not p.weapon then return end
-
-    drawLaser(p, arena)
+    if Renderer.showsLaser(p, own) then
+        drawLaser(p, arena)
+    end
 end
 
 drawLaser = function(p, arena)
@@ -361,7 +370,7 @@ local function drawKillcam(session, cam)
         love.graphics.line(shot.x, shot.y, shot.X, shot.Y)
     end
     drawWalls(world.arena, camera)
-    drawPlayer(killer, world.arena, Character.PALETTES.opponent)
+    drawPlayer(killer, world.arena, Character.PALETTES.opponent, true)
     camera:clear()
 end
 
@@ -389,7 +398,8 @@ function Renderer.draw(session)
         drawItems(world)
         for _, p in ipairs(opponents) do
             if not p.marked then
-                drawPlayer(p, world.arena, p.ally and Character.PALETTES.ally or Character.PALETTES.opponent)
+                drawPlayer(p, world.arena, p.ally and Character.PALETTES.ally or Character.PALETTES.opponent,
+                    world.spectator and p.slot == world.following)
             end
         end
         drawFog(world, me)
@@ -399,7 +409,7 @@ function Renderer.draw(session)
         drawWalls(world.arena, camera)
         session.effects:drawImpacts()
         if me.dead == 0 and not world.spectator then
-            drawPlayer(me, world.arena, Renderer.selfPalette())
+            drawPlayer(me, world.arena, Renderer.selfPalette(), true)
         end
         camera:clear()
         for _, p in ipairs(opponents) do

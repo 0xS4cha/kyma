@@ -34,7 +34,7 @@ Every key below can be changed in Settings > Key bindings (two keys per action, 
 | Pistol | 34 (3 hits) | 8 / 32 | One shot per click |
 | Rifle | 22 | 24 / 48 | Automatic, 10 shots per second |
 | Shotgun | 7 pellets of 14 | 5 / 15 | Wide spread, short range |
-| Sniper | 100 (one shot) | 4 / 8 | Its laser is shown to the opponent even when they can't see you |
+| Sniper | 100 (one shot) | 4 / 8 | The only laser others can see, even when they can't see you |
 | Silencer | 30 | 10 / 30 | No noise; its shots are only shown to players who can see you |
 | LMG | 15 | 60 / 60 | Automatic, 12 shots per second; heavy: you move at 72% speed and can't slide |
 
