@@ -109,7 +109,7 @@ end
 --- @param y number?
 --- @return table?
 function Combat.drop(world, p, x, y)
-    if not p.weapon then return nil end
+    if not p.weapon or world.rules.ladder then return nil end
     local item = Combat.spawnItem(world, p.weapon, p.ammo, p.reserve, x or p.x, y or p.y)
     item.angle = p.angle
     Weapons.give(p, nil)
@@ -124,7 +124,9 @@ function Combat.kill(world, victim, killer)
     victim.dead = Config.respawnTicks
     victim.dash, victim.slide, victim.vx, victim.vy = 0, 0, 0, 0
     Combat.drop(world, victim)
-    Combat.spawnItem(world, "ammo", nil, nil, world.arena:resolve(victim.x + 12, victim.y + 8, WeaponConfig.throw.radius))
+    if not world.rules.ladder then
+        Combat.spawnItem(world, "ammo", nil, nil, world.arena:resolve(victim.x + 12, victim.y + 8, WeaponConfig.throw.radius))
+    end
     if killer and killer ~= victim.slot and world:enemies(killer, victim.slot) then
         world.score[killer] = (world.score[killer] or 0) + 1
         local rules = world.rules
@@ -133,6 +135,10 @@ function Combat.kill(world, victim, killer)
             world.teamScore[team] = world.teamScore[team] + 1
         end
         event(world, { kind = "kill", k = killer, v = victim.slot })
+        if rules.ladder and world.score[killer] < #rules.ladder then
+            world:loadout(world.players[killer])
+            event(world, { kind = "level", p = killer, l = world.score[killer] + 1 })
+        end
         if not world.over then
             if team and world.teamScore[team] >= rules.scoreLimit then
                 world:finish(team, true)
@@ -252,7 +258,7 @@ function Combat.melee(world, striker, command)
     end
     event(world, { kind = "melee", o = striker.slot, t = best and best.slot or nil })
     if not best then return end
-    if best.weapon then
+    if best.weapon and not world.rules.ladder then
         local ca, sa = cos(striker.angle), sin(striker.angle)
         local x, y = world.arena:resolve(best.x + ca * 60, best.y + sa * 60, WeaponConfig.throw.radius)
         local item = Combat.drop(world, best, x, y)
@@ -266,6 +272,7 @@ end
 --- @param world table
 --- @param p table
 function Combat.throw(world, p)
+    if world.rules.ladder then return end
     if not p.weapon or p.dead > 0 or p.dash > 0 then return end
     local def = WeaponConfig.throw
     local ca, sa = cos(p.angle), sin(p.angle)
@@ -300,6 +307,7 @@ end
 --- @param p table
 --- @return boolean
 function Combat.pickup(world, p)
+    if world.rules.ladder then return false end
     if p.dead > 0 or p.stun > 0 then return false end
     local item = nearest(world, p, false)
     if not item then return false end
@@ -382,7 +390,7 @@ function Combat.update(world)
         end
     end
     for k, pad in ipairs(world.pads) do
-        if not pad.item then
+        if not pad.item and (not world.rules.ladder or pad.kind == "health") then
             if pad.timer > 0 then
                 pad.timer = pad.timer - 1
             else
@@ -395,6 +403,7 @@ function Combat.update(world)
     for slot, p in pairs(world.players) do
         if p.hp <= 0 and p.dead == 0 then
             Player.respawn(p, world:spawnPoint(p))
+            world:loadout(p)
         elseif not p.weapon and p.dead == 0 then
             Combat.pickup(world, p)
         elseif p.dead == 0 then

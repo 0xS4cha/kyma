@@ -73,10 +73,20 @@ function World:add(slot, name, team)
     local player = Player.new(slot, name, { x = 0, y = 0, angle = 0 })
     player.team = self.rules.teams and team or nil
     self.players[slot] = player
-    Player.respawn(player, self:spawnPoint(player))
-    self.inputs[slot] = { queue = {}, last = 0, acked = 0, credit = 0 }
     self.score[slot] = 0
+    Player.respawn(player, self:spawnPoint(player))
+    self:loadout(player)
+    self.inputs[slot] = { queue = {}, last = 0, acked = 0, credit = 0 }
     return player
+end
+
+--- @param player table
+function World:loadout(player)
+    local ladder = self.rules.ladder
+    if not ladder then return end
+    local step = ladder[math.min(#ladder, (self.score[player.slot] or 0) + 1)]
+    local def = Weapons.def(step)
+    Weapons.give(player, def and step or nil, nil, def and 999 or nil)
 end
 
 --- @param winner number
@@ -95,6 +105,7 @@ function World:restart()
     end
     for _, p in pairs(self.players) do
         Player.respawn(p, self:spawnPoint(p))
+        self:loadout(p)
     end
     self.events[#self.events + 1] = { kind = "restart" }
 end

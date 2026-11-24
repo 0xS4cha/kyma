@@ -51,6 +51,9 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 | Duel | 2 | First to 10 eliminations |
 | Free for all | up to 6 | First to 15 |
 | Teams | up to 4 against 4 | First team to 25 |
+| Gun game | up to 6 | Climb the 7 weapons, win with a strike |
+
+- In Gun game every elimination gives you the next weapon: pistol, silencer, shotgun, rifle, LMG, sniper, then your fists. A strike kill on the last step wins. Ammo is endless, weapons can't be picked up, thrown or knocked out, and the map only spawns health packs.
 
 - In Teams, your teammates (blue) are always visible, can't be hurt by you and don't show up as echoes. Enemies are red.
 - Team vision is shared: an enemy seen by a living teammate shows up for the whole team as a faded figure with a pulsing red target, even outside your own view, and a red arrow on the edge of the screen points to it when it is off screen.

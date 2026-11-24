@@ -230,6 +230,34 @@ function Hud:drawScore(session)
     end
 
     local standings = session:standings()
+    if rules.ladder then
+        local level = math.min(#rules.ladder, (world.score[world.slot] or 0) + 1)
+        local function label(step)
+            local def = WeaponConfig[step]
+            return def and (def.name:sub(1, 1) .. def.name:sub(2):lower()) or "Fists"
+        end
+        card(x, MARGIN, w, 70, 1, 16)
+        text("Level " .. level .. " / " .. #rules.ladder, 14, x + 18, MARGIN + 10, INK, 0.55)
+        local leader = standings[1]
+        if leader and not leader.me then
+            text(leader.name .. "  Lv " .. math.min(#rules.ladder, leader.kills + 1), 13, x + w - 18, MARGIN + 11, RED, 0.85, "right")
+        elseif leader then
+            text("You lead", 13, x + w - 18, MARGIN + 11, INK, 0.6, "right")
+        end
+        local s = pop(self.levelAt or -10, 0.5)
+        local lg = love.graphics
+        lg.push()
+        lg.translate(x + 18, MARGIN + 46)
+        lg.scale(s, s)
+        local nw = text(label(rules.ladder[level]), 22, 0, -14, INK, 1)
+        lg.pop()
+        if level < #rules.ladder then
+            text("next: " .. label(rules.ladder[level + 1]), 13, x + 26 + nw, MARGIN + 38, INK, 0.45)
+        else
+            text("strike to win", 13, x + 26 + nw, MARGIN + 38, RED, 0.8)
+        end
+        return
+    end
     if #standings < 2 then return end
     if world.mode == "duel" then
         local theirs
@@ -272,7 +300,7 @@ function Hud:drawBoard(session)
     card(x, y, w, h, a, 18)
     text(world.rules.name, 20, x + 22, y + 18, INK, a)
     text("First to " .. world.rules.scoreLimit, 13, x + w - 22, y + 22, INK, 0.5 * a, "right")
-    text("Kills", 12, x + w - 22, y + 52, INK, 0.45 * a, "right")
+    text(world.rules.ladder and "Level" or "Kills", 12, x + w - 22, y + 52, INK, 0.45 * a, "right")
     for k, entry in ipairs(list) do
         local ry = y + 70 + (k - 1) * rowH
         if entry.me then
@@ -286,7 +314,8 @@ function Hud:drawBoard(session)
         if entry.bot then
             text("BOT", 10, x + 74 + nw, ry + 6, INK, 0.4 * a)
         end
-        text(tostring(entry.kills), 16, x + w - 22, ry + 2, INK, a, "right")
+        local value = world.rules.ladder and tostring(math.min(#world.rules.ladder, entry.kills + 1)) or tostring(entry.kills)
+        text(value, 16, x + w - 22, ry + 2, INK, a, "right")
     end
 end
 
@@ -393,7 +422,7 @@ function Hud:drawWeapon(session)
     local empty = me.ammo == 0
     local ammoStr = tostring(me.ammo)
     local aw = text(ammoStr, 34, x + 18, y + 30 - (1 - refill) * 6, empty and RED or INK, 0.4 + 0.6 * refill)
-    local rw = text("/ " .. me.reserve, 16, x + 26 + aw, y + 46, INK, me.reserve == 0 and 0.3 or 0.5)
+    local rw = text("/ " .. (me.reserve >= 999 and "∞" or me.reserve), 16, x + 26 + aw, y + 46, INK, me.reserve == 0 and 0.3 or 0.5)
     local gained = (now - self.gainAt) / 1.2
     if gained < 1 then
         text("+" .. self.gain, 16, x + 34 + aw + rw, y + 46 - 14 * easeOutCubic(gained), GREEN, 1 - gained)
