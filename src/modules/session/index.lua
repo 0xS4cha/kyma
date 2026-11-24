@@ -9,6 +9,7 @@ local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local Feel = require("src.config.feel")
+local Hitstop = require("src.modules.session.hitstop")
 local Hud = require("src.modules.session.hud")
 local Text = require("src.core.text")
 local Keys = require("src.input.keybinds")
@@ -53,6 +54,7 @@ function GM.Session:Initialize()
     self.captured = false
     self.autoplay = GM.Flags and GM.Flags.autoplay or false
     self.effects = Effects.new()
+    self.hitstop = Hitstop.new()
     self.hud = Hud.new()
     self.chat = { open = false, text = "", team = false, log = {} }
 
@@ -102,6 +104,7 @@ function GM.Session:Start(options)
     self.status = "connecting"
     self.room = nil
     self.effects = Effects.new()
+    self.hitstop = Hitstop.new()
     self.hud = Hud.new()
     self.chat = { open = false, text = "", team = false, log = {} }
     self.camera.scale = Config.camera.scale
@@ -301,6 +304,7 @@ function GM.Session:onHit(data)
         sound("hurt")
         self.effects:hurtFlash()
         self:shake(Feel.shake.hurt + (tonumber(data.d) or 0) * Feel.shake.hurtPerDamage)
+        if (tonumber(data.d) or 0) >= Feel.hitstop.heavyDamage then self:freeze(Feel.hitstop.heavyHit) end
         if data.x and data.y then
             self.hud:damageFrom(world.me.x, world.me.y, data.x, data.y)
         end
@@ -308,6 +312,7 @@ function GM.Session:onHit(data)
         sound("hit")
         self.effects:hitMarker()
         self:shake(Feel.shake.hitGiven)
+        if (tonumber(data.d) or 0) >= Feel.hitstop.heavyDamage then self:freeze(Feel.hitstop.heavyHit) end
     end
 end
 
@@ -320,6 +325,7 @@ function GM.Session:onKill(data)
         sound("death")
         self.effects:shatter(world.me.x, world.me.y, SELF_COLOR)
         self:shake(Feel.shake.death)
+        self:freeze(Feel.hitstop.death)
     else
         local seen = world.lastSeen[victim]
         if seen then
@@ -327,6 +333,7 @@ function GM.Session:onKill(data)
             if data.k == world.slot then
                 sound("kill")
                 self:shake(Feel.shake.killGiven)
+                self:freeze(Feel.hitstop.killGiven)
             else
                 soundAt("kill", seen.x, seen.y, 0.6)
             end
@@ -428,6 +435,7 @@ function GM.Session:onMelee(data)
         sound("punch")
         self.effects:hitMarker()
         self:shake(Feel.shake.punchLanded)
+        self:freeze(Feel.hitstop.punchLanded)
     end
 end
 
@@ -663,6 +671,12 @@ function GM.Session:followed()
 end
 
 function GM.Session:localView()
+    local view = self:liveView()
+    return self.hitstop:pose(view.slot or 0, view, love.timer.getTime())
+end
+
+--- @return table
+function GM.Session:liveView()
     local world = self.world
     if world.spectator then
         local p = self:followed()
@@ -697,16 +711,17 @@ end
 --- @return table[]
 function GM.Session:visibleOpponents()
     local world = self.world
-    local me = self:localView()
+    local me = self:liveView()
+    local now = love.timer.getTime()
     local list = {}
     for _, p in ipairs(self:opponents()) do
         if p.dead == 0 then
             world.lastSeen[p.slot] = { x = p.x, y = p.y, angle = p.angle }
             if world.spectator or p.ally or (me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius)) then
-                list[#list + 1] = p
+                list[#list + 1] = self.hitstop:pose(p.slot, p, now)
             elseif p.spotted then
                 p.marked = true
-                list[#list + 1] = p
+                list[#list + 1] = self.hitstop:pose(p.slot, p, now)
             end
         end
     end
@@ -766,7 +781,7 @@ function GM.Session:Think(dt)
     end
     GM.Multiplayer:Flush()
 
-    self.effects:update(dt)
+    self.effects:update(self.hitstop:frozen(love.timer.getTime()) and dt * 0.1 or dt)
     if world.phase == "countdown" then
         local second = math.ceil(world.countdown / Config.tickRate)
         if second ~= world.beeped then
@@ -797,6 +812,11 @@ end
 function GM.Session:shakeStrength()
     local settings = GM.Menu and GM.Menu.settings
     return Feel.strength[settings and settings.shake or #Feel.strength] or 1
+end
+
+--- @param duration number
+function GM.Session:freeze(duration)
+    if self.hitstop then self.hitstop:start(love.timer.getTime(), duration) end
 end
 
 --- @param amount number

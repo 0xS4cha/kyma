@@ -17,6 +17,13 @@ local FEEL = {
         nearbyShot = 0.12,
         nearbyRange = 520
     },
+    hitstop = {
+        killGiven = 0.1,
+        punchLanded = 0.075,
+        death = 0.12,
+        heavyHit = 0.06,
+        heavyDamage = 40
+    },
     strength = { 0, 0.5, 1 },
     labels = { "Off", "Low", "Full" }
 }
