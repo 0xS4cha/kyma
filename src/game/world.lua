@@ -42,6 +42,8 @@ function World:enemies(a, b)
     return not pa or not pb or pa.team ~= pb.team
 end
 
+local SPAWN_TAKEN = 60
+
 --- @param player table
 --- @return table
 function World:spawnPoint(player)
@@ -57,11 +59,15 @@ function World:spawnPoint(player)
     for k = 1, count do
         local spawn = candidates[(k + player.slot - 2) % count + 1]
         local nearest = math.huge
+        local taken = false
         for slot, other in pairs(self.players) do
-            if other ~= player and other.hp > 0 and other.dead == 0 and self:enemies(player.slot, slot) then
-                nearest = math.min(nearest, (other.x - spawn.x) ^ 2 + (other.y - spawn.y) ^ 2)
+            if other ~= player and other.hp > 0 and other.dead == 0 then
+                local d2 = (other.x - spawn.x) ^ 2 + (other.y - spawn.y) ^ 2
+                if d2 < SPAWN_TAKEN * SPAWN_TAKEN then taken = true end
+                if self:enemies(player.slot, slot) then nearest = math.min(nearest, d2) end
             end
         end
+        if taken then nearest = -1 / (1 + nearest) end
         if not bestScore or nearest > bestScore then
             best, bestScore = spawn, nearest
         end
