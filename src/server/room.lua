@@ -167,6 +167,7 @@ function Room:Remove(client)
     if client.slot then
         self.world:remove(client.slot)
     end
+    self.held = nil
     Logger:info("room", string.format("%s left room %d", tostring(client.name), self.id))
     client.room = nil
     client.slot = nil
@@ -206,6 +207,26 @@ function Room:Chat(client, data)
         local other = member.slot and self.world.players[member.slot]
         if other and other.team == team then member:SendRaw(raw) end
     end
+    return true
+end
+
+--- @return number
+function Room:Humans()
+    local count = 0
+    for _, member in ipairs(self.members) do
+        if not member.spectator then count = count + 1 end
+    end
+    return count
+end
+
+--- @param client table
+--- @param data any
+--- @return boolean
+function Room:Hold(client, data)
+    local on = type(data) == "table" and data.on == true
+    if on and not (self.practice and client.slot and self:Humans() == 1 and self:Watchers() == 0) then return false end
+    self.held = on or nil
+    self.accumulator = 0
     return true
 end
 
@@ -267,6 +288,7 @@ function Room:flushEvents()
 end
 
 function Room:Update(dt)
+    if self.held then return end
     local step = 1 / Config.tickRate
     self.accumulator = math.min(self.accumulator + dt, step * 8)
     while self.accumulator >= step do

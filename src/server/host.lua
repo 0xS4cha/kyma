@@ -107,6 +107,12 @@ function Host:bind()
         end
     end)
 
+    server:On("hold", function(client, data)
+        if client.room then
+            client.room:Hold(client, data)
+        end
+    end)
+
     server:On("ready", function(client, data)
         if client.room then
             client.room:Ready(client, data)

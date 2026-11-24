@@ -134,7 +134,7 @@ Settings > Appearance switches between Light and Dark. Dark turns the whole game
 - **Profile**: your name, the color of your body (only you see it, so enemies stay red and allies blue for everyone), an accent color and a head shape (hex, round, crest or visor) that everyone sees, with a live preview.
 - **How to play**: the mechanics and weapons on one page. **Settings**: mouse sensitivity, camera distance, fullscreen, VSync, the live duel behind the menu and the controls reminder, saved automatically.
 - Behind the menu two bots fight a live duel. Navigate with the mouse or with the arrows, `Enter` and `Escape`.
-- In game, `Escape` opens the pause menu: resume, settings, leave the duel or quit. The duel keeps running while it is open.
+- In game, `Escape` opens the pause menu: resume, settings, how to play, leave the match or quit (both ask for a second click). Next to it, the match: mode, map with your position and facing, team score and standings. In a practice where you are the only player, the game really pauses (bots, timers and the match freeze until you resume); in a match with other people or with spectators it keeps running.
 
 ## Playing
 

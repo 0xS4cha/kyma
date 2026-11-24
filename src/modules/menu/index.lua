@@ -63,6 +63,7 @@ function GM.Menu:Pause()
     if self.paused or GM.State ~= "game" then return end
     self.paused = true
     GM.Session:capture(false)
+    GM.Session:hold(true)
     self:switch("pause", 1)
     self.previous = nil
 end
@@ -71,6 +72,7 @@ function GM.Menu:Resume()
     if not self.paused then return end
     self.paused = false
     self.focus, self.editing = nil, nil
+    GM.Session:hold(false)
     if GM.Session.world then
         GM.Session:capture(true)
     end
