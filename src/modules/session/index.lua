@@ -10,6 +10,7 @@ local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local Feel = require("src.config.feel")
 local Hitstop = require("src.modules.session.hitstop")
+local Character = require("src.modules.session.character")
 local Hud = require("src.modules.session.hud")
 local Text = require("src.core.text")
 local Keys = require("src.input.keybinds")
@@ -260,6 +261,11 @@ function GM.Session:tick()
             self:shoot(me, command.s, TRACER_SELF)
             sound(me.weapon)
             self:shake(Feel.shake[me.weapon] or 0.1)
+            local recoil = Feel.recoil[me.weapon]
+            if recoil then
+                Character.fire(world.slot, recoil.gun)
+                self.camera:kick(recoil.camera)
+            end
         else
             self.effects:swing(me.x, me.y, me.angle)
             sound("swing")
@@ -527,6 +533,8 @@ function GM.Session:receive(data)
     end
     for _, shot in ipairs(data.s or {}) do
         if shot.o ~= world.slot then
+            local recoil = Feel.recoil[Weapons.unpack(shot.g) or ""]
+            if recoil and shot.o then Character.fire(shot.o, recoil.gun) end
             soundAt(Weapons.unpack(shot.g) or "pistol", shot.x, shot.y)
             self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT, shot.h)
             local d = math.sqrt((shot.x - world.me.x) ^ 2 + (shot.y - world.me.y) ^ 2)

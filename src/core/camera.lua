@@ -32,6 +32,12 @@ function Camera:init(options)
     self.trauma = 0
     self.shakeTime = 0
     self.shakeX, self.shakeY, self.roll = 0, 0, 0
+    self.recoil, self.recoilSpeed = 0, 0
+end
+
+--- @param amount number
+function Camera:kick(amount)
+    self.recoilSpeed = self.recoilSpeed + amount * 30
 end
 
 --- @param amount number
@@ -42,17 +48,20 @@ end
 --- @param dt number
 --- @param strength number?
 function Camera:update(dt, strength)
+    self.recoilSpeed = (self.recoilSpeed - self.recoil * 900 * dt) * math.exp(-24 * dt)
+    self.recoil = self.recoil + self.recoilSpeed * dt
+    if math.abs(self.recoil) < 0.01 and math.abs(self.recoilSpeed) < 0.5 then self.recoil, self.recoilSpeed = 0, 0 end
     self.trauma = max(0, self.trauma - dt * SHAKE_DECAY)
     self.shakeTime = self.shakeTime + dt
     local power = self.trauma * self.trauma * (strength or 1)
     if power <= 0 then
-        self.shakeX, self.shakeY, self.roll = 0, 0, 0
+        self.shakeX, self.shakeY, self.roll = 0, self.recoil * (strength or 1), 0
         return
     end
     local t = self.shakeTime * SHAKE_SPEED
     local noise = love.math.noise
     self.shakeX = SHAKE_OFFSET * power * (noise(t, 11.3) * 2 - 1)
-    self.shakeY = SHAKE_OFFSET * power * (noise(t, 37.9) * 2 - 1)
+    self.shakeY = SHAKE_OFFSET * power * (noise(t, 37.9) * 2 - 1) + self.recoil * (strength or 1)
     self.roll = SHAKE_ROLL * power * (noise(t, 71.1) * 2 - 1)
 end
 

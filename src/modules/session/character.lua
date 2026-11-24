@@ -1,4 +1,5 @@
 local Config = require("src.config.game")
+local Feel = require("src.config.feel")
 
 local Character = {}
 
@@ -160,9 +161,10 @@ local GUNS = {
 local function animate(p)
     local state = states[p.slot]
     if not state then
-        state = { phase = 0, x = p.x, y = p.y }
+        state = { phase = 0 }
         states[p.slot] = state
     end
+    if not state.x then state.x, state.y = p.x, p.y end
     local dx, dy = p.x - state.x, p.y - state.y
     local moved = sqrt(dx * dx + dy * dy)
     if moved < 60 then
@@ -223,6 +225,34 @@ end
 
 function Character.reset()
     states = {}
+end
+
+--- @param slot number
+--- @param amount number
+--- @param now number?
+function Character.fire(slot, amount, now)
+    local state = states[slot]
+    if not state then
+        state = { phase = 0 }
+        states[slot] = state
+    end
+    state.kick, state.kickTime = amount, now or love.timer.getTime()
+end
+
+--- @param slot number
+--- @param now number?
+--- @return number
+function Character.recoil(slot, now)
+    local state = states[slot]
+    if not state or not state.kick then return 0 end
+    local t = (now or love.timer.getTime()) - state.kickTime
+    if t < 0 then return state.kick end
+    local value = state.kick * math.exp(-t * Feel.recoil.recovery)
+    if value < 0.05 then
+        state.kick = nil
+        return 0
+    end
+    return value
 end
 
 local AMMO_BOX = { { 5, -3.5 }, { 5, 3.5 }, { -5, 3.5 }, { -5, -3.5 } }
@@ -302,14 +332,20 @@ function Character.draw(p, palette, ghost)
     lg.rotate(sway)
     local angle = p.angle + sway
     local gun = GUNS[p.weapon or ""]
+    local kick = ghost and 0 or Character.recoil(p.slot)
+    lg.translate(-kick * 0.25, 0)
     facets(c, TORSO, -0.5, 0, 0.8, angle)
     if p.look then
         local accent = Profile.accents[p.look.a or 1].color
         gem(accent, -0.5, 11, 2.2, 1.4, 4, 0.5, angle)
         gem(accent, -0.5, -11, 2.2, 1.4, 4, 0.5, angle)
     end
+    lg.push()
+    lg.translate(-kick * 0.75, 0)
+    lg.rotate(-kick * 0.012)
     if gun then drawGun(gun, angle) end
     drawArms(c, gun, angle, p.punch)
+    lg.pop()
     lg.setColor(c[1] * 0.45, c[2] * 0.45, c[3] * 0.45, 0.55 * opacity)
     lg.ellipse("fill", 0.2, 0, 6.6, 6.2)
     drawHead(c, p.look, angle)

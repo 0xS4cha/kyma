@@ -108,6 +108,8 @@ The camera shakes with every shot you fire, harder for the shotgun and the snipe
 
 Big moments also freeze the picture for a split second (a hitstop): your kills (0.1 s), punches that land, your death, and any hit of 40 damage or more, given or taken. Everyone on screen holds still, then eases back into place; the game itself keeps running underneath, so no input is lost.
 
+Every shot kicks the gun back into the shooter's body, then it settles: the sniper and the shotgun kick hardest, the silencer least. Your own shots also push the camera back a little and let it spring home (scaled by Screen shake). You see the kick on enemies you can see too, which tells you when they fire.
+
 ## Screen
 
 - Top left: the game state (waiting for an opponent or duel, the dot pulses while waiting) and the `H` reminder. Top middle: the score. Top right: your ping and the eliminations, which slide in and fade out.

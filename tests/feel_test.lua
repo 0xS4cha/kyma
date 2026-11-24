@@ -1,6 +1,7 @@
 local Camera = require("src.core.camera")
 local Settings = require("src.modules.menu.settings")
 local Feel = require("src.config.feel")
+local Character = require("src.modules.session.character")
 
 local function step(camera, seconds, strength)
     for _ = 1, math.floor(seconds * 60) do camera:update(1 / 60, strength) end
@@ -64,6 +65,44 @@ return {
             assert(Settings.parse("shake=9\n").shake == #Feel.strength)
             assert(Settings.parse("shake=1\n").shake == 1)
             assert(Settings.serialize(Settings.parse("shake=2\n")):find("shake=2", 1, true))
+        end
+    },
+    {
+        name = "a shot kicks the gun back, then it recovers",
+        run = function()
+            Character.reset()
+            Character.fire(4, Feel.recoil.sniper.gun, 100)
+            assert(Character.recoil(4, 100) == Feel.recoil.sniper.gun)
+            local mid = Character.recoil(4, 100.05)
+            assert(mid > 0 and mid < Feel.recoil.sniper.gun)
+            assert(Character.recoil(4, 101) == 0 and Character.recoil(9, 100) == 0)
+            Character.reset()
+        end
+    },
+    {
+        name = "camera recoil pushes back then springs home",
+        run = function()
+            local camera = Camera()
+            camera:kick(Feel.recoil.sniper.camera)
+            local peak = 0
+            for _ = 1, 12 do
+                camera:update(1 / 60)
+                peak = math.max(peak, camera.shakeY)
+            end
+            assert(peak > 4 and peak < 30, "peak " .. peak)
+            step(camera, 1)
+            assert(camera.recoil == 0 and camera.shakeY == 0)
+            camera:kick(10)
+            camera:update(1 / 60, Feel.strength[1])
+            assert(camera.shakeY == 0, "off keeps it still")
+        end
+    },
+    {
+        name = "heavier guns kick harder",
+        run = function()
+            local r = Feel.recoil
+            assert(r.sniper.gun > r.shotgun.gun and r.shotgun.gun > r.pistol.gun and r.pistol.gun > r.silencer.gun)
+            assert(r.sniper.camera > r.shotgun.camera and r.shotgun.camera > r.pistol.camera)
         end
     }
 }
