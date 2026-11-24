@@ -30,6 +30,7 @@ local SUITES = {
     "tests.hitstop_test",
     "tests.laser_test",
     "tests.theme_test"
+    "tests.vision_test"
 }
 
 local function run(filter)

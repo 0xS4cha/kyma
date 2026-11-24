@@ -45,7 +45,7 @@ Every key below can be changed in Settings > Key bindings (two keys per action, 
 - With empty hands, left click strikes: 25 damage at arm's reach (about 46 units, in front of you), every half second. The strike stuns for 0.4 s (slow, no shooting, no dash, no pickup) and knocks the opponent's weapon to the floor, so throwing your weapon and rushing in is a real play.
 - While dashing you can't shoot, but bullets and thrown weapons go through you: time it to dodge.
 - Pressing dash while running forward turns it into a slide: longer (about 210 units), fast at first then slowing down, and you can shoot during it. You are only untouchable during its first 8 ticks, so a slide that ends in the open can be punished. The dash card reads `Slide` when it would slide. It shares the dash cooldown and makes noise.
-- You only see what is in front of you (a cone of about 110 degrees) and a small circle around you, and walls block the view. Everything else is greyed out, and the opponent is invisible there.
+- You only see what is in front of you (a cone of about 110 degrees, up to 380 units away, fading into the fog over its last part) and a small circle around you, and walls block the view. You can still shoot further than you see. Everything else is greyed out, and the opponent is invisible there.
 
 ## Modes
 
@@ -61,7 +61,7 @@ Every key below can be changed in Settings > Key bindings (two keys per action, 
 - In Teams, your teammates (blue) are always visible, can't be hurt by you and don't show up as echoes. Enemies are red.
 - Team vision is shared: an enemy seen by a living teammate shows up for the whole team as a faded figure with a pulsing red target, even outside your own view, and a red arrow on the edge of the screen points to it when it is off screen.
 - Every game opens on a **warmup**: move, shoot and try weapons freely, kills don't count. Press `F` when you are ready; when every player is ready (bots always are) and there are at least two, a 5 second countdown starts the match, and anyone unreadying cancels it. After a match everyone goes back to the warmup, which is also when new players join in.
-- When someone eliminates you, a **killcam** replays the last two seconds from their eyes (their view cone, their shots) while you wait to respawn; `Space` skips it.
+- When someone eliminates you, a **killcam** replays the last two seconds from their eyes (their view cone, their shots) while you wait to respawn; `Space` skips it. The replay is darkened and drained of colour, with a vignette and faint scan lines, so you can tell at once it is not live: only the killer stays red.
 - You respawn on the spawn farthest from your enemies (your own side in Teams).
 - When someone reaches the score, the match ends for everyone: the scoreboard shows for 8 seconds and a new match starts on the same map.
 - Hold `Tab` for the scoreboard. In practice, bots fill every free slot.

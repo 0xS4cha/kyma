@@ -62,7 +62,7 @@ return {
         name = "noises you can see are not sent as echoes",
         run = function()
             sequences = {}
-            local world = duel(nil, { x = 1500, y = 1000, angle = math.pi })
+            local world = duel(nil, { x = 1300, y = 1000, angle = math.pi })
             run(world, 1, { b = 1, angle = math.pi }, { angle = math.pi })
             assert(count(heard(world, 2), "shot") == 0)
         end
