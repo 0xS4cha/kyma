@@ -119,6 +119,8 @@ function Screen.draw(menu, elements, p)
     local mode = Settings.gameMode(s)
     if mode == "gungame" then
         Kit.text("Gun game ignores these rules: everyone climbs the same weapon ladder.", 13, l.x, l.y + 3 * ROW + 56, Kit.RED, 0.8 * e)
+    elseif mode == "infiltration" then
+        Kit.text("Infiltration ignores these rules: attackers get a silencer and a smoke, defenders a rifle or an LMG.", 13, l.x, l.y + 3 * ROW + 56, Kit.RED, 0.8 * e)
     end
 end
 

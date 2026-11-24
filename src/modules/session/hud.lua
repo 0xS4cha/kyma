@@ -217,6 +217,58 @@ local function scoreNumber(hud, value, cx, cy, key, c, size)
     lg.pop()
 end
 
+--- @param title string
+--- @param subtitle string
+--- @param good boolean
+function Hud:banner(title, subtitle, good)
+    self.bannerData = { title = title, subtitle = subtitle, good = good, at = love.timer.getTime() }
+end
+
+function Hud:drawBanner()
+    local b = self.bannerData
+    if not b then return end
+    local t = love.timer.getTime() - b.at
+    if t > 3.2 then
+        self.bannerData = nil
+        return
+    end
+    local a = math.min(1, t / 0.2) * math.min(1, (3.2 - t) / 0.4)
+    local W, H = love.graphics.getDimensions()
+    local w = 520
+    local x, y = (W - w) / 2, H * 0.24 + (1 - easeOutCubic(t / 0.3)) * 16
+    card(x, y, w, 92, a, 18)
+    text(b.title, 30, x, y + 14, b.good and Kit.ALLY or RED, a, "center", w)
+    text(b.subtitle, 15, x, y + 58, INK, 0.65 * a, "center", w)
+end
+
+function Hud:drawRound(session)
+    local world = session.world
+    local round = world.round
+    if not round or world.phase ~= "playing" then return end
+    local W = love.graphics.getWidth()
+    local w = 320
+    local x, y = (W - w) / 2, MARGIN + 78
+    local role = session:role()
+    card(x, y, w, 40, 1, 12)
+    local seconds = math.max(0, math.ceil(round.t / Config.tickRate))
+    local clock = string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
+    text("Round " .. round.n, 13, x + 16, y + 12, INK, 0.6)
+    text(clock, 18, x, y + 9, seconds <= 15 and RED or INK, 1, "center", w)
+    local label = role == "attack" and "Attack" or role == "defend" and "Defend" or ((round.a == 1 and "Blue" or "Red") .. " attacks")
+    text(label, 13, x + w - 16, y + 12, role == "attack" and RED or Kit.ALLY, 0.9, "right")
+    local hy = y + 48
+    for k, objective in ipairs(world.arena.objectives or {}) do
+        local progress = (round.h[k] or 0) / world.rules.hackTicks
+        if progress > 0 then
+            card(x, hy, w, 30, 1, 10)
+            local warn = role ~= "attack"
+            text((warn and "Terminal " or "Hacking ") .. objective.name, 13, x + 16, hy + 8, warn and RED or INK, 0.9)
+            bar(x + 130, hy + 13, w - 150, 5, progress, RED, 1)
+            hy = hy + 36
+        end
+    end
+end
+
 function Hud:drawScore(session)
     local world = session.world
     local W = love.graphics.getWidth()
@@ -791,7 +843,10 @@ function Hud:drawDeath(session)
     text("Eliminated", 48, 0, y, RED, a, "center", W)
     local seconds = me.dead / Config.tickRate
     local progress = 1 - me.dead / Config.respawnTicks
-    if me.dead > 0 then
+    if session.world.round and session.world.phase == "playing" then
+        text("Out until the next round", 16, 0, y + 80, INK, 0.65 * a, "center", W)
+        text("Your team plays on without you", 13, 0, y + 108, INK, 0.45 * a, "center", W)
+    elseif me.dead > 0 then
         ring(W / 2, y + 112, 26, progress, 5, INK, a)
         text(tostring(math.ceil(seconds)), 22, W / 2 - 40, y + 99, INK, a, "center", 80)
         text("Respawning", 14, 0, y + 150, INK, 0.55 * a, "center", W)
@@ -887,6 +942,8 @@ function Hud:draw(session)
         self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)
+        self:drawRound(session)
+        self:drawBanner()
         self:drawSpectator(session)
         self:drawChat(session)
         self:drawOverlay(session)
@@ -898,6 +955,8 @@ function Hud:draw(session)
         self:drawNoises(session)
         self:drawSpotted(session)
         self:drawScore(session)
+        self:drawRound(session)
+        self:drawBanner()
         self:drawVitals(session)
         self:drawWeapon(session)
         self:drawGadget(session)

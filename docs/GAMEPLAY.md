@@ -66,6 +66,14 @@ Every key below can be changed in Settings > Key bindings (two keys per action, 
 - When someone reaches the score, the match ends for everyone: the scoreboard shows for 8 seconds and a new match starts on the same map.
 - Hold `Tab` for the scoreboard. In practice, bots fill every free slot.
 
+### Infiltration
+
+Up to 4 against 4 on **Embassy**, in rounds with **one life per round**; first team to 4 rounds wins and the sides swap every round.
+- **Attackers** start in the street with a silencer (steady aim) and a smoke, and their footsteps are silent (dashes, slides and shots still make noise). They win the round by **hacking a terminal**, A in the west office or B in the east server room: stand in its circle for 6 seconds with no defender inside (progress slowly drops when nobody is on it, and hacking beeps loudly enough for the defenders to hear), or by eliminating every defender.
+- **Defenders** start inside the building with a rifle (extended mag) or an LMG and no gadget. They win by eliminating every attacker or by holding until the 2 minute clock runs out.
+- There are no weapons on the floor and the match rules don't apply. Eliminated players stay out until the next round. The HUD shows the round, the clock, your role and a warning when a terminal is being hacked; a banner announces each round's result and your new role.
+- Bots attack the terminals or guard them, and throw their smoke when they spot someone.
+
 ## Maps
 
 | Map | Size | Character |

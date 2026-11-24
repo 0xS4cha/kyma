@@ -85,6 +85,21 @@ function GM.Session:Initialize()
         if self.hud then self.hud.startAt = love.timer.getTime() end
         sound("start")
     end)
+    mp:On("round", function(data)
+        local world = self.world
+        if not world then return end
+        local won = data.w == world.team
+        local why = data.y == "hack" and "Terminal hacked" or data.y == "time" and "Time is up" or (data.s == "attack" and "Defenders eliminated" or "Attackers eliminated")
+        self.hud:banner(world.spectator and (data.w == 1 and "Blue takes the round" or "Red takes the round") or (won and "Round won" or "Round lost"), why, won)
+        sound(won and "win" or "lose")
+    end)
+    mp:On("roundstart", function(data)
+        local world = self.world
+        if not world then return end
+        local attack = data.a == world.team
+        self.hud:banner("Round " .. tostring(data.n), world.spectator and "Sides swap" or (attack and "You attack: hack terminal A or B" or "You defend: hold both terminals"), attack)
+        sound("start")
+    end)
     mp:On("over", function(data)
         local world = self.world
         if not world then return end
@@ -454,6 +469,14 @@ function GM.Session:toggleReady()
     GM.Multiplayer:Send("ready", { ready = ready })
 end
 
+--- @return string?
+function GM.Session:role()
+    local world = self.world
+    local round = world and world.round
+    if not round or world.spectator or not world.team then return nil end
+    return world.team == round.a and "attack" or "defend"
+end
+
 --- @param data table
 function GM.Session:onFlash(data)
     local world = self.world
@@ -541,6 +564,7 @@ function GM.Session:receive(data)
     world.snapshots[#world.snapshots + 1] = { t = data.t, players = players }
     world.items = type(data.d) == "table" and data.d or {}
     world.gadgets = type(data.gd) == "table" and data.gd or {}
+    world.round = type(data.ro) == "table" and data.ro or nil
     local arena = world.arena
     local smokes = {}
     for _, smoke in ipairs(type(data.sm) == "table" and data.sm or {}) do
@@ -706,8 +730,12 @@ function GM.Session:follow(step)
     local world = self.world
     local latest = world.snapshots[#world.snapshots]
     if not latest then return end
-    local slots = {}
-    for slot in pairs(latest.players) do slots[#slots + 1] = slot end
+    local slots, alive = {}, {}
+    for slot, entry in pairs(latest.players) do
+        slots[#slots + 1] = slot
+        if (entry.o or 0) == 0 and (entry.h or 1) > 0 then alive[#alive + 1] = slot end
+    end
+    if #alive > 0 then slots = alive end
     table.sort(slots)
     if #slots == 0 then return end
     local index = 1

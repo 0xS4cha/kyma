@@ -32,6 +32,7 @@ local CONFIG = {
         door = 380,
         melee = 300,
         glass = 650,
+        hack = 900,
         stepTicks = 20,
         stepSpeed = 110,
         quietSpeed = 0.45
@@ -46,13 +47,22 @@ local CONFIG = {
     },
 
     modes = {
-        order = { "duel", "ffa", "teams", "gungame" },
+        order = { "duel", "ffa", "teams", "gungame", "infiltration" },
         duel = { name = "Duel", players = 2, scoreLimit = 10, teams = false, text = "One on one" },
         ffa = { name = "Free for all", players = 6, scoreLimit = 15, teams = false, text = "Everyone for themselves, up to 6" },
         teams = { name = "Teams", players = 8, scoreLimit = 25, teams = true, text = "Two teams, up to 4 against 4" },
         gungame = {
             name = "Gun game", players = 6, scoreLimit = 7, teams = false, text = "Every kill gives you the next weapon",
             ladder = { "pistol", "silencer", "shotgun", "rifle", "lmg", "sniper", "fists" }
+        },
+        infiltration = {
+            name = "Infiltration", players = 8, scoreLimit = 4, teams = true, rounds = true, map = "embassy",
+            text = "Attackers sneak in to hack a terminal, defenders hold. One life per round",
+            roundTicks = 60 * 120, hackTicks = 60 * 6, hackRadius = 70, roundEndTicks = 60 * 4,
+            kits = {
+                attack = { weapon = "silencer", mod = "steady", gadget = "smoke" },
+                defend = { { weapon = "rifle", mod = "extended" }, { weapon = "lmg", mod = "none" } }
+            }
         }
     },
     matchEndTicks = 60 * 8,

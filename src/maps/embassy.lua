@@ -1,0 +1,67 @@
+local B = require("src.maps.builder")
+
+local m = B.new("embassy", "Embassy", 3400, 2400, "A walled embassy. Attackers come in from the street, defenders hold the building and its two terminals: A in the west office, B in the east server room.")
+B.border(m)
+B.h(m, 40, 3360, 1500, 40, { { 400, 520, "door" }, { 1600, 1800, "open" }, { 2880, 3000, "door" } })
+B.h(m, 700, 2700, 300, 30, { { 1640, 1760, "door" } })
+B.h(m, 700, 2700, 1200, 30, { { 900, 1100, "glass" }, { 1640, 1760, "door" }, { 2300, 2500, "glass" } })
+B.v(m, 330, 1200, 700, 30, { { 450, 550, "door" } })
+B.v(m, 330, 1200, 2670, 30, { { 950, 1050, "door" } })
+B.v(m, 330, 1200, 1400, 24, { { 500, 600, "door" }, { 900, 1000, "door" } })
+B.v(m, 330, 1200, 1976, 24, { { 500, 600, "door" }, { 900, 1000, "door" } })
+B.h(m, 730, 1400, 750, 24, { { 1000, 1100, "door" }, { 1200, 1340, "glass" } })
+B.h(m, 2000, 2670, 750, 24, { { 2300, 2400, "door" }, { 2050, 2200, "glass" } })
+B.box(m, 1580, 500, 60, 60)
+B.box(m, 1780, 500, 60, 60)
+B.box(m, 1580, 950, 60, 60)
+B.box(m, 1780, 950, 60, 60)
+B.box(m, 820, 380, 160, 50, "cover")
+B.box(m, 2450, 1050, 150, 60, "cover")
+B.box(m, 2100, 380, 40, 200, "cover")
+B.box(m, 1000, 1330, 160, 40, "cover")
+B.box(m, 2240, 1330, 160, 40, "cover")
+B.box(m, 1650, 1380, 100, 40, "cover")
+B.box(m, 300, 700, 60, 200, "cover")
+B.box(m, 3040, 700, 60, 200, "cover")
+B.box(m, 1400, 120, 200, 40, "cover")
+B.box(m, 2000, 140, 40, 120, "cover")
+B.box(m, 800, 1800, 200, 90)
+B.box(m, 1500, 1920, 200, 90)
+B.box(m, 2300, 1800, 200, 90)
+B.box(m, 2900, 1950, 200, 90)
+B.box(m, 350, 2050, 40, 160, "cover")
+B.box(m, 1150, 2150, 120, 40, "cover")
+B.box(m, 1950, 2100, 40, 160, "cover")
+B.box(m, 2650, 2150, 120, 40, "cover")
+
+local function spawn(x, y, angle, team)
+    B.spawn(m, x, y, angle, team)
+    m.spawns[#m.spawns].role = team == 1 and "attack" or "defend"
+end
+spawn(600, 2250, -math.pi / 2, 1)
+spawn(1250, 2280, -math.pi / 2, 1)
+spawn(2150, 2280, -math.pi / 2, 1)
+spawn(2800, 2250, -math.pi / 2, 1)
+spawn(1700, 400, math.pi / 2, 2)
+spawn(1500, 750, math.pi / 2, 2)
+spawn(1900, 750, math.pi / 2, 2)
+spawn(1700, 1100, -math.pi / 2, 2)
+
+B.loot(m, 1000, 1950, "rifle")
+B.loot(m, 2450, 2050, "shotgun")
+B.loot(m, 1700, 2250, "sniper")
+B.loot(m, 1700, 750, "lmg")
+B.loot(m, 900, 1360, "ammo")
+B.loot(m, 2500, 1400, "ammo")
+B.loot(m, 1700, 170, "health")
+B.loot(m, 300, 1100, "silencer")
+B.loot(m, 3100, 1100, "rifle")
+B.loot(m, 1150, 1000, "health")
+B.loot(m, 2300, 500, "health")
+
+m.objectives = {
+    { name = "A", x = 1000, y = 560 },
+    { name = "B", x = 2350, y = 950 }
+}
+
+return m

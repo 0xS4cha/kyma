@@ -9,6 +9,7 @@ local WeaponConfig = require("src.config.weapons")
 local Loadout = require("src.config.loadout")
 local Gadgets = require("src.game.gadgets")
 local GadgetConfig = require("src.config.gadgets")
+local Rounds = require("src.game.rounds")
 
 local World = {}
 World.__index = World
@@ -19,6 +20,7 @@ function World.new(arena, mode, warmup, rules)
     mode = Config.modes[mode or ""] and mode or "duel"
     local world = setmetatable({
         options = Loadout.rules(rules),
+        rounds = Rounds,
         arena = arena or Arena.new(),
         mode = mode,
         rules = Config.modes[mode],
@@ -33,8 +35,10 @@ function World.new(arena, mode, warmup, rules)
         ready = {},
         countdown = 0
     }, World)
+    if world.rules.rounds then world.options.loot = false end
     Combat.setup(world)
     Gadgets.setup(world)
+    Rounds.setup(world)
     return world
 end
 
@@ -58,6 +62,14 @@ function World:spawnPoint(player)
         if not self.rules.teams or not spawn.team or spawn.team == player.team then
             candidates[#candidates + 1] = spawn
         end
+    end
+    local role = Rounds.role(self, player)
+    if role then
+        local roleSpawns = {}
+        for _, spawn in ipairs(self.arena.spawns) do
+            if spawn.role == role then roleSpawns[#roleSpawns + 1] = spawn end
+        end
+        if #roleSpawns > 0 then candidates = roleSpawns end
     end
     if #candidates == 0 then candidates = self.arena.spawns end
     local best, bestScore
@@ -106,7 +118,7 @@ function World:loadout(player)
         Weapons.give(player, def and step or nil, nil, def and 999 or nil)
         return
     end
-    local kit = self:kitOf(player)
+    local kit = Rounds.kit(self, player) or self:kitOf(player)
     if not kit then
         Gadgets.give(player, nil)
         return
@@ -179,6 +191,7 @@ function World:restart(phase)
     end
     self.teamScore = { 0, 0 }
     Gadgets.setup(self)
+    Rounds.setup(self)
     for slot in pairs(self.score) do self.score[slot] = 0 end
     for k = #self.items, 1, -1 do
         if not self.items[k].pad then table.remove(self.items, k) end
@@ -257,6 +270,7 @@ function World:step()
         end
     end
     Gadgets.update(self)
+    Rounds.update(self)
     Combat.update(self)
     Combat.record(self)
     if self.over then
@@ -282,6 +296,7 @@ function World:footsteps(player, command)
         return
     end
     if command.k == 1 then return end
+    if Rounds.role(self, player) == "attack" then return end
     player.stride = (player.stride or 0) + 1
     local speed = math.sqrt(player.vx * player.vx + player.vy * player.vy)
     if speed < noise.stepSpeed then
@@ -422,7 +437,7 @@ function World:snapshot(viewer)
         players = players, items = items, score = score, aims = aims, doors = doors, glass = glass,
         teams = self.rules.teams and self.teamScore or nil, over = over,
         phase = { p = self.phase, c = self.countdown }, ready = readyList,
-        gadgets = gadgets, smokes = smokes
+        gadgets = gadgets, smokes = smokes, round = Rounds.snapshot(self)
     }
 end
 

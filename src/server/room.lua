@@ -22,7 +22,7 @@ function Room:init(id, options)
     self.id = id
     self.mode = GameConfig.modes[options.mode or ""] and options.mode or "duel"
     self.rules = GameConfig.modes[self.mode]
-    self.map = Maps.valid(options.map)
+    self.map = Maps.valid(self.rules.map or options.map)
     self.members = {}
     self.world = World.new(Arena.new(Maps.get(self.map)), self.mode, true, options.rules)
     self.bots = {}
@@ -266,7 +266,7 @@ function Room:sendState()
             t = tick, k = self.world:ack(member.slot),
             p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims,
             dd = view.doors, gg = view.glass, ts = view.teams, ov = view.over, ph = view.phase, rd = view.ready,
-            gd = view.gadgets, sm = view.smokes
+            gd = view.gadgets, sm = view.smokes, ro = view.round
         })
     end
 end

@@ -3,6 +3,7 @@ local Server = require("src.server.server")
 local Room = require("src.server.room")
 local Config = require("src.net.config")
 local Profile = require("src.config.profile")
+local GameConfig = require("src.config.game")
 
 local Host = Class()
 
@@ -41,6 +42,8 @@ function Host:matchmake(client, options)
     local practice = type(options.bot) == "string" and options.bot or nil
     local mode = type(options.mode) == "string" and options.mode or nil
     local map = type(options.map) == "string" and options.map or nil
+    local forced = mode and GameConfig.modes[mode] and GameConfig.modes[mode].map
+    if forced then map = forced end
     if options.spectate == true then
         local watched
         for _, room in pairs(self.rooms) do

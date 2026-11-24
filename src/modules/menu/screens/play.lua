@@ -37,7 +37,8 @@ local function names(list, source)
 end
 
 local function selectedMap(menu)
-    return Maps.get(menu.settings.map)
+    local rules = Config.modes[Settings.gameMode(menu.settings)]
+    return Maps.get(rules.map or menu.settings.map)
 end
 
 function Play.enter(menu)
@@ -131,7 +132,7 @@ end
 local function drawTile(menu, element, alpha)
     local id = element.map
     local def = Maps.get(id)
-    local selected = menu.settings.map == id
+    local selected = selectedMap(menu).id == id
     local hot = Kit.ease("tile:" .. id, menu.focus == element.id)
     local pick = Kit.ease("tilesel:" .. id, selected)
     local x, y, w, h = element.x, element.y - hot * 3, element.w, element.h

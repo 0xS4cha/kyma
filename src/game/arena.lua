@@ -79,6 +79,7 @@ function Arena.new(def)
         glass = copy(def.glass, { broken = false, timer = 0, kind = "glass" }),
         spawns = def.spawns,
         loot = def.loot or {},
+        objectives = def.objectives or {},
         smokes = {}
     }, Arena)
 end
