@@ -216,7 +216,7 @@ function GM.Multiplayer:Poll()
             self.connected = true
             Logger:info("multiplayer", "Connected to " .. tostring(event.peer))
             local settings = GM.Menu and GM.Menu.settings or {}
-            self:Send("hello", { name = self.name, version = NetConfig.version, look = { h = settings.head, a = settings.accent } })
+            self:Send("hello", { name = self.name, version = NetConfig.version, look = { h = settings.head, a = settings.accent }, kit = { w = settings.kitWeapon, m = settings.kitMod } })
         elseif event.type == "receive" then
             local kind, data = Protocol.Decode(event.data)
             if kind then

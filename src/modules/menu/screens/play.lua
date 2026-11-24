@@ -5,6 +5,7 @@ local Settings = require("src.modules.menu.settings")
 local Config = require("src.config.game")
 local Maps = require("src.maps.index")
 local Address = require("src.net.address")
+local Rules = require("src.modules.menu.screens.rules")
 
 local Play = {}
 
@@ -60,6 +61,10 @@ function Play.build(menu)
         left = function() menu:setOption("mode", math.max(1, menu.settings.mode - 1)) end,
         right = function() menu:setOption("mode", math.min(modes, menu.settings.mode + 1)) end
     }
+    list[#list + 1] = {
+        id = "rules", x = l.left.x, y = l.modeY + 50, w = math.min(560, l.left.w), h = 26,
+        press = function() menu:switch("rules", 1) end
+    }
     for k, id in ipairs(Maps.order) do
         local col, row = (k - 1) % COLS, math.floor((k - 1) / COLS)
         list[#list + 1] = {
@@ -94,6 +99,7 @@ function Play.build(menu)
             local mode = Settings.gameMode(menu.settings)
             menu:Play({
                 mode = "practice", spectate = true, bot = Settings.botLevel(menu.settings), game = mode, map = menu.settings.map,
+                rules = Settings.matchRules(menu.settings),
                 label = "Watching bots on " .. selectedMap(menu).name
             })
         end
@@ -104,6 +110,7 @@ function Play.build(menu)
             local mode = Settings.gameMode(menu.settings)
             menu:Play({
                 mode = "practice", bot = Settings.botLevel(menu.settings), game = mode, map = menu.settings.map,
+                rules = Settings.matchRules(menu.settings),
                 label = Config.modes[mode].name .. " on " .. selectedMap(menu).name
             })
         end
@@ -111,7 +118,7 @@ function Play.build(menu)
     list[#list + 1] = {
         id = "host", x = rx + 20, y = l.gridY + 300, w = rw - 40, h = 48,
         press = function()
-            menu:Play({ mode = "host", game = Settings.gameMode(menu.settings), map = menu.settings.map, label = "Opening your game" })
+            menu:Play({ mode = "host", game = Settings.gameMode(menu.settings), map = menu.settings.map, rules = Settings.matchRules(menu.settings), label = "Opening your game" })
         end
     }
     list[#list + 1] = {
@@ -152,6 +159,16 @@ function Play.draw(menu, elements, p)
     local summary = rules.ladder and (rules.text .. ", win with your fists.") or (rules.text .. ", first to " .. rules.scoreLimit .. ".")
     Common.paragraph(summary, 13, mode.x + mode.w + 18, mode.y + 2, l.left.w - mode.w - 18, Kit.INK, 0.55 * a)
 
+    local chip = find(elements, "rules")
+    local rhot = Kit.ease("rules:chip", menu.focus == "rules")
+    local label = Rules.summary(menu.settings)
+    local rw = Kit.text("Rules", 12, chip.x, chip.y + 6, Kit.RED, (0.8 + 0.2 * rhot) * a)
+    local tw = Kit.text(label, 13, chip.x + rw + 10, chip.y + 5, Kit.INK, (0.55 + 0.35 * rhot) * a)
+    Kit.color(Kit.INK, (0.3 + 0.5 * rhot) * a)
+    love.graphics.setLineWidth(1.5)
+    local ax = chip.x + rw + tw + 22 + rhot * 3
+    love.graphics.line(ax - 3, chip.y + 9, ax + 1, chip.y + 13, ax - 3, chip.y + 17)
+    love.graphics.setLineWidth(1)
     Kit.text("Map", 12, l.left.x, l.gridY - 20, Kit.INK, 0.5 * a)
     local k = 0
     for _, element in ipairs(elements) do

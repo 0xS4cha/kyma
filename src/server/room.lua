@@ -10,6 +10,8 @@ local Text = require("src.core.text")
 local GameConfig = require("src.config.game")
 local Maps = require("src.maps.index")
 local Arena = require("src.game.arena")
+local Loadout = require("src.config.loadout")
+local WeaponConfig = require("src.config.weapons")
 
 local Room = Class()
 
@@ -22,7 +24,7 @@ function Room:init(id, options)
     self.rules = GameConfig.modes[self.mode]
     self.map = Maps.valid(options.map)
     self.members = {}
-    self.world = World.new(Arena.new(Maps.get(self.map)), self.mode, true)
+    self.world = World.new(Arena.new(Maps.get(self.map)), self.mode, true, options.rules)
     self.bots = {}
     self.practice = type(options.bot) == "string"
     if self.practice then
@@ -32,7 +34,8 @@ function Room:init(id, options)
             local bot = Bot.new(slot, options.bot, id * 104729 + os.time() + k)
             bot.label = count == 1 and bot:name() or BOT_NAMES[k] or ("Bot " .. k)
             self.bots[#self.bots + 1] = bot
-            self.world:add(slot, bot.label, self:teamFor()).bot = true
+            local kit = { w = (id * 7 + slot * 3) % #WeaponConfig.order + 1, m = (slot % #Loadout.mods) + 1 }
+            self.world:add(slot, bot.label, self:teamFor(), kit).bot = true
         end
     end
     self.accumulator = 0
@@ -73,7 +76,7 @@ function Room:Watch(client)
     client:Send("chatlog", { messages = self.chat })
     client:Send("joined", {
         room = self.id, spectator = true, tick = self.world.tick, tickRate = Config.tickRate,
-        mode = self.mode, map = self.map
+        mode = self.mode, map = self.map, ru = Loadout.pack(self.world.options)
     })
     Logger:info("room", string.format("%s watches room %d", client.name, self.id))
     self:refresh()
@@ -121,7 +124,7 @@ function Room:Info()
     table.sort(players, function(a, b) return a.slot < b.slot end)
     return {
         id = self.id, state = self.state, players = players, practice = self.practice,
-        mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers()
+        mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers(), ru = Loadout.pack(self.world.options)
     }
 end
 
@@ -145,11 +148,12 @@ function Room:Add(client)
     client.room = self
     client.slot = slot
     self.members[#self.members + 1] = client
-    local player = self.world:add(slot, client.name, self:teamFor())
+    local player = self.world:add(slot, client.name, self:teamFor(), client.loadout)
     client:Send("chatlog", { messages = self.chat })
     client:Send("joined", {
         room = self.id, slot = slot, tick = self.world.tick, tickRate = Config.tickRate,
         mode = self.mode, map = self.map, team = player.team, angle = Player.packAngle(player.angle),
+        ru = Loadout.pack(self.world.options),
         x = player.x, y = player.y
     })
     Logger:info("room", string.format("%s joined room %d as slot %d", client.name, self.id, slot))

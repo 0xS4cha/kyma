@@ -5,15 +5,18 @@ local Combat = require("src.game.combat")
 local Vision = require("src.game.vision")
 local Config = require("src.config.game")
 local NetConfig = require("src.net.config")
+local WeaponConfig = require("src.config.weapons")
+local Loadout = require("src.config.loadout")
 
 local World = {}
 World.__index = World
 
 --- @param arena table?
 --- @return table
-function World.new(arena, mode, warmup)
+function World.new(arena, mode, warmup, rules)
     mode = Config.modes[mode or ""] and mode or "duel"
     local world = setmetatable({
+        options = Loadout.rules(rules),
         arena = arena or Arena.new(),
         mode = mode,
         rules = Config.modes[mode],
@@ -79,9 +82,10 @@ end
 --- @param name string
 --- @param team number?
 --- @return table
-function World:add(slot, name, team)
+function World:add(slot, name, team, kit)
     local player = Player.new(slot, name, { x = 0, y = 0, angle = 0 })
     player.team = self.rules.teams and team or nil
+    player.kit = kit and Loadout.sanitize(kit) or nil
     self.players[slot] = player
     self.score[slot] = 0
     Player.respawn(player, self:spawnPoint(player))
@@ -93,10 +97,26 @@ end
 --- @param player table
 function World:loadout(player)
     local ladder = self.rules.ladder
-    if not ladder then return end
-    local step = ladder[math.min(#ladder, (self.score[player.slot] or 0) + 1)]
-    local def = Weapons.def(step)
-    Weapons.give(player, def and step or nil, nil, def and 999 or nil)
+    if ladder then
+        local step = ladder[math.min(#ladder, (self.score[player.slot] or 0) + 1)]
+        local def = Weapons.def(step)
+        Weapons.give(player, def and step or nil, nil, def and 999 or nil)
+        return
+    end
+    local kit = self:kitOf(player)
+    if not kit then return end
+    local kind = WeaponConfig.order[kit.w]
+    player.mod, player.modWeapon = kit.m > 1 and kit.m or nil, kind
+    Weapons.give(player, kind)
+end
+
+--- @param player table
+--- @return table?
+function World:kitOf(player)
+    local spawn = self.options.spawn
+    if spawn == "own" then return player.kit or self.options.preset end
+    if spawn == "preset" then return self.options.preset end
+    return nil
 end
 
 --- @param winner number
@@ -340,6 +360,7 @@ function World:snapshot(viewer)
                 entry.sx, entry.sy = p.slideX, p.slideY
                 entry.mc = p.meleeCooldown
                 entry.q, entry.r, entry.l, entry.c = p.ammo, p.reserve, p.reload, p.fireCooldown
+                if p.mod then entry.md, entry.mw = p.mod, Weapons.pack(p.modWeapon) end
                 entry.z = p.trigger and 1 or 0
             end
             players[#players + 1] = entry

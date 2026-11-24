@@ -195,7 +195,7 @@ function Bot:command(world)
         end
         desired = self:steer(world, me, self.waypoint.x, self.waypoint.y)
         command.f = 1
-        if def and me.ammo < def.magazine / 2 and me.reserve > 0 then
+        if def and me.ammo < Weapons.stat(me, "magazine") / 2 and me.reserve > 0 then
             command.l = 1
         end
     end

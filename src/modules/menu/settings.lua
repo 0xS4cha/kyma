@@ -8,7 +8,7 @@ Settings.SENSITIVITY = { 0.002, 0.0028, 0.0035, 0.0045, 0.006 }
 Settings.ZOOM = { 1.3, 1.6, 2.0 }
 Settings.ZOOM_LABELS = { "Far", "Normal", "Close" }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "kitWeapon", "kitMod", "floorWeapons", "spawnWith", "presetWeapon", "presetMod" }
 
 --- @return table
 function Settings.defaults()
@@ -29,7 +29,13 @@ function Settings.defaults()
         accent = 1,
         head = 1,
         shake = 3,
-        theme = 1
+        theme = 1,
+        kitWeapon = 1,
+        kitMod = 1,
+        floorWeapons = true,
+        spawnWith = 1,
+        presetWeapon = 1,
+        presetMod = 1
     }
 end
 
@@ -59,6 +65,11 @@ function Settings.parse(text)
     values.head = math.max(1, math.min(#Profile.heads, math.floor(values.head)))
     values.shake = math.max(1, math.min(#require("src.config.feel").strength, math.floor(values.shake)))
     values.theme = math.max(1, math.min(#require("src.ui.theme").order, math.floor(values.theme)))
+    local Loadout = require("src.config.loadout")
+    local own = Loadout.sanitize({ w = values.kitWeapon, m = values.kitMod })
+    local preset = Loadout.sanitize({ w = values.presetWeapon, m = values.presetMod })
+    values.kitWeapon, values.kitMod, values.presetWeapon, values.presetMod = own.w, own.m, preset.w, preset.m
+    values.spawnWith = Loadout.rules({ s = values.spawnWith }).s
     values.map = require("src.maps.index").valid(values.map)
     return values
 end
@@ -97,6 +108,12 @@ function Settings.apply(values, display)
         end
         love.window.setVSync(values.vsync and 1 or 0)
     end
+end
+
+--- @param values table
+--- @return table
+function Settings.matchRules(values)
+    return { f = values.floorWeapons, s = values.spawnWith, p = { w = values.presetWeapon, m = values.presetMod } }
 end
 
 --- @param values table

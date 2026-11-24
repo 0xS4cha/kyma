@@ -9,6 +9,7 @@ local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local Feel = require("src.config.feel")
+local Loadout = require("src.config.loadout")
 local Hitstop = require("src.modules.session.hitstop")
 local Character = require("src.modules.session.character")
 local Hud = require("src.modules.session.hud")
@@ -114,7 +115,7 @@ function GM.Session:Start(options)
     if options.mode == "connect" then
         mp:Join(options.address, name, options.spectate and { spectate = true } or nil)
     else
-        local queue = { mode = options.game or "duel", map = options.map, spectate = options.spectate or nil }
+        local queue = { mode = options.game or "duel", map = options.map, spectate = options.spectate or nil, rules = options.rules }
         if options.mode == "practice" then queue.bot = options.bot or "medium" end
         mp:PlayLocal(name, options.mode == "host", queue)
     end
@@ -153,6 +154,7 @@ function GM.Session:join(data)
         arena = arena,
         mode = mode,
         rules = Config.modes[mode],
+        options = Loadout.rules(data.ru),
         team = data.team,
         teamScore = { 0, 0 },
         over = nil,
@@ -576,6 +578,7 @@ function GM.Session:receive(data)
     me.hp, me.dead = own.h or me.hp, own.o or 0
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
+    me.mod, me.modWeapon = own.md, Weapons.unpack(own.mw)
     me.trigger = own.z == 1
     if me.dead == 0 and beforeDead == 0 then
         if me.weapon and me.weapon ~= beforeWeapon then

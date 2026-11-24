@@ -19,6 +19,8 @@ local Screens = {
     howto = require("src.modules.menu.screens.howto"),
     profile = require("src.modules.menu.screens.profile"),
     keybinds = require("src.modules.menu.screens.keybinds"),
+    loadout = require("src.modules.menu.screens.loadout"),
+    rules = require("src.modules.menu.screens.rules"),
     pause = require("src.modules.menu.screens.pause")
 }
 

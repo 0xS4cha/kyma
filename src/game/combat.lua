@@ -48,8 +48,11 @@ function Combat.setup(world)
     world.noises = {}
     world.score = {}
     world.nextItem = 1
-    for k, pad in ipairs(world.arena.loot) do
-        world.pads[k] = { x = pad.x, y = pad.y, kind = pad.kind, timer = 0, item = nil }
+    local noWeapons = world.options and world.options.loot == false
+    for _, pad in ipairs(world.arena.loot) do
+        if not (noWeapons and Weapons.def(pad.kind)) then
+            world.pads[#world.pads + 1] = { x = pad.x, y = pad.y, kind = pad.kind, timer = 0, item = nil }
+        end
     end
 end
 
@@ -363,12 +366,12 @@ end
 function Combat.refill(world, p)
     local def = Weapons.def(p.weapon)
     if not def then return false end
-    local cap = Weapons.reserveCap(def)
+    local cap = Weapons.reserveCap(def, p)
     if p.reserve >= cap then return false end
     local item = nearest(world, p, false, "ammo")
     if not item then return false end
     removeItem(world, item)
-    p.reserve = math.min(cap, p.reserve + def.magazine)
+    p.reserve = math.min(cap, p.reserve + Weapons.stat(p, "magazine"))
     return true
 end
 
