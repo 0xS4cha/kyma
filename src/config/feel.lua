@@ -17,6 +17,15 @@ local FEEL = {
         nearbyShot = 0.12,
         nearbyRange = 520
     },
+    recoil = {
+        pistol = { gun = 4, camera = 5 },
+        silencer = { gun = 3, camera = 3 },
+        rifle = { gun = 3, camera = 3.5 },
+        lmg = { gun = 3.5, camera = 4 },
+        shotgun = { gun = 7, camera = 10 },
+        sniper = { gun = 9, camera = 14 },
+        recovery = 16
+    },
     hitstop = {
         killGiven = 0.1,
         punchLanded = 0.075,
