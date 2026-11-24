@@ -25,7 +25,7 @@ jobs:
 
     - name: Build Windows, macOS and Linux packages
       run: |
-        xvfb-run make build
+        xvfb-run -a make build
         ls -la dist/*/
 
     - name: Upload Windows build
