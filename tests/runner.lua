@@ -29,7 +29,7 @@ local SUITES = {
     "tests.feel_test",
     "tests.hitstop_test",
     "tests.laser_test",
-    "tests.theme_test"
+    "tests.theme_test",
     "tests.vision_test"
 }
 
