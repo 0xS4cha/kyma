@@ -226,6 +226,44 @@ function Combat.fire(world, shooter, command)
 end
 
 --- @param world table
+--- @param striker table
+--- @param command table
+function Combat.melee(world, striker, command)
+    local def = WeaponConfig.melee
+    local view = command.v or world.tick
+    view = max(world.tick - Config.rewindTicks, min(world.tick, view))
+    Combat.noise(world, "melee", striker.x, striker.y, striker.slot)
+    local best, bestDistance
+    for slot, target in pairs(world.players) do
+        if slot ~= striker.slot and world:enemies(striker.slot, slot) then
+            local past = rewound(world, slot, view)
+            if past.alive and not past.evading then
+                local dx, dy = past.x - striker.x, past.y - striker.y
+                local d = sqrt(dx * dx + dy * dy)
+                local facing = math.abs((math.atan2(dy, dx) - striker.angle + math.pi) % (2 * math.pi) - math.pi)
+                local reach = def.range + Config.player.radius
+                if d <= reach and facing <= def.arc and (not bestDistance or d < bestDistance) then
+                    if world.arena:raycast(striker.x, striker.y, dx / math.max(d, 1e-6), dy / math.max(d, 1e-6), d, "bullet") >= d - 1 then
+                        best, bestDistance = target, d
+                    end
+                end
+            end
+        end
+    end
+    event(world, { kind = "melee", o = striker.slot, t = best and best.slot or nil })
+    if not best then return end
+    if best.weapon then
+        local ca, sa = cos(striker.angle), sin(striker.angle)
+        local x, y = world.arena:resolve(best.x + ca * 60, best.y + sa * 60, WeaponConfig.throw.radius)
+        local item = Combat.drop(world, best, x, y)
+        item.angle = striker.angle
+    end
+    best.stun = def.stun
+    best.reload = 0
+    Combat.damage(world, best, def.damage, striker.slot, striker.x, striker.y)
+end
+
+--- @param world table
 --- @param p table
 function Combat.throw(world, p)
     if not p.weapon or p.dead > 0 or p.dash > 0 then return end
@@ -262,7 +300,7 @@ end
 --- @param p table
 --- @return boolean
 function Combat.pickup(world, p)
-    if p.dead > 0 then return false end
+    if p.dead > 0 or p.stun > 0 then return false end
     local item = nearest(world, p, false)
     if not item then return false end
     removeItem(world, item)

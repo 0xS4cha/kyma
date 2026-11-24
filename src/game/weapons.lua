@@ -63,7 +63,14 @@ function Weapons.update(p, input)
     local held = input.b == 1
     local def = Weapons.def(p.weapon)
     if not def then
+        local melee = Config.melee
+        if p.meleeCooldown > 0 then p.meleeCooldown = p.meleeCooldown - 1 end
+        local strike = held and not p.trigger and p.meleeCooldown == 0 and p.dash == 0 and p.stun == 0 and p.dead == 0
         p.trigger = held
+        if strike then
+            p.meleeCooldown = melee.cooldown
+            return true
+        end
         return false
     end
     if p.fireCooldown > 0 then
@@ -82,7 +89,7 @@ function Weapons.update(p, input)
 
     local pull = held and (def.auto or not p.trigger)
     p.trigger = held
-    if not pull or p.dash > 0 or p.dead > 0 or p.fireCooldown > 0 or p.reload > 0 then
+    if not pull or p.dash > 0 or p.stun > 0 or p.dead > 0 or p.fireCooldown > 0 or p.reload > 0 then
         return false
     end
     if p.ammo == 0 then

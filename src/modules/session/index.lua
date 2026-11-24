@@ -48,6 +48,7 @@ function GM.Session:Initialize()
     mp:On("disconnected", function() self:leave() end)
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
+    mp:On("melee", function(data) self:onMelee(data) end)
 end
 
 --- @param options table { mode = "practice"|"host"|"local"|"connect", bot, address, name }
@@ -119,6 +120,7 @@ function GM.Session:join(data)
         correctionX = 0,
         correctionY = 0,
         requests = {},
+        strikes = {},
         items = {},
         score = {},
         lastSeen = {},
@@ -196,7 +198,11 @@ function GM.Session:tick()
     world.lastCommand = command
     Player.copy(world.me, world.previous)
     if Player.step(world.me, command, world.arena, DT) then
-        self:shoot(world.me, command.s, TRACER_SELF)
+        if world.me.weapon then
+            self:shoot(world.me, command.s, TRACER_SELF)
+        else
+            self.effects:swing(world.me.x, world.me.y, world.me.angle)
+        end
     end
     world.pending[#world.pending + 1] = command
 
@@ -251,6 +257,19 @@ function GM.Session:onKill(data)
     end
     local killer = data.k and data.k ~= victim and name(data.k) or nil
     self.hud:announce(killer, name(victim), data.k and self:friendly(data.k), self:friendly(victim))
+end
+
+--- @param data table
+function GM.Session:onMelee(data)
+    local world = self.world
+    if not world or not data.o then return end
+    world.strikes[data.o] = love.timer.getTime()
+    if data.o ~= world.slot then
+        local seen = world.lastSeen[data.o]
+        if seen then self.effects:swing(seen.x, seen.y, seen.angle or 0) end
+    elseif data.t then
+        self.effects:hitMarker()
+    end
 end
 
 --- @param slot number
@@ -346,6 +365,7 @@ function GM.Session:receive(data)
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.trigger = own.z == 1
+    me.stun, me.meleeCooldown = own.st or 0, own.mc or 0
     me.team = own.t
     for _, command in ipairs(kept) do
         Player.step(me, command, world.arena, DT)
@@ -388,6 +408,8 @@ function GM.Session:opponents()
                 dashing = (b.e or 0) > 0,
                 sliding = (b.j or 0) > 0,
                 team = b.t,
+                stun = b.st or 0,
+                punch = world.strikes and world.strikes[slot] and (love.timer.getTime() - world.strikes[slot]) / 0.14 or nil,
                 ally = world.rules.teams and b.t ~= nil and b.t == world.team,
                 weapon = Weapons.unpack(b.g),
                 dead = b.o or 0,
@@ -421,6 +443,9 @@ function GM.Session:localView()
         vy = b.vy,
         dashing = b.dash > 0,
         sliding = b.slide > 0,
+        stun = b.stun,
+        punch = not b.weapon and b.meleeCooldown > WeaponConfig.melee.cooldown - WeaponConfig.melee.strikeTicks
+            and (WeaponConfig.melee.cooldown - b.meleeCooldown) / WeaponConfig.melee.strikeTicks or nil,
         weapon = b.weapon,
         dead = b.dead,
         hp = b.hp,
@@ -435,7 +460,7 @@ function GM.Session:visibleOpponents()
     local list = {}
     for _, p in ipairs(self:opponents()) do
         if p.dead == 0 then
-            world.lastSeen[p.slot] = { x = p.x, y = p.y }
+            world.lastSeen[p.slot] = { x = p.x, y = p.y, angle = p.angle }
             if p.ally or (me.dead == 0 and Vision.sees(world.arena, me, p.x, p.y, Config.player.radius)) then
                 list[#list + 1] = p
             end

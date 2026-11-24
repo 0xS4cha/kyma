@@ -159,7 +159,13 @@ function Bot:command(world)
     local def = Weapons.def(me.weapon)
     if not def then
         local item = self:nearestWeapon(world, me)
-        if item then
+        if sees and range < 160 then
+            desired = atan2(target.y - me.y, target.x - me.x)
+            command.f = range > 40 and 1 or 0
+            if range < 60 and abs(wrap(desired - self.aim)) < 0.5 and self.sequence % 2 == 0 then
+                command.b = 1
+            end
+        elseif item then
             desired = self:steer(world, me, item.x, item.y)
             command.f = 1
         end

@@ -107,6 +107,14 @@ function Effects:echo(x, y, kind)
     if #self.echoes > 40 then table.remove(self.echoes, 1) end
 end
 
+--- @param x number
+--- @param y number
+--- @param angle number
+function Effects:swing(x, y, angle)
+    self.swings = self.swings or {}
+    self.swings[#self.swings + 1] = { x = x, y = y, angle = angle, time = love.timer.getTime() }
+end
+
 function Effects:hitMarker()
     self.hit = love.timer.getTime()
 end
@@ -148,6 +156,18 @@ end
 function Effects:drawWorld()
     local lg = love.graphics
     local now = love.timer.getTime()
+    for k = #(self.swings or {}), 1, -1 do
+        local swing = self.swings[k]
+        local t = (now - swing.time) / 0.22
+        if t >= 1 then
+            table.remove(self.swings, k)
+        else
+            lg.setColor(1, 1, 1, 0.75 * (1 - t))
+            lg.setLineWidth(4 - 3 * t)
+            local a = swing.angle
+            lg.arc("line", "open", swing.x, swing.y, 34 + 10 * t, a - 0.7 + 0.5 * t, a + 0.4 + 0.5 * t, 16)
+        end
+    end
     for _, echo in ipairs(self.echoes) do
         local t = (now - echo.time) / ECHO_LIFE
         local size = ECHO_SIZE[echo.kind] or 36

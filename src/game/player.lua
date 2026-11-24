@@ -1,5 +1,6 @@
 local Config = require("src.config.game")
 local Weapons = require("src.game.weapons")
+local WeaponConfig = require("src.config.weapons")
 
 local Player = {}
 
@@ -44,6 +45,8 @@ function Player.new(slot, name, spawn)
         slideY = 0,
         hp = Config.health,
         dead = 0,
+        stun = 0,
+        meleeCooldown = 0,
         trigger = false
     }
     Weapons.give(p, "pistol")
@@ -56,7 +59,7 @@ function Player.respawn(p, spawn)
     p.x, p.y = spawn.x, spawn.y
     p.angle = Player.unpackAngle(Player.packAngle(spawn.angle or 0))
     p.vx, p.vy, p.dash, p.cooldown, p.slide = 0, 0, 0, 0, 0
-    p.hp, p.dead = Config.health, 0
+    p.hp, p.dead, p.stun, p.meleeCooldown = Config.health, 0, 0, 0
     Weapons.give(p, "pistol")
 end
 
@@ -70,6 +73,7 @@ function Player.copy(from, to)
     to.dash, to.cooldown, to.dashX, to.dashY = from.dash, from.cooldown, from.dashX, from.dashY
     to.hp, to.dead, to.trigger = from.hp, from.dead, from.trigger
     to.slide, to.slideX, to.slideY = from.slide, from.slideX, from.slideY
+    to.stun, to.meleeCooldown = from.stun, from.meleeCooldown
     to.weapon, to.ammo, to.reserve, to.reload, to.fireCooldown = from.weapon, from.ammo, from.reserve, from.reload, from.fireCooldown
     return to
 end
@@ -123,13 +127,19 @@ function Player.step(p, input, arena, dt)
     if held and held.speed then
         wx, wy = wx * held.speed, wy * held.speed
     end
+    local stunned = p.stun > 0
+    if stunned then
+        p.stun = p.stun - 1
+        local slow = WeaponConfig.melee.stunSpeed
+        wx, wy = wx * slow, wy * slow
+    end
 
     local dash = Config.dash
     if p.cooldown > 0 then
         p.cooldown = p.cooldown - 1
     end
     local slide = Config.slide
-    if input.d == 1 and p.cooldown == 0 and p.dash == 0 and p.slide == 0 then
+    if input.d == 1 and not stunned and p.cooldown == 0 and p.dash == 0 and p.slide == 0 then
         if Player.running(p, input) then
             local speed = sqrt(p.vx * p.vx + p.vy * p.vy)
             p.slideX, p.slideY = p.vx / speed, p.vy / speed
