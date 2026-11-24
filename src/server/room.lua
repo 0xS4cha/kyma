@@ -6,6 +6,7 @@ local Inputs = require("src.net.inputs")
 local Bot = require("src.game.bot")
 local Player = require("src.game.player")
 local Combat = require("src.game.combat")
+local Text = require("src.core.text")
 local GameConfig = require("src.config.game")
 local Maps = require("src.maps.index")
 local Arena = require("src.game.arena")
@@ -35,6 +36,7 @@ function Room:init(id, options)
         end
     end
     self.accumulator = 0
+    self.chat = {}
     self.shots = {}
     self.noises = {}
     self.state = "waiting"
@@ -112,6 +114,7 @@ function Room:Add(client)
     client.slot = slot
     self.members[#self.members + 1] = client
     local player = self.world:add(slot, client.name, self:teamFor())
+    client:Send("chatlog", { messages = self.chat })
     client:Send("joined", {
         room = self.id, slot = slot, tick = self.world.tick, tickRate = Config.tickRate,
         mode = self.mode, map = self.map, team = player.team, angle = Player.packAngle(player.angle),
@@ -136,6 +139,41 @@ function Room:Remove(client)
     client.room = nil
     client.slot = nil
     self:refresh()
+end
+
+--- @param client table
+--- @param data any
+--- @return boolean
+function Room:Chat(client, data)
+    if type(data) ~= "table" then return false end
+    local text = Text.clean(data.text, Config.chatLength)
+    if not text or text == "" then return false end
+    local now = love.timer.getTime()
+    local recent = {}
+    for _, at in ipairs(client.chatTimes or {}) do
+        if now - at < Config.chatWindow then recent[#recent + 1] = at end
+    end
+    client.chatTimes = recent
+    if #recent >= Config.chatBurst then
+        client:Send("error", { message = "You are sending messages too fast" })
+        return false
+    end
+    recent[#recent + 1] = now
+    local player = client.slot and self.world.players[client.slot]
+    local team = data.team == true and self.rules.teams and player and player.team or nil
+    local message = { n = client.name, s = client.slot, x = text, tm = team and 1 or nil }
+    if not team then
+        self.chat[#self.chat + 1] = message
+        if #self.chat > Config.chatHistory then table.remove(self.chat, 1) end
+        self:Broadcast("chat", message)
+        return true
+    end
+    local raw = Protocol.Encode("chat", message)
+    for _, member in ipairs(self.members) do
+        local other = member.slot and self.world.players[member.slot]
+        if other and other.team == team then member:SendRaw(raw) end
+    end
+    return true
 end
 
 function Room:Ready(client, data)

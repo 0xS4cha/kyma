@@ -18,6 +18,7 @@ Kyma is a one-on-one duel seen from above, in a minimal white world where the fi
 | Throw your weapon | `G` or middle click |
 | Pick up / swap weapon | `E` |
 | Zoom | Mouse wheel |
+| Chat | `Enter` to type and send, `Tab` to switch to your team in Teams, `Escape` to cancel |
 | Show or hide the controls | `H` (shown for the first seconds of a game) |
 | Release the mouse | `Escape` (click to capture it again, `Escape` again to quit) |
 

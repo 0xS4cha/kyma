@@ -138,6 +138,11 @@ Sounds.lose = {
     volume = 0.5, cooldown = 2,
     layers = merge(Synth.melody({ { "a4", 0.14 }, { "f4", 0.14 }, { "d4", 0.4 } }, { wave = "triangle", volume = 0.5 }))
 }
+Sounds.chat = {
+    volume = 0.25, cooldown = 0.15,
+    layers = merge(Synth.melody({ { "e6", 0.04 }, { "a6", 0.07 } }, { wave = "sine", volume = 0.4 }))
+}
+
 Sounds.hover = {
     volume = 0.12, cooldown = 0.04,
     layers = { { wave = "sine", from = 1400, length = 0.025, volume = 0.4 } }

@@ -152,7 +152,7 @@ function Hud:update(session, dt)
     self.prompt = approach(self.prompt, promptText and 1 or 0, 14, dt)
 
     self.death = approach(self.death, me.dead > 0 and 1 or 0, 8, dt)
-    local holding = love.keyboard and love.keyboard.isScancodeDown("tab") and not session:paused()
+    local holding = love.keyboard and love.keyboard.isScancodeDown("tab") and not session:paused() and not session.chat.open
     self.board = approach(self.board, holding and 1 or 0, 14, dt)
     if world.rules.teams then
         for team = 1, 2 do
@@ -338,6 +338,58 @@ function Hud:drawLobby(session)
     end
     if #players < 2 then
         text("Waiting for an opponent to start", 12, x + 20, y + h - 18, INK, 0.45)
+    end
+end
+
+function Hud:drawChat(session)
+    local chat = session.chat
+    local H = love.graphics.getHeight()
+    local now = love.timer.getTime()
+    local x, bottom = MARGIN, H - MARGIN - 112 - 16
+    local w = 420
+    local open = chat.open
+    if open then
+        local tag = chat.team and "Team" or "All"
+        card(x, bottom - 40, w, 40, 1, 12)
+        local tw = font(12):getWidth(tag) + 16
+        love.graphics.setColor((chat.team and Kit.ALLY or INK)[1], (chat.team and Kit.ALLY or INK)[2], (chat.team and Kit.ALLY or INK)[3], 0.12)
+        love.graphics.rectangle("fill", x + 10, bottom - 31, tw, 22, 6, 6)
+        text(tag, 12, x + 18, bottom - 27, chat.team and Kit.ALLY or INK, 0.9)
+        local shown = chat.text
+        local f = font(15)
+        while #shown > 0 and f:getWidth(shown) > w - tw - 44 do shown = shown:sub(2) end
+        local cw = text(shown == "" and "Say something" or shown, 15, x + 20 + tw, bottom - 30, INK, shown == "" and 0.35 or 1)
+        if now % 1 < 0.55 then
+            color(RED, 1)
+            love.graphics.rectangle("fill", x + 21 + tw + (shown == "" and 0 or cw), bottom - 30, 2, 19)
+        end
+        if session.world and session.world.rules.teams then
+            text("Tab: " .. (chat.team and "all" or "team"), 11, x + w - 12, bottom - 26, INK, 0.4, "right")
+        end
+        bottom = bottom - 50
+    end
+    local y = bottom
+    local count = 0
+    for k = #chat.log, 1, -1 do
+        local entry = chat.log[k]
+        local age = now - entry.time
+        local alpha = open and 1 or clamp((9 - age) / 1, 0, 1)
+        if alpha > 0.01 then
+            count = count + 1
+            if count > (open and 10 or 6) then break end
+            y = y - 24
+            local name = entry.name .. (entry.team and " (team)" or "")
+            local friendly = session.world and entry.slot and session:friendly(entry.slot)
+            local c = entry.slot and session.world and entry.slot == session.world.slot and INK or (friendly and Kit.ALLY or RED)
+            local nw = font(14):getWidth(name)
+            local f = font(14)
+            local body = entry.text
+            while #body > 0 and f:getWidth(body) > w - nw - 30 do body = body:sub(1, -2) end
+            love.graphics.setColor(1, 1, 1, 0.82 * alpha)
+            love.graphics.rectangle("fill", x, y - 3, nw + f:getWidth(body) + 30, 22, 8, 8)
+            text(name, 14, x + 10, y, c, alpha)
+            text(body, 14, x + 20 + nw, y, INK, 0.85 * alpha)
+        end
     end
 end
 
@@ -699,6 +751,7 @@ function Hud:drawHelp()
         { "E", "Swap with a weapon on the floor" },
         { "Tab", "Hold for the scoreboard" },
         { "F", "Ready up during the warmup" },
+        { "Enter", "Chat, Tab for your team" },
         { "H", "Show or hide controls" }
     }
     local w, rowH = 360, 34
@@ -776,6 +829,7 @@ function Hud:draw(session)
         self:drawBoard(session)
         self:drawStatus(session)
         if not replay then self:drawHelp() end
+        self:drawChat(session)
     end
     self:drawOverlay(session)
 end
