@@ -262,7 +262,7 @@ function Combat.fire(world, shooter, command)
         world.shots[#world.shots + 1] = {
             o = shooter.slot, x = ray.x, y = ray.y,
             X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length, h = hit,
-            q = def.silent and 1 or nil
+            q = def.silent and 1 or nil, g = Weapons.pack(shooter.weapon)
         }
         world.shotLog[#world.shotLog + 1] = { tick = world.tick, o = shooter.slot, x = ray.x, y = ray.y, X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length }
     end

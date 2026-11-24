@@ -95,6 +95,10 @@ Every map has four spawns per team and works in all modes. Except the Labyrinth,
 - Bullets betray the shooter: each shot leaves a smoke trail along its path for about a second, visible even in the grey area, and bullet holes stay on the walls for 10 seconds. Following a trail back leads to where the shot came from.
 - Holding `C` (or `Ctrl`) makes you walk at less than half speed without footsteps. Throwing an empty weapon somewhere makes a noise there: use it to lure the opponent.
 
+## Sound
+
+Every action has its own synthesized sound: one shot per weapon, reloads and dry fire, dashes, slides, strikes and punches, hits, eliminations, doors, breaking glass, pickups, ammo, healing, level ups, the countdown, the start and the end of a match, and the menu. Sounds from the world get quieter with distance and come from the left or the right of the screen, which turns with you, so you can hear where a fight is. The volume is in Settings.
+
 ## Screen
 
 - Top left: the game state (waiting for an opponent or duel, the dot pulses while waiting) and the `H` reminder. Top middle: the score. Top right: your ping and the eliminations, which slide in and fade out.

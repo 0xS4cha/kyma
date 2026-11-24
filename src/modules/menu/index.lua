@@ -124,6 +124,7 @@ end
 function GM.Menu:Launch(label, action)
     if self.wipe then return end
     self.wipe = { phase = "cover", start = love.timer.getTime(), label = label, action = action }
+    if GM.Audio then GM.Audio:Play("whoosh") end
 end
 
 --- @param options table
@@ -302,6 +303,7 @@ function GM.Menu:Think(dt)
                 hovered = element.id
             end
         end
+        if hovered and hovered ~= self.focus and GM.Audio then GM.Audio:Play("hover") end
         if hovered then self.focus = hovered end
     end
 end
@@ -318,6 +320,7 @@ function GM.Menu:MousePressed(x, y, button)
             self.focus = element.id
             self.editing = element.text and element.id or nil
             element.press(self, x, y)
+            if GM.Audio then GM.Audio:Play("click") end
             return
         end
     end
