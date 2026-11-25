@@ -11,6 +11,7 @@ local Effects = require("src.modules.session.effects")
 local PostFX = require("src.modules.session.postfx")
 local Feel = require("src.config.feel")
 local Debris = require("src.modules.session.debris")
+local SmokeFx = require("src.modules.session.smokefx")
 local Loadout = require("src.config.loadout")
 local GadgetConfig = require("src.config.gadgets")
 local Hitstop = require("src.modules.session.hitstop")
@@ -63,6 +64,7 @@ function GM.Session:Initialize()
     self.captured = false
     self.autoplay = GM.Flags and GM.Flags.autoplay or false
     self.effects = Effects.new()
+    self.smokeFx = SmokeFx.new()
     self.postfx = PostFX.new()
     self.hitstop = Hitstop.new()
     self.hud = Hud.new()
@@ -160,6 +162,7 @@ function GM.Session:Start(options)
         at = love.timer.getTime(), seed = love.math.random(0, 999)
     }
     self.effects = Effects.new()
+    self.smokeFx = SmokeFx.new()
     self.postfx = PostFX.new()
     self.hitstop = Hitstop.new()
     self.hud = Hud.new()
@@ -407,6 +410,7 @@ function GM.Session:shoot(p, sequence, color)
     for _, ray in ipairs(rays) do
         local length = arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
         local hit = length < ray.range - 1e-6 and 1 or 0
+        self.smokeFx:bullet(ray.x, ray.y, ray.x + ray.dx * length, ray.y + ray.dy * length)
         if hit == 1 and self.debris then self.debris:chips(ray.x + ray.dx * length, ray.y + ray.dy * length, ray.dx, ray.dy) end
         self.effects:tracer(ray.x, ray.y, ray.x + ray.dx * length, ray.y + ray.dy * length, color, hit, 0.5)
     end
@@ -652,6 +656,7 @@ function GM.Session:onFlash(data)
     self.effects:burst(data.x, data.y)
     self.postfx:wave(data.x, data.y, 1, 700)
     if self.debris then self.debris:blast(data.x, data.y, 320, 520) end
+    self.smokeFx:blast(data.x, data.y, 240)
     soundAt("bang", data.x, data.y)
     local d = math.sqrt((data.x - world.me.x) ^ 2 + (data.y - world.me.y) ^ 2)
     if d < GadgetConfig.flash.radius then
@@ -801,6 +806,7 @@ function GM.Session:receive(data)
             if recoil and shot.o then Character.fire(shot.o, recoil.gun) end
             soundAt(Weapons.unpack(shot.g) or "pistol", shot.x, shot.y)
             self.effects:muzzle(world.arena, shot.x, shot.y, Weapons.unpack(shot.g))
+            self.smokeFx:bullet(shot.x, shot.y, shot.X, shot.Y)
             self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT, shot.h)
             local d = math.sqrt((shot.x - world.me.x) ^ 2 + (shot.y - world.me.y) ^ 2)
             if d < Feel.shake.nearbyRange then
@@ -1167,6 +1173,18 @@ function GM.Session:Think(dt)
     local views = self:visibleOpponents()
     views[#views + 1] = self:localView()
     if self.debris then self.debris:update(views, fxDt) end
+    self.smokeFx:update()
+    for _, view in ipairs(views) do
+        local vx, vy = view.vx or 0, view.vy or 0
+        if vx * vx + vy * vy > 1600 then
+            for _, smoke in ipairs(world.arena.smokes or {}) do
+                if (view.x - smoke.x) ^ 2 + (view.y - smoke.y) ^ 2 < (smoke.r * 1.05) ^ 2 then
+                    self.smokeFx:wake(view.slot or 0, view.x, view.y)
+                    break
+                end
+            end
+        end
+    end
     for _, view in ipairs(views) do
         if view.sliding and love.math.random() < 0.6 then
             local ca, sa = math.cos(view.angle), math.sin(view.angle)

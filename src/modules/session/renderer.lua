@@ -8,6 +8,7 @@ local Player = require("src.game.player")
 local Vision = require("src.game.vision")
 local Shaders = require("src.modules.session.shaders")
 local Shadows = require("src.modules.session.shadows")
+local Effects = require("src.modules.session.effects")
 local Occlusion = require("src.modules.session.occlusion")
 
 local Renderer = {}
@@ -286,7 +287,7 @@ end
 
 local GADGET_COLORS = { { 0.62, 0.65, 0.7 }, { 0.98, 0.95, 0.75 }, { 0.88, 0.14, 0.12 } }
 
-local function drawGadgets(world)
+local function drawGadgets(world, session)
     local lg = love.graphics
     local now = love.timer.getTime()
     local smokeShader = Shaders.get("smoke")
@@ -297,6 +298,9 @@ local function drawGadgets(world)
             lg.setShader(smokeShader)
             smokeShader:send("time", now)
             smokeShader:send("seed", (smoke.x * 0.013 + smoke.y * 0.007) % 17)
+            if session and session.smokeFx then
+                session.smokeFx:send(smokeShader, smoke, size / 2, session.effects and session.effects.lights, Effects.LIGHT_LIFE)
+            end
             lg.draw(Shaders.pixel(), smoke.x, smoke.y, 0, size, size, 0.5, 0.5)
             lg.setShader()
         elseif smoke.r > 1 then
@@ -582,7 +586,7 @@ function Renderer.draw(session)
             end
         end
         drawFog(world, me, camera)
-        drawGadgets(world)
+        drawGadgets(world, session)
         drawSpotted(opponents)
         drawAims(world)
         session.effects:drawWorld()
