@@ -742,12 +742,146 @@ function Hud:drawPrompt()
     hint(Keys.label("pickup"), label, x + 16, y + 9, self.prompt, 16)
 end
 
-function Hud:drawFeed(session)
+--- Top of the column on the right edge, below the ping and a top-right mini-map.
+--- @param session table
+--- @return number
+function Hud:rightTop(session)
     local W = love.graphics.getWidth()
-    local now = love.timer.getTime()
     local y = MARGIN + 44
     local mx, my, mw, mh = self:mapBox(session)
     if mx and my < 100 and mx > W / 2 then y = my + mh + 12 end -- carte en haut à droite
+    return y
+end
+
+local STAT_SCALE = {
+    fps = function(top) return max(top, 60) end,
+    frame = function(top) return max(top, 34) end,
+    tick = function(top) return max(top, Config.tickRate * 1.2) end,
+    rtt = function(top) return max(top, 100) end,
+    jitter = function(top) return max(top, 20) end,
+    loss = function(top) return max(top, 5) end,
+    down = function(top) return max(top * 1.2, 1) end,
+    up = function(top) return max(top * 1.2, 1) end
+}
+
+--- @param stat string
+--- @param value number?
+--- @return string
+local function statText(stat, value)
+    if not value then return "-" end
+    if stat == "fps" then return string.format("%d", value + 0.5) end
+    if stat == "tick" then return string.format("%d /s", value + 0.5) end
+    if stat == "rtt" then return string.format("%d ms", value + 0.5) end
+    if stat == "frame" or stat == "jitter" then return string.format("%.1f ms", value) end
+    if stat == "loss" then return string.format("%.1f%%", value) end
+    return string.format("%.1f KB/s", value)
+end
+
+--- The color that says how healthy a value is, nil when it is fine.
+--- @param stat string
+--- @param value number?
+--- @return table?
+local function statQuality(stat, value)
+    if not value then return nil end
+    local bad, worse
+    if stat == "fps" then bad, worse = value < 60, value < 30
+    elseif stat == "frame" then bad, worse = value > 25, value > 50
+    elseif stat == "tick" then bad, worse = value < Config.tickRate * 0.9, value < Config.tickRate * 0.75
+    elseif stat == "rtt" then bad, worse = value >= 60, value >= 130
+    elseif stat == "jitter" then bad, worse = value > 10, value > 25
+    elseif stat == "loss" then bad, worse = value > 0.05, value > 2
+    end
+    return worse and RED or bad and AMBER or nil
+end
+
+--- @param list table history, false where there was no value
+--- @param stat string
+--- @param x number
+--- @param y number
+--- @param w number
+--- @param h number
+--- @param c table
+local function sparkline(list, stat, x, y, w, h, c)
+    local lg = love.graphics
+    local count = require("src.net.netstats").HISTORY
+    local top = 0
+    for _, v in ipairs(list) do if v and v > top then top = v end end
+    local scale = STAT_SCALE[stat](top)
+    lg.setColor(INK[1], INK[2], INK[3], 0.06)
+    lg.rectangle("fill", x, y, w, h, 4, 4)
+    local step = w / (count - 1)
+    local offset = count - #list
+    local points = {}
+    local function flush()
+        if #points >= 4 then
+            color(c, 0.85)
+            lg.setLineWidth(1.5)
+            lg.line(points)
+            lg.setLineWidth(1)
+        elseif #points == 2 then
+            color(c, 0.85)
+            lg.circle("fill", points[1], points[2], 1.5)
+        end
+        points = {}
+    end
+    for k, v in ipairs(list) do
+        if v then
+            points[#points + 1] = x + (offset + k - 1) * step
+            points[#points + 1] = y + h - 2 - clamp(v / scale, 0, 1) * (h - 4)
+        else
+            flush()
+        end
+    end
+    flush()
+end
+
+--- The performance stats chosen in Settings > Performance stats, in a card
+--- on the right edge. Returns where the next element on that edge can go.
+--- @param session table
+--- @return number
+function Hud:drawStats(session)
+    local top = self:rightTop(session)
+    local menu = GM.Menu and GM.Menu.settings
+    local stats = GM.Multiplayer and GM.Multiplayer.stats
+    if not menu or not stats then return top end
+    local Settings = require("src.modules.menu.settings")
+    local shown = {}
+    local height = 16
+    for _, def in ipairs(Settings.STATS) do
+        local mode = menu[def.key] or 1
+        if mode > 1 then
+            local textRow, graph = mode == 2 or mode == 4, mode == 3 or mode == 4
+            shown[#shown + 1] = { def = def, text = textRow, graph = graph }
+            height = height + 20 + (graph and 30 or 0)
+        end
+    end
+    if #shown == 0 then return top end
+    local W = love.graphics.getWidth()
+    local w = 220
+    local x = W - MARGIN - w
+    card(x, top, w, height, 0.92, 12)
+    local y = top + 9
+    for _, row in ipairs(shown) do
+        local stat = row.def.stat
+        local value = stats.values[stat]
+        local quality = statQuality(stat, value)
+        text(row.def.label, 12, x + 14, y + 3, INK, 0.55)
+        if row.text then
+            text(statText(stat, value), 14, x + w - 14, y + 1, quality or INK, quality and 1 or 0.9, "right")
+        end
+        y = y + 20
+        if row.graph then
+            sparkline(stats.history[stat] or {}, stat, x + 14, y, w - 28, 24, quality or INK)
+            y = y + 30
+        end
+    end
+    return top + height + 10
+end
+
+function Hud:drawFeed(session, from)
+    local W = love.graphics.getWidth()
+    local now = love.timer.getTime()
+    local y = from or self:rightTop(session)
     for _, entry in ipairs(self.feed) do
         local age = now - entry.time
         local enter = easeOutCubic(age / 0.3)
@@ -1079,7 +1213,7 @@ end
 function Hud:draw(session)
     if session.world and session.world.spectator then
         self:drawScore(session)
-        self:drawFeed(session)
+        self:drawFeed(session, self:drawStats(session))
         self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)
@@ -1104,7 +1238,7 @@ function Hud:draw(session)
         self:drawWeapon(session)
         self:drawGadget(session)
         self:drawPrompt()
-        self:drawFeed(session)
+        self:drawFeed(session, self:drawStats(session))
         self:drawDeath(session)
         local replay = session:killcam() ~= nil
         if not replay then self:drawLobby(session) end
