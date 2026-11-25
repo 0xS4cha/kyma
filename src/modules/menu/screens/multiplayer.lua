@@ -9,6 +9,7 @@ local NetConfig = require("src.net.config")
 local Multiplayer = {}
 
 local ROW = 58
+local MODES = 60
 local SOURCES = { "Official server", "Your server", "Your network" }
 
 local function layout()
@@ -20,8 +21,10 @@ local function layout()
     local y = 130
     local h = math.min(600, H - y - M)
     local px = M + listW + gap
+    local listH = h - MODES - 12
     return {
-        M = M, list = { x = M, y = y, w = listW, h = h }, x = px, w = panelW,
+        M = M, list = { x = M, y = y, w = listW, h = listH }, x = px, w = panelW,
+        modes = { y = y + listH + 12, w = math.floor((listW - 12) / 2) },
         name = y + 20, rated = { y = y + 84, h = 222 }, connect = { y = y + 322, h = 278 }
     }
 end
@@ -96,6 +99,16 @@ local function pick(menu, game)
     join(menu, game.address, (full and "Watching " or "Joining ") .. game.name, { room = game.room, spectate = full or nil })
 end
 
+--- Opens the extraction mode on the official server.
+--- @param menu table
+function Multiplayer.extraction(menu)
+    menu:saveSettings()
+    menu:Launch("Entering the wilds", function()
+        menu.background:stop()
+        GM.Extraction:Start(GM.Multiplayer:OfficialAddress(), menu.settings.name)
+    end)
+end
+
 function Multiplayer.enter(menu)
     menu.notice = nil
     GM.Multiplayer.browser:Refresh()
@@ -124,6 +137,17 @@ function Multiplayer.build(menu)
             press = function() pick(menu, game) end
         }
     end
+    local mw = l.modes.w
+    list[#list + 1] = {
+        id = "extraction", x = box.x, y = l.modes.y, w = mw, h = MODES,
+        label = "Extraction", sublabel = "A huge persistent world",
+        press = function() Multiplayer.extraction(menu) end
+    }
+    list[#list + 1] = {
+        id = "tournament", x = box.x + box.w - mw, y = l.modes.y, w = mw, h = MODES,
+        label = "Tournaments", sublabel = "Create or join a bracket",
+        press = function() menu:switch("tournament", 1) end
+    }
     local px, pw = l.x, l.w
     list[#list + 1] = {
         id = "name", x = px, y = l.name, w = pw, h = 44,
@@ -255,6 +279,12 @@ function Multiplayer.draw(menu, elements, p)
         end
     end
     if shown == 0 then drawEmpty(menu, bx + 22, box.y + 112, box.w - 44, e) end
+
+    e = menu:stagger(p, 2.5)
+    for _, id in ipairs({ "extraction", "tournament" }) do
+        local b = menu.find(elements, id)
+        Kit.button(id, b.x - (1 - e) * 30, b.y, b.w, b.h, b.label, { hot = menu.focus == id, sublabel = b.sublabel, size = 18, alpha = e })
+    end
 
     local ra = menu:stagger(p, 3)
     local name = menu.find(elements, "name")
