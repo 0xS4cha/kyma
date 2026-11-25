@@ -14,7 +14,7 @@ local Hub = {}
 local lg = love.graphics
 local floor, min, max = math.floor, math.min, math.max
 
-local TABS = { "Gear", "Trader", "Workbench" }
+local TABS = { "Trader", "Workbench", "Record" }
 local SHOP_FILTERS = {
     { "All" }, { "Weapons", "weapon" }, { "Ammo", "ammo" }, { "Gear", "armor", "backpack" }, { "Utilities", "utility" },
     { "Mods", "mod" }, { "Materials", "material" }, { "Plans", "blueprint" }
@@ -93,39 +93,18 @@ function Hub.places(data)
     return Inventory.places(data.g, { st = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = data.stash } })
 end
 
---- The gear column: equipment, quick slots, pockets and backpack.
-local function gear(state, data, places, x, y, cell)
-    local ui = state.ui
-    local g = data.g
-    ui:slot("primary", g.primary, x, y + 20, cell * 5, cell * 2)
-    ui:slot("secondary", g.secondary, x, y + 30 + cell * 2, cell * 5, cell * 2)
-    Kit.text("Weapons", 13, x, y, Kit.INK, 0.6)
-    local ax = x + cell * 5 + 16
-    Kit.text("Armor and bag", 13, ax, y, Kit.INK, 0.6)
-    ui:slot("helmet", g.helmet, ax, y + 20, cell * 2, cell * 2)
-    ui:slot("vest", g.vest, ax + cell * 2 + 8, y + 20, cell * 2, cell * 3)
-    ui:slot("backpack", g.backpack, ax, y + 28 + cell * 2, cell * 2, cell * 2)
-    local qy = y + 50 + cell * 4
-    Kit.text("Quick slots", 13, x, qy - 20, Kit.INK, 0.6)
-    ui:quick(g, x, qy, cell)
-    local py = qy + cell + 40
-    ui:grid("pk", places.pk, x, py, cell, "Pockets")
-    if places.bp then
-        ui:grid("bp", places.bp, x, py + cell + 40, cell, Items.name(g.backpack))
-    else
-        Kit.text("No backpack", 13, x, py + cell + 20, Kit.INK, 0.4)
-    end
-end
-
 local function stats(data, x, y, w)
+    Kit.text("Your record on this server", 13, x, y - 30, Kit.INK, 0.55)
     local s = data.stats or {}
     local lines = {
         { "Raids", s.raids }, { "Extracted", s.extracts }, { "Deaths", s.deaths }, { "Players killed", s.kills },
         { "Monsters killed", s.monsters }, { "Crafted", s.crafted }, { "Earned", Hub.money(s.earned or 0) }
     }
     for k, line in ipairs(lines) do
-        Kit.text(line[1], 13, x, y + (k - 1) * 20, Kit.INK, 0.55)
-        Kit.text(tostring(line[2] or 0), 13, (x) + (w), y + (k - 1) * 20, Kit.INK, 0.85, "right")
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], k % 2 == 0 and 0.03 or 0)
+        lg.rectangle("fill", x - 8, y + (k - 1) * 34 - 6, w + 16, 32, 6, 6)
+        Kit.text(line[1], 15, x, y + (k - 1) * 34, Kit.INK, 0.65)
+        Kit.text(tostring(line[2] or 0), 16, (x) + (w), y + (k - 1) * 34, Kit.INK, 0.95, "right")
     end
 end
 
@@ -266,46 +245,70 @@ function Hub.draw(ext)
     state.tooltip = nil
     local places = Hub.places(data)
     state.ui:begin(places)
-    local M = 28
-    Kit.text("The Wilds", 30, M, 22, Kit.INK, 1)
-    Kit.text(string.format("Official server  ·  %d / %d in the world", data.players or 0, data.max or 64), 13, M, 62, Kit.INK, 0.55)
-    Kit.text(Hub.money(data.money), 24, (0) + (W - M - 430), 28, Kit.AMBER, 1, "right")
-    button(state, "deploy", W - M - 200, 20, 200, 56, "Deploy", function() ext:send("xhub", { o = "deploy" }) end, { primary = true, size = 22, hint = "Enter" })
+    local M = 20
+    -- Header
+    Kit.card(M, M, W - M * 2, 76, 0.97, 16)
+    Kit.color(Kit.RED, 1)
+    lg.rectangle("fill", M + 18, M + 18, 6, 40, 3, 3)
+    Kit.text("The Wilds", 28, M + 36, M + 12, Kit.INK, 1)
+    Kit.text(string.format("Official server  ·  %d / %d in the world", data.players or 0, data.max or 64), 13, M + 37, M + 48, Kit.INK, 0.55)
+    local money = Hub.money(data.money)
+    local mw = Kit.font(22):getWidth(money) + 34
+    local mx = W - M - 18 - 200 - 12 - 200 - 16 - mw
+    Kit.color(Kit.AMBER, 0.16)
+    lg.rectangle("fill", mx, M + 18, mw, 40, 20, 20)
+    Kit.text(money, 22, mx + 17, M + 24, Kit.AMBER, 1)
+    button(state, "deploy", W - M - 18 - 200, M + 12, 200, 52, "Deploy", function() ext:send("xhub", { o = "deploy" }) end, { primary = true, size = 21, hint = "Enter" })
     local kit = data.kit or 0
-    button(state, "kit", W - M - 410, 20, 200, 56, kit > 0 and string.format("Free kit %d:%02d", floor(kit / 60), kit % 60) or "Free kit",
+    button(state, "kit", W - M - 18 - 200 - 12 - 200, M + 12, 200, 52, kit > 0 and string.format("Free kit  %d:%02d", floor(kit / 60), kit % 60) or "Free kit",
         function() ext:send("xhub", { o = "kit" }) end, { size = 15, disabled = kit > 0, sublabel = "P9, ammo, bandages" })
-    local cell = max(30, min(46, floor((H - 200) / 18)))
-    local stashW = Config.stash.w * cell
-    local stashX = W - M - stashW - 10
-    local leftW = stashX - M - 40
-    local top = 110
-    Kit.segments("hub:tab", M, top, min(leftW, 420), 38, TABS, state.tab, 1)
-    local tabW = min(leftW, 420) / #TABS
+
+    local top = M + 76 + 16
+    local bottom = H - M
+    local cell = max(28, min(42, floor((bottom - top - 330) / 9), floor(W / 46)))
+    -- Loadout
+    local lw = cell * 7 + 16 + 32
+    local value = 0
+    for _, inst in ipairs(Inventory.all(data.g)) do value = value + Items.value(inst, Config.sellRate) end
+    UI.panel("Loadout", M, top, lw, bottom - top, Hub.money(value))
+    state.ui:loadout(data.g, places, M + 16, top + 44, cell, "survivor1")
+    -- Stash
+    local sw = Config.stash.w * cell + 40
+    local sx = W - M - sw
+    UI.panel("Stash", sx, top, sw, bottom - top, "wheel to scroll")
+    local rows = floor((bottom - top - 64) / cell)
+    state.ui:grid("st", places.st, sx + 16, top + 44, cell, nil, rows)
+    -- Tabs
+    local cx = M + lw + 16
+    local cw = sx - 16 - cx
+    UI.panel(nil, cx, top, cw, bottom - top)
+    local tw = min(cw - 32, 420)
+    Kit.segments("hub:tab", cx + 16, top + 14, tw, 36, TABS, state.tab, 1)
     for k = 1, #TABS do
-        state.buttons[#state.buttons + 1] = { x = M + (k - 1) * tabW, y = top, w = tabW, h = 38, run = function() state.tab = k end }
+        state.buttons[#state.buttons + 1] = { x = cx + 16 + (k - 1) * tw / #TABS, y = top + 14, w = tw / #TABS, h = 36, run = function() state.tab = k end }
     end
-    local contentY = top + 64
-    local contentH = H - contentY - 24
+    local contentY = top + 66
+    local contentH = bottom - contentY - 16
     if state.tab == 1 then
-        gear(state, data, places, M, contentY, cell)
-        local sx = M + cell * 10 + 40
-        if sx + 220 < stashX then
-            Kit.text("Record", 13, sx, contentY, Kit.INK, 0.6)
-            stats(data, sx, contentY + 24, 220)
-            Kit.text("Shift click moves an item between your gear and the stash. R rotates while dragging. Right click for more.", 12, sx, contentY + 190, Kit.INK, 0.5, "left", 220)
-        end
+        trader(state, ext, cx + 16, contentY, cw - 32, contentH)
     elseif state.tab == 2 then
-        trader(state, ext, M, contentY, leftW, contentH)
+        workbench(state, ext, cx + 16, contentY, cw - 32, contentH)
     else
-        workbench(state, ext, M, contentY, leftW, contentH)
+        stats(data, cx + 24, contentY + 40, min(cw - 48, 420))
+        Kit.text("Tips", 13, cx + 24, contentY + 300, Kit.INK, 0.55)
+        local tips = {
+            "Shift click moves an item between your loadout and the stash.",
+            "R rotates an item while you drag it.",
+            "Drop an attachment on a weapon to fit it; a utility on a quick slot to bind it.",
+            "Right click a plan in the stash to learn it, any item to sell it."
+        }
+        for k, tip in ipairs(tips) do Kit.text("·  " .. tip, 13, cx + 24, contentY + 300 + k * 22, Kit.INK, 0.7) end
     end
-    local rows = floor((H - contentY - 30) / cell)
-    state.ui:grid("st", places.st, stashX, contentY, cell, "Stash  ·  wheel to scroll", rows)
     state.ui:finish()
     state.ui:overlay()
     if state.tooltip and not state.ui.drag then
-        local mx, my = love.mouse.getPosition()
-        UI.tooltip(state.tooltip, mx + 18, my + 12)
+        local mx2, my2 = love.mouse.getPosition()
+        UI.tooltip(state.tooltip, mx2 + 18, my2 + 12)
     end
     ext:drawToasts()
 end
@@ -337,11 +340,11 @@ function Hub.wheelmoved(ext, y)
     local state = ext.hubState
     local mx, my = love.mouse.getPosition()
     local function over(r) return r and mx >= r.x and mx < r.x + r.w and my >= r.y and my < r.y + r.h end
-    if state.tab == 2 and over(state.shopRegion) then
+    if state.tab == 1 and over(state.shopRegion) then
         state.shopScroll = state.shopScroll - y
         return
     end
-    if state.tab == 3 and over(state.craftRegion) then
+    if state.tab == 2 and over(state.craftRegion) then
         state.craftScroll = state.craftScroll - y
         return
     end

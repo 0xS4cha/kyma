@@ -29,6 +29,8 @@ Leaving the game does not save you: your character stays in the world for 30 sec
 | Map (wheel to zoom) | `M` |
 | Pause (the world keeps running) | `Escape` |
 
+The compass at the top points to the nearest extraction, arrows on the screen edges show the three closest ones and the events, and the minimap turns with the camera (the red N marks north). A red arc around you shows where a hit came from.
+
 In the inventory:
 
 - **Drag** an item to move it. **R** rotates it while you drag. Dropping a stack on the same item merges them.
@@ -71,7 +73,7 @@ On a weapon, rarity raises damage, magazine and range and tightens the spread. O
 - **36 weapons**: pistols (P9, derringer, machine pistol, silenced pistol, revolver, hand cannon, flare gun, nail gun), SMGs, assault rifles, carbines, semi and lever action rifles, battle and heavy rifles, pump, auto, double, sawed-off, slug and drum shotguns, bolt and marksman snipers, an anti-materiel rifle, a crossbow, a railgun, LMGs, a rotary gun, a flamethrower and a grenade launcher. Each one has a caliber among 10 kinds of ammunition.
 - **48 attachments** in 6 slots (muzzle, barrel, magazine, optic, underbarrel, rounds). Examples: suppressor, flash hider, choke, match barrel, drum and belt magazines, scope, thermal sight, flashlight, strobe light, bipod, and rounds that **bounce**, **pierce**, **explode**, set targets **on fire**, **poison**, **freeze**, **arc** to another enemy, **heal you**, **mark** the target through walls, **knock back**, **split** in two, ignore armor or finish off wounded targets.
 - **21 utilities** for the quick slots: bandage, food, medkit, trauma kit, stim, adrenaline, painkillers, antidote, energy drink, armor plate, frag, sticky bomb, smoke, flashbang, molotov, cryo and gas grenades, noisemaker, tripmine, pulse scanner, and an extraction flare that calls your own extraction where you stand.
-- **10 helmets and vests** (gas mask, night vision, fire suit, juggernaut...) and **5 backpacks**, from the 3x3 sling bag to the 7x8 hauler frame.
+- **10 helmets and vests** (gas mask, night vision, fire suit, juggernaut...) and **5 backpacks**, from the 2x3 sling bag to the 6x6 hauler frame. Space is tight on purpose: 3 pocket cells, a 10x24 stash, ammo stacks of 40 at most and material stacks of 12.
 - **20 crafting materials** (scrap metal, screws, springs, string, cloth, duct tape, planks, glue, gunpowder, chemicals, wires, circuit boards, lenses, steel plates, polymer, fuel, batteries, rare alloy, monster fangs, glowing cores) and valuables to sell.
 
 ## Plans and crafting
@@ -115,6 +117,10 @@ make dev-reset           # wipe the local profiles (.dev/extraction.json)
 ```
 
 Command line flags for testing: `--extraction` joins the mode (with `--connect host:port`), `--profile name` uses a separate identity, `--deploy` deploys as soon as the hub opens, `--show inventory|map` opens a panel on deploy.
+
+## Art
+
+Ground textures, trees, rocks, crates, furniture, characters, zombies and robots come from Kenney's [Top-down Shooter](https://kenney.nl/assets/top-down-shooter) pack, and most item icons from his [Generic Items](https://kenney.nl/assets/generic-items) pack, both CC0 (`assets/kenney/`, licenses alongside). Weapons are drawn in the same flat style by `src/modules/extraction/icons.lua`.
 
 ## How it works
 

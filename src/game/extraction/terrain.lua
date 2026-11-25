@@ -11,7 +11,8 @@ local floor, max, min = math.floor, math.max, math.min
 local DOOR_RADIUS = 78
 local DOOR_CLOSE_TICKS = 45
 local GLASS_RESPAWN_TICKS = 60 * 25
-local LISTS = { "walls", "doors", "glass", "cover", "pits" }
+-- floors are only drawn: no movement or ray mode looks at them.
+local LISTS = { "walls", "doors", "glass", "cover", "pits", "floors" }
 
 --- @param def table map definition (see src/game/extraction/worldgen.lua)
 --- @param cell number? cell size
@@ -19,6 +20,7 @@ local LISTS = { "walls", "doors", "glass", "cover", "pits" }
 function Terrain.new(def, cell)
     local t = Arena.new(def)
     setmetatable(t, Terrain)
+    t.floors = def.floors or {}
     t.cell = cell or 256
     t.cols = math.ceil(t.width / t.cell)
     t.rows = math.ceil(t.height / t.cell)

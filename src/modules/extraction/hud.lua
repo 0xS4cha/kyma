@@ -74,6 +74,22 @@ local function markers(raid, toMap, scale)
     end
 end
 
+--- A triangle pointing along a screen angle, with its points computed directly.
+local function pointer(x, y, angle, length)
+    local ca, sa = cos(angle), sin(angle)
+    local function at(f, side)
+        return x + ca * length * f - sa * length * side, y + sa * length * f + ca * length * side
+    end
+    local tx, ty = at(1, 0)
+    local lx, ly = at(-0.75, 0.5)
+    local nx, ny = at(-0.35, 0)
+    local rx, ry = at(-0.75, -0.5)
+    lg.polygon("fill", tx, ty, lx, ly, nx, ny)
+    lg.polygon("fill", tx, ty, nx, ny, rx, ry)
+end
+
+Hud.pointer = pointer
+
 local function arrow(x, y, angle, size)
     Kit.color(Kit.RED, 1)
     lg.polygon("fill", x + cos(angle) * size, y + sin(angle) * size,
@@ -81,31 +97,94 @@ local function arrow(x, y, angle, size)
         x + cos(angle - 2.5) * size * 0.7, y + sin(angle - 2.5) * size * 0.7)
 end
 
---- The minimap in the top right corner, north up.
+--- The minimap in the top right corner. It turns with the camera, so what is
+--- ahead of you on screen is ahead of you on the minimap too.
 function Hud.minimap(ext)
-    local raid = ext.raid
+    local raid, camera = ext.raid, ext.camera
     local W = lg.getWidth()
-    local size = 190
+    local size = 200
     local x, y = W - size - 20, 20
+    local cx, cy = x + size / 2, y + size / 2
     local canvas = Hud.mapCanvas(raid.def)
-    local reach = 2600
+    local reach = 2400
     local me = raid:view()
     local s = size / (reach * 2)
     local px = MAP_SIZE / raid.def.width
-    Kit.card(x - 6, y - 6, size + 12, size + 12, 0.95, 12)
-    lg.setScissor(x, y, size, size)
+    local rotation = camera:rotation()
+    Kit.card(x - 6, y - 6, size + 12, size + 12, 0.96, size / 2 + 6)
+    lg.stencil(function() lg.circle("fill", cx, cy, size / 2) end, "replace", 1)
+    lg.setStencilTest("equal", 1)
     lg.setColor(1, 1, 1, 1)
     lg.push()
-    lg.translate(x + size / 2, y + size / 2)
+    lg.translate(cx, cy)
+    lg.rotate(rotation)
     lg.scale(s / px, s / px)
     lg.translate(-me.x * px, -me.y * px)
     lg.draw(canvas)
     lg.pop()
-    markers(raid, function(wx, wy) return x + size / 2 + (wx - me.x) * s, y + size / 2 + (wy - me.y) * s end, 0.4)
-    lg.setScissor()
-    arrow(x + size / 2, y + size / 2, me.angle, 8)
+    local c, sn = cos(rotation), sin(rotation)
+    markers(raid, function(wx, wy)
+        local dx, dy = (wx - me.x) * s, (wy - me.y) * s
+        return cx + dx * c - dy * sn, cy + dx * sn + dy * c
+    end, 0.4)
+    lg.setStencilTest()
+    lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.25)
+    lg.setLineWidth(2)
+    lg.circle("line", cx, cy, size / 2)
+    lg.setLineWidth(1)
+    -- North marker on the rim.
+    local na = rotation - pi / 2
+    local nx, ny = cx + cos(na) * (size / 2 - 10), cy + sin(na) * (size / 2 - 10)
+    Kit.color(Kit.RED, 1)
+    lg.circle("fill", nx, ny, 9)
+    Kit.text("N", 11, nx - 10, ny - 7, { 1, 1, 1 }, 1, "center", 20)
+    arrow(cx, cy, -pi / 2, 9)
     local chunk = Worldgen.chunkAt(raid.def, me.x, me.y)
-    Kit.text(Worldgen.BIOMES[chunk.biome].name .. "  ·  danger " .. chunk.tier, 12, x, y + size + 10, Kit.INK, 0.7, "center", size)
+    Kit.text(Worldgen.BIOMES[chunk.biome].name .. "  ·  danger " .. chunk.tier, 12, x, y + size + 12, Kit.INK, 0.75, "center", size)
+end
+
+--- Screen angle and distance of a world point from the player.
+local function bearing(ext, wx, wy)
+    local camera, me = ext.camera, ext.raid:view()
+    local sx, sy = camera:toScreen(wx, wy)
+    local px, py = camera:toScreen(me.x, me.y)
+    return math.atan2(sy - py, sx - px), math.sqrt((wx - me.x) ^ 2 + (wy - me.y) ^ 2), sx, sy, px, py
+end
+
+Hud.bearing = bearing
+
+--- Arrows on the screen edge for extraction points and events out of view.
+local function edgeMarkers(ext)
+    local raid = ext.raid
+    local W, H = lg.getDimensions()
+    local margin = 70
+    local function marker(wx, wy, color, label)
+        local a, d, sx, sy, px, py = bearing(ext, wx, wy)
+        if sx > margin and sx < W - margin and sy > margin and sy < H - margin then return end
+        local ca, sa = cos(a), sin(a)
+        local t = math.huge
+        if ca > 0 then t = math.min(t, (W - margin - px) / ca) elseif ca < 0 then t = math.min(t, (margin - px) / ca) end
+        if sa > 0 then t = math.min(t, (H - margin - py) / sa) elseif sa < 0 then t = math.min(t, (margin - py) / sa) end
+        local ex, ey = px + ca * t, py + sa * t
+        lg.setColor(color[1], color[2], color[3], 0.95)
+        pointer(ex, ey, a, 16)
+        local text = label .. "  " .. floor(d / 10) .. " m"
+        local tw = Kit.font(12):getWidth(text) + 14
+        local lx = math.max(8, math.min(W - tw - 8, ex - ca * 30 - tw / 2))
+        local ly = math.max(8, math.min(H - 28, ey - sa * 30 - 10))
+        Kit.card(lx, ly, tw, 22, 0.92, 8)
+        Kit.text(text, 12, lx + 7, ly + 3, color, 1)
+    end
+    -- Only the three closest extractions, or the screen fills with arrows.
+    local me = raid:view()
+    local list = {}
+    for _, e in ipairs(raid.extracts) do list[#list + 1] = { e = e, d = (e.x - me.x) ^ 2 + (e.y - me.y) ^ 2 } end
+    table.sort(list, function(a, b) return a.d < b.d end)
+    for k = 1, math.min(3, #list) do
+        local e = list[k].e
+        marker(e.x, e.y, (e.r and e.r > 0) and Kit.AMBER or Kit.GREEN, e.n)
+    end
+    for _, ev in ipairs(raid.events) do marker(ev.x, ev.y, EVENT_COLORS[ev.k] or Kit.AMBER, Events.KINDS[ev.k].name) end
 end
 
 --- The full screen map.
@@ -174,7 +253,9 @@ function Hud.draw(ext)
     if view then
         for k, slot in ipairs({ "vest", "helmet" }) do
             local inst = view.g[slot]
-            if inst then
+            if not inst then
+                Kit.text("No " .. slot, 11, x + (k - 1) * 142, y + 34, Kit.INK, 0.35)
+            else
                 local stats = Items.armorStats(inst)
                 bar(x + (k - 1) * 142, y + 30, 138, 12, (inst.u or 0) / stats.durability, Kit.ALLY)
                 Kit.text(Items.name(inst), 11, x + (k - 1) * 142, y + 44, Kit.INK, 0.6)
@@ -265,41 +346,38 @@ function Hud.draw(ext)
     end
     if prompt then Kit.hint(prompt[1], prompt[2], W / 2 - 100, H * 0.68 + 30, 1, 14) end
 
-    -- Nearest extraction
+    -- Nearest extraction, with a compass arrow pointing at it on screen.
     local best, bestD
     for _, e in ipairs(raid.extracts) do
         local d = math.sqrt((e.x - me.x) ^ 2 + (e.y - me.y) ^ 2)
-        if not bestD or d < bestD then best, bestD = e, d end
+        if (not e.r or e.r <= 0) and (not bestD or d < bestD) then best, bestD = e, d end
     end
     if best then
-        local a = math.atan2(best.y - me.y, best.x - me.x) - raid.aim - pi / 2
-        local cx, cy = W / 2, 36
-        Kit.card(cx - 130, cy - 22, 260, 46, 0.9, 12)
-        lg.push()
-        lg.translate(cx - 104, cy + 1)
-        lg.rotate(a)
+        local a = bearing(ext, best.x, best.y)
+        local cx, cy = W / 2, 34
+        Kit.card(cx - 140, cy - 22, 280, 46, 0.94, 12)
         Kit.color(Kit.GREEN, 1)
-        lg.polygon("fill", 0, -10, 7, 6, -7, 6)
-        lg.pop()
-        Kit.text(best.n .. "  " .. floor(bestD / 10) .. " m", 15, cx - 86, cy - 9, Kit.INK, 0.9, "left", 210)
+        pointer(cx - 112, cy + 1, a, 14)
+        Kit.text("Extraction", 11, cx - 92, cy - 16, Kit.INK, 0.5)
+        Kit.text(best.n .. "  ·  " .. floor(bestD / 10) .. " m", 15, cx - 92, cy - 2, Kit.INK, 0.95)
     end
+    if not ext.showInventory and not ext.showMap then edgeMarkers(ext) end
 
-    if not ext.showMap then Hud.minimap(ext) end
+    if not ext.showMap and not ext.showInventory then Hud.minimap(ext) end
 
-    -- Damage direction
+    -- Damage direction: a red arc on the side the hit came from.
     for k = #ext.hurts, 1, -1 do
         local hurt = ext.hurts[k]
-        local t = (now - hurt.time) / 1
+        local t = (now - hurt.time) / 1.2
         if t > 1 then
             table.remove(ext.hurts, k)
         elseif hurt.x then
-            local a = math.atan2(hurt.y - me.y, hurt.x - me.x) - raid.aim - pi / 2
-            lg.push()
-            lg.translate(W / 2, H * 0.68)
-            lg.rotate(a)
-            Kit.color(Kit.RED, 0.7 * (1 - t))
-            lg.arc("fill", 0, 0, 120, -pi / 2 - 0.25, -pi / 2 + 0.25)
-            lg.pop()
+            local a, _, _, _, px, py = bearing(ext, hurt.x, hurt.y)
+            Kit.color(Kit.RED, 0.75 * (1 - t))
+            lg.setLineWidth(8)
+            lg.arc("line", "open", px, py, 90, a - 0.35, a + 0.35)
+            lg.setLineWidth(1)
+            pointer(px + cos(a) * 110, py + sin(a) * 110, a, 14)
         end
     end
 

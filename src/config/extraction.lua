@@ -27,8 +27,8 @@ local EXTRACTION = {
     saveEvery = 10,
     spawnClearance = 900,
 
-    stash = { w = 10, h = 40 },
-    pockets = { w = 4, h = 1 },
+    stash = { w = 10, h = 24 },
+    pockets = { w = 3, h = 1 },
     quickSlots = 4,
     startMoney = 4000,
     kitCooldown = 60 * 10,
