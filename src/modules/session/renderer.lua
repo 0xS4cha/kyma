@@ -7,6 +7,7 @@ local Weapons = require("src.game.weapons")
 local Player = require("src.game.player")
 local Vision = require("src.game.vision")
 local Shaders = require("src.modules.session.shaders")
+local Shadows = require("src.modules.session.shadows")
 
 local Renderer = {}
 
@@ -427,9 +428,10 @@ local function rangeMesh()
     return fadeMesh
 end
 
-local function drawFog(world, me)
+local function drawFog(world, me, camera)
     local lg = love.graphics
     local arena = world.arena
+    if Shadows.draw(arena, me, camera, COLORS.fog) then return end
     lg.stencil(function()
         if me.dead > 0 then return end
         local cone, near = Vision.fans(arena, me.x, me.y, me.angle)
@@ -516,7 +518,7 @@ local function drawKillcam(session, cam)
     if cam.victimView then
         Character.draw(cam.victimView, Character.PALETTES.self)
     end
-    drawFog(world, killer)
+    drawFog(world, killer, camera)
     drawWalls(world.arena, camera)
     camera:clear()
     lg.setCanvas()
@@ -575,7 +577,7 @@ function Renderer.draw(session)
                     world.spectator and p.slot == world.following)
             end
         end
-        drawFog(world, me)
+        drawFog(world, me, camera)
         drawGadgets(world)
         drawSpotted(opponents)
         drawAims(world)
