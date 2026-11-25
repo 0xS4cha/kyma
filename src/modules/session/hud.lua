@@ -427,13 +427,15 @@ function Hud:drawChat(session)
         love.graphics.setColor((chat.team and Kit.ALLY or INK)[1], (chat.team and Kit.ALLY or INK)[2], (chat.team and Kit.ALLY or INK)[3], 0.12)
         love.graphics.rectangle("fill", x + 10, bottom - 31, tw, 22, 6, 6)
         text(tag, 12, x + 18, bottom - 27, chat.team and Kit.ALLY or INK, 0.9)
-        local shown = chat.text
-        local f = font(15)
-        while #shown > 0 and f:getWidth(shown) > w - tw - 44 do shown = shown:sub(2) end
-        local cw = text(shown == "" and "Say something" or shown, 15, x + 20 + tw, bottom - 30, INK, shown == "" and 0.35 or 1)
-        if now % 1 < 0.55 then
-            color(RED, 1)
-            love.graphics.rectangle("fill", x + 21 + tw + (shown == "" and 0 or cw), bottom - 30, 2, 19)
+        local tx, tw2 = x + 20 + tw, w - tw - 44
+        if chat.text == "" then
+            text("Say something", 15, tx, bottom - 30, INK, 0.35)
+            if now % 1 < 0.55 then
+                color(RED, 1)
+                love.graphics.rectangle("fill", tx + 1, bottom - 30, 2, 19)
+            end
+        else
+            Kit.editable("chat", chat.text, chat.edit or { cursor = #chat.text }, tx, bottom - 30, tw2, 15, INK, 1, { top = 0, height = 19 })
         end
         if session.world and session.world.rules.teams then
             text("Tab: " .. (chat.team and "all" or "team"), 11, x + w - 12, bottom - 26, INK, 0.4, "right")

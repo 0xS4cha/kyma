@@ -60,7 +60,7 @@ function Screen.draw(menu, elements, p)
     Kit.card(l.x, l.y + (1 - e) * 20, l.w, panelH, e, 18)
     local name = menu.find(elements, "name")
     Kit.text("Name", 12, name.x, name.y - 20, Kit.INK, 0.5 * e)
-    Kit.field("name", name.x, name.y, name.w, name.h, s.name, "Player", menu.editing == "name", menu.focus == "name", e)
+    Kit.field("name", name.x, name.y, name.w, name.h, s.name, "Player", menu.editing == "name", menu.focus == "name", e, menu:editState("name", s.name))
 
     Kit.text("Body, only you see it", 12, l.x + 22, l.y + 148, Kit.INK, 0.5 * e)
     Kit.text("Accent, everyone sees it", 12, l.x + 22, l.y + 246, Kit.INK, 0.5 * e)

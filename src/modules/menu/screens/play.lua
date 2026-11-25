@@ -133,7 +133,7 @@ function Play.build(menu)
     list[#list + 1] = {
         id = "hostPassword", x = rx + 20, y = l.gridY + 330, w = rw - 40, h = 40,
         press = function() menu.editing = "hostPassword" end,
-        text = Common.textHandler(menu, "hostPassword", 24, Common.PASSWORD_PATTERN)
+        text = Common.textHandler(menu, "hostPassword", 24, Common.PASSWORD_PATTERN, true)
     }
     list[#list + 1] = {
         id = "host", x = rx + 20, y = l.gridY + 382, w = rw - 40, h = 46,
@@ -237,7 +237,7 @@ function Play.draw(menu, elements, p)
     local ra = menu:stagger(p, 3)
     local name = find(elements, "name")
     Kit.text("Your name", 12, name.x, name.y - 20, Kit.INK, 0.5 * ra)
-    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", ra)
+    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", ra, menu:editState("name", menu.settings.name))
 
     local cy = l.gridY + (1 - ra) * 20
     local practiceHot = Kit.ease("card:practice", menu.focus == "practice" or menu.focus == "level")
@@ -272,7 +272,7 @@ function Play.draw(menu, elements, p)
     local pass = find(elements, "hostPassword")
     Kit.text("Password, empty for an open game", 11, pass.x, pass.y - 17 + (cy - l.gridY) - lift, Kit.INK, 0.45 * ra)
     Kit.field("hostPassword", pass.x, pass.y + (cy - l.gridY) - lift, pass.w, pass.h, string.rep("*", #menu.settings.hostPassword), "No password",
-        menu.editing == "hostPassword", menu.focus == "hostPassword", ra)
+        menu.editing == "hostPassword", menu.focus == "hostPassword", ra, menu:editState("hostPassword", menu.settings.hostPassword))
     local host = find(elements, "host")
     Kit.button("host", host.x, host.y + (cy - l.gridY) - lift, host.w, host.h, "Host " .. rules.name:lower() .. (official and " online" or ""), {
         hot = menu.focus == "host", size = 16, align = "center", alpha = ra, arrow = false

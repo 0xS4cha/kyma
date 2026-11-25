@@ -155,7 +155,7 @@ function Screen.draw(menu, elements, p)
 
     local name = find(elements, "tournamentName")
     Kit.text("Tournament name", 12, name.x, name.y - 20, Kit.INK, 0.5 * a)
-    Kit.field("tournamentName", name.x, name.y, name.w, name.h, s.tournamentName, s.name .. "'s cup", menu.editing == "tournamentName", menu.focus == "tournamentName", a)
+    Kit.field("tournamentName", name.x, name.y, name.w, name.h, s.tournamentName, s.name .. "'s cup", menu.editing == "tournamentName", menu.focus == "tournamentName", a, menu:editState("tournamentName", s.tournamentName))
 
     local mode = find(elements, "tmode")
     Kit.text("Mode", 12, mode.x, mode.y - 20, Kit.INK, 0.5 * a)
@@ -204,10 +204,10 @@ function Screen.draw(menu, elements, p)
     local preview = browseEl.y + browseEl.h + 40
     local field = find(elements, "name")
     Kit.text("Your name", 12, field.x, field.y - 20, Kit.INK, 0.5 * ra)
-    Kit.field("name", field.x, field.y, field.w, field.h, s.name, "Player", menu.editing == "name", menu.focus == "name", ra)
+    Kit.field("name", field.x, field.y, field.w, field.h, s.name, "Player", menu.editing == "name", menu.focus == "name", ra, menu:editState("name", s.name))
     local own = find(elements, "server")
     Kit.text("Your server", 12, own.x, own.y - 20, Kit.INK, 0.5 * ra)
-    Kit.field("server", own.x, own.y, own.w, own.h, s.server, "localhost:6789", menu.editing == "server", menu.focus == "server", ra)
+    Kit.field("server", own.x, own.y, own.w, own.h, s.server, "localhost:6789", menu.editing == "server", menu.focus == "server", ra, menu:editState("server", s.server))
     local mapY = own.y + own.h + 30
     local mapH = math.min(220, l.H - mapY - l.M)
     if mapH > 80 and preview < mapY then
