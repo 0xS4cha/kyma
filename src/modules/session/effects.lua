@@ -40,6 +40,7 @@ local LIGHT_RADIUS = 230
 local LIGHT_RAYS = 72
 local LIGHT_COLOR = { 1, 0.78, 0.45 }
 local LIGHT_TINT = { 1, 0.66, 0.3 }
+Effects.LIGHT_LIFE = LIGHT_LIFE
 --- How much light each weapon's muzzle gives off.
 local MUZZLE = { pistol = 1, rifle = 0.85, lmg = 0.95, shotgun = 1.25, sniper = 1.45, silencer = 0.25 }
 

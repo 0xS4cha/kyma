@@ -106,6 +106,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 SOURCES.smoke = [[
 extern number time;
 extern number seed;
+extern vec4 cuts[12];
+extern vec2 cutInfo[12];
+extern vec3 glows[4];
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -135,7 +138,69 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float edge = 1.0 - smoothstep(0.5 + n * 0.3, 0.98, d);
     float alpha = clamp(edge * (0.88 + 0.3 * n), 0.0, 1.0);
     vec3 rgb = color.rgb * (0.86 + 0.28 * n);
-    return vec4(rgb, color.a * alpha);
+
+    float cut = 0.0;
+    for (int i = 0; i < 12; i++) {
+        vec2 info = cutInfo[i];
+        if (info.y > 0.0) {
+            vec4 c = cuts[i];
+            vec2 ab = c.zw - c.xy;
+            float t = clamp(dot(p - c.xy, ab) / max(dot(ab, ab), 1e-5), 0.0, 1.0);
+            float dist = length(p - (c.xy + ab * t));
+            float ragged = info.x * (1.0 + (n - 0.5) * 0.7 + (warp - 0.5) * 0.4);
+            float hole = 1.0 - smoothstep(ragged * 0.35, ragged, dist);
+            cut = max(cut, hole * info.y);
+        }
+    }
+    alpha *= 1.0 - cut * 0.78;
+    rgb *= 1.0 + cut * (1.0 - cut) * 0.35;
+
+    vec3 light = vec3(0.0);
+    for (int i = 0; i < 4; i++) {
+        vec3 g = glows[i];
+        if (g.z > 0.0) {
+            vec2 q2 = p - g.xy;
+            light += vec3(1.0, 0.74, 0.42) * g.z * exp(-dot(q2, q2) * 3.5) * (0.6 + 0.6 * n);
+        }
+    }
+    rgb += light * 0.75;
+    return vec4(min(rgb, 1.0), color.a * clamp(alpha + length(light) * 0.08 * edge, 0.0, 1.0));
+}
+]]
+
+SOURCES.mist = [[
+extern number time;
+extern number seed;
+extern vec2 scale;
+extern number drift;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+        v += a * noise(p);
+        p = p * 2.07 + vec2(3.1, 7.7);
+        a *= 0.5;
+    }
+    return v;
+}
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    vec2 q = uv * scale + vec2(seed, seed * 0.7);
+    float warp = fbm(q * 0.8 + vec2(time * 0.05 * drift, -time * 0.03));
+    float n = fbm(q + vec2(time * 0.09 * drift, time * 0.04) + warp * 1.6);
+    vec2 e = min(uv, 1.0 - uv) * scale;
+    float border = smoothstep(0.0, 0.6, min(e.x, e.y));
+    float alpha = smoothstep(0.32, 0.78, n) * border;
+    return vec4(color.rgb * (0.9 + 0.2 * n), color.a * alpha);
 }
 ]]
 

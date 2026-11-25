@@ -8,6 +8,7 @@ local Player = require("src.game.player")
 local Vision = require("src.game.vision")
 local Shaders = require("src.modules.session.shaders")
 local Shadows = require("src.modules.session.shadows")
+local Effects = require("src.modules.session.effects")
 local Occlusion = require("src.modules.session.occlusion")
 
 local Renderer = {}
@@ -72,7 +73,82 @@ local function drawShards(pane)
     end
 end
 
-local function drawFloor(arena)
+local drawPit
+local PIT_DEPTH = 620
+local PIT_STRATA = { 0.18, 0.4, 0.66 }
+
+--- A point of the floor seen at some depth below it, from the camera.
+local function sink(x, y, cx, cy, depth)
+    local f = WALL.cameraHeight / (WALL.cameraHeight + depth)
+    return cx + (x - cx) * f, cy + (y - cy) * f
+end
+
+local pitFaces = love.graphics and love.graphics.newMesh(4, "fan", "stream")
+
+--- A chasm going down: its inner walls in perspective from the camera,
+--- fading into the dark, strata lines at a few depths, and two layers of
+--- mist drifting at different depths.
+--- @param pit table
+--- @param camera table
+drawPit = function(pit, camera)
+    local lg = love.graphics
+    local cx, cy = camera.x, camera.y
+    local now = love.timer.getTime()
+    lg.stencil(function()
+        lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
+    end, "replace", 1)
+    lg.setStencilTest("equal", 1)
+    local deep, rim = T.pitDeep, T.pitRim
+    lg.setColor(deep[1] * 0.6, deep[2] * 0.6, deep[3] * 0.6, 1)
+    lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
+
+    local top = { pit.x, pit.y, pit.x + pit.w, pit.y, pit.x + pit.w, pit.y + pit.h, pit.x, pit.y + pit.h }
+    local bottom = {}
+    for k = 1, 8, 2 do bottom[k], bottom[k + 1] = sink(top[k], top[k + 1], cx, cy, PIT_DEPTH) end
+    for k = 1, 8, 2 do
+        local j = (k + 1) % 8 + 1
+        local ax, ay, bx, by = top[k], top[k + 1], top[j], top[j + 1]
+        local nx, ny = ay - by, bx - ax
+        local light = 1 + 0.18 * cos(math.atan2(ny, nx) - Character.LIGHT)
+        local r, g, b = math.min(1, rim[1] * light * 1.35), math.min(1, rim[2] * light * 1.35), math.min(1, rim[3] * light * 1.35)
+        pitFaces:setVertices({
+            { ax, ay, 0, 0, r, g, b, 1 },
+            { bx, by, 0, 0, r, g, b, 1 },
+            { bottom[j], bottom[j + 1], 0, 0, deep[1] * 0.6, deep[2] * 0.6, deep[3] * 0.6, 1 },
+            { bottom[k], bottom[k + 1], 0, 0, deep[1] * 0.6, deep[2] * 0.6, deep[3] * 0.6, 1 }
+        })
+        lg.setColor(1, 1, 1, 1)
+        lg.draw(pitFaces)
+    end
+
+    lg.setLineWidth(1)
+    for _, t in ipairs(PIT_STRATA) do
+        local ring = {}
+        for k = 1, 8, 2 do ring[k], ring[k + 1] = sink(top[k], top[k + 1], cx, cy, PIT_DEPTH * t) end
+        lg.setColor(T.pitEdge[1], T.pitEdge[2], T.pitEdge[3], (T.pitEdge[4] or 1) * 0.7 * (1 - t))
+        lg.polygon("line", ring)
+    end
+
+    local mist = Shaders.get("mist")
+    if mist then
+        local cloud = T.cloud
+        lg.setShader(mist)
+        for layer, def in ipairs({ { depth = 0.85, alpha = 0.5, drift = 1 }, { depth = 0.55, alpha = 0.2, drift = -1.4 } }) do
+            local x1, y1 = sink(pit.x, pit.y, cx, cy, PIT_DEPTH * def.depth)
+            local x2, y2 = sink(pit.x + pit.w, pit.y + pit.h, cx, cy, PIT_DEPTH * def.depth)
+            mist:send("time", now)
+            mist:send("seed", (pit.x * 0.011 + pit.y * 0.017 + layer * 5.3) % 23)
+            mist:send("scale", { math.max(1, (x2 - x1) / 90), math.max(1, (y2 - y1) / 90) })
+            mist:send("drift", def.drift)
+            lg.setColor(cloud[1], cloud[2], cloud[3], def.alpha)
+            lg.draw(Shaders.pixel(), x1, y1, 0, x2 - x1, y2 - y1)
+        end
+        lg.setShader()
+    end
+    lg.setStencilTest()
+end
+
+local function drawFloor(arena, camera)
     local lg = love.graphics
     lg.setColor(COLORS.floor)
     lg.rectangle("fill", 0, 0, arena.width, arena.height)
@@ -82,10 +158,14 @@ local function drawFloor(arena)
     for y = 0, arena.height, 80 do lg.line(0, y, arena.width, y) end
     local ox, oy = -cos(Character.LIGHT) * 18, -sin(Character.LIGHT) * 18
     for _, pit in ipairs(arena.pits or {}) do
-        lg.setColor(T.pitRim)
-        lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
-        lg.setColor(T.pitDeep)
-        lg.rectangle("fill", pit.x + 8, pit.y + 8, pit.w - 16, pit.h - 16)
+        if camera then
+            drawPit(pit, camera)
+        else
+            lg.setColor(T.pitRim)
+            lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
+            lg.setColor(T.pitDeep)
+            lg.rectangle("fill", pit.x + 8, pit.y + 8, pit.w - 16, pit.h - 16)
+        end
         lg.setColor(T.pitEdge)
         lg.setLineWidth(2)
         lg.rectangle("line", pit.x, pit.y, pit.w, pit.h)
@@ -286,7 +366,7 @@ end
 
 local GADGET_COLORS = { { 0.62, 0.65, 0.7 }, { 0.98, 0.95, 0.75 }, { 0.88, 0.14, 0.12 } }
 
-local function drawGadgets(world)
+local function drawGadgets(world, session)
     local lg = love.graphics
     local now = love.timer.getTime()
     local smokeShader = Shaders.get("smoke")
@@ -297,6 +377,9 @@ local function drawGadgets(world)
             lg.setShader(smokeShader)
             smokeShader:send("time", now)
             smokeShader:send("seed", (smoke.x * 0.013 + smoke.y * 0.007) % 17)
+            if session and session.smokeFx then
+                session.smokeFx:send(smokeShader, smoke, size / 2, session.effects and session.effects.lights, Effects.LIGHT_LIFE)
+            end
             lg.draw(Shaders.pixel(), smoke.x, smoke.y, 0, size, size, 0.5, 0.5)
             lg.setShader()
         elseif smoke.r > 1 then
@@ -516,7 +599,7 @@ local function drawKillcam(session, cam)
     lg.setCanvas({ canvas, stencil = true })
     lg.clear(COLORS.background[1], COLORS.background[2], COLORS.background[3], 1, true, 0)
     camera:apply()
-    drawFloor(world.arena)
+    drawFloor(world.arena, camera)
     if cam.victimView then
         Character.draw(cam.victimView, Character.PALETTES.self)
     end
@@ -570,7 +653,7 @@ function Renderer.draw(session)
         local me = session:localView()
         local opponents = session:visibleOpponents()
         camera:apply()
-        drawFloor(world.arena)
+        drawFloor(world.arena, camera)
         if world.round then drawObjectives(world) end
         session.effects:drawLights()
         if session.debris then session.debris:draw() end
@@ -582,7 +665,7 @@ function Renderer.draw(session)
             end
         end
         drawFog(world, me, camera)
-        drawGadgets(world)
+        drawGadgets(world, session)
         drawSpotted(opponents)
         drawAims(world)
         session.effects:drawWorld()
