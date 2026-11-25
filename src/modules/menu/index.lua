@@ -294,7 +294,9 @@ function GM.Menu:Think(dt)
     if self.wipe then
         self:updateWipe()
     end
-    GM.Multiplayer:Browse(GM.State == "menu" and self.screen == "multiplayer")
+    local browsing = GM.State == "menu" and self.screen == "multiplayer"
+    GM.Multiplayer:Browse(browsing and self.settings.browseSource == 3)
+    GM.Multiplayer:BrowseServer(browsing and Screens.multiplayer.browsing(self) or nil)
     if not self:active() then return end
     local now = love.timer.getTime()
     if self.previous and now - self.switchTime > SWITCH_OUT then

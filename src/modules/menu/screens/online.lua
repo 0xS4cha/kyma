@@ -73,10 +73,10 @@ function Online.draw(menu, elements, p)
     local mode = menu.find(elements, "mode")
     local id = Settings.gameMode(menu.settings)
     local rules = Config.modes[id]
-    local size = math.min(rules.players, NetConfig.matchmaking.sizes[id] or 2)
+    local size = math.min(rules.max or math.huge, NetConfig.matchmaking.sizes[id] or 2)
     Kit.text("Mode", 12, mode.x, mode.y - 20, Kit.INK, 0.5 * a)
     Kit.segments("online:mode", mode.x, mode.y, mode.w, mode.h, names(), menu.settings.mode, a)
-    Common.paragraph(rules.text .. ". Games of " .. size .. " players, the map is picked for you.", 14, mode.x, mode.y + 56, mode.w, Kit.INK, 0.6 * a)
+    Common.paragraph(rules.text .. ". Games of up to " .. size .. " players, the map is picked for you.", 14, mode.x, mode.y + 56, mode.w, Kit.INK, 0.6 * a)
 
     local e = menu:stagger(p, 3)
     local find = menu.find(elements, "find")

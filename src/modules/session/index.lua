@@ -144,10 +144,19 @@ function GM.Session:Start(options)
     elseif options.mode == "matchmaking" then
         mp:FindMatch(options.address or mp:OfficialAddress(), name, options.game or "duel")
     elseif options.mode == "connect" then
-        mp:Join(options.address, name, options.spectate and { spectate = true } or nil)
+        local queue = (options.spectate or options.room) and { spectate = options.spectate or nil, room = options.room, password = options.password } or nil
+        mp:Join(options.address, name, queue)
+    elseif options.mode == "hostServer" then
+        mp:HostOn(options.address or mp:OfficialAddress(), name, {
+            mode = options.game or "duel", map = options.map, rules = options.rules, title = options.title, password = options.password
+        })
     else
         local queue = { mode = options.game or "duel", map = options.map, spectate = options.spectate or nil, rules = options.rules }
         if options.mode == "practice" then queue.bot = options.bot or "medium" end
+        if options.mode == "host" then
+            queue.host = true
+            queue.password = options.password
+        end
         mp:PlayLocal(name, options.mode == "host", queue)
     end
 end
