@@ -118,5 +118,24 @@ return {
             assert(Inputs.sanitize({ s = 1, a = 0, k = 1 }).k == 1)
             assert(Inputs.sanitize({ s = 1, a = 0, k = 3 }).k == 0)
         end
+    },
+    {
+        name = "footsteps carry their heading and alternate feet",
+        run = function()
+            sequences = {}
+            local world = duel()
+            world:drain()
+            run(world, 90, { f = 1, angle = math.pi / 2 })
+            local _, _, noises = world:drain()
+            local steps = {}
+            for _, noise in ipairs(noises) do
+                if noise.kind == "step" and noise.source == 1 then steps[#steps + 1] = noise end
+            end
+            assert(#steps >= 2, "steps " .. #steps)
+            for _, step in ipairs(steps) do
+                assert(type(step.angle) == "number", "the step has a heading")
+            end
+            assert(steps[1].side ~= steps[2].side, "the feet alternate")
+        end
     }
 }

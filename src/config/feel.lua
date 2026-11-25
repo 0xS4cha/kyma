@@ -6,6 +6,11 @@ local FEEL = {
         lmg = 0.13,
         shotgun = 0.42,
         sniper = 0.55,
+        smg = 0.1,
+        revolver = 0.4,
+        dmr = 0.3,
+        autoshotgun = 0.3,
+        breaker = 0.45,
         fists = 0.05,
         dash = 0.07,
         hurt = 0.28,
@@ -24,6 +29,11 @@ local FEEL = {
         lmg = { gun = 3.5, camera = 4 },
         shotgun = { gun = 7, camera = 10 },
         sniper = { gun = 9, camera = 14 },
+        smg = { gun = 2.5, camera = 2.5 },
+        revolver = { gun = 7, camera = 8 },
+        dmr = { gun = 5, camera = 6 },
+        autoshotgun = { gun = 5, camera = 6 },
+        breaker = { gun = 8, camera = 11 },
         recovery = 16
     },
     hitstop = {

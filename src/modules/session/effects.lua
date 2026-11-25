@@ -1,4 +1,7 @@
 local T = require("src.ui.theme").colors
+local Kit = require("src.ui.kit")
+local Shield = require("src.modules.session.shield")
+local Shaders = require("src.modules.session.shaders")
 
 local Effects = {}
 Effects.__index = Effects
@@ -11,16 +14,22 @@ local IMPACT_LIFE = 10
 local DUST_LIFE = 0.6
 local MAX_IMPACTS = 80
 local FLASH_LIFE = 0.06
+local GLOW_LIFE = 0.1
 local SHARD_LIFE = 1.4
 local HIT_LIFE = 0.25
 local HURT_LIFE = 0.45
 local ECHO_LIFE = 1.1
+local PRINT_LIFE = 2.6
+local PRINT_LENGTH = 17
+local PRINT_WIDTH = 8
+local PRINT_GAP = 6
+local NUMBER_LIFE = 0.9
 local ECHO_SIZE = { shot = 70, dash = 46, step = 30, throw = 40, clank = 40 }
 
 --- @return table
 function Effects.new()
     return setmetatable({
-        tracers = {}, flashes = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, hit = -1, hurt = -1
+        tracers = {}, flashes = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, texts = {}, hit = -1, hurt = -1
     }, Effects)
 end
 
@@ -37,11 +46,23 @@ function Effects:tracer(x1, y1, x2, y2, color, hit, trail)
         x1 = x1, y1 = y1, x2 = x2, y2 = y2, color = color, time = now, trail = trail or TRAIL_LIFE
     }
     self.flashes[#self.flashes + 1] = { x = x1, y = y1, time = now }
+    self:glow(x1, y1, 30, { 1, 0.78, 0.42 }, GLOW_LIFE)
     if hit == 1 then
         self:impact(x2, y2, x2 - x1, y2 - y1)
     elseif hit == 2 then
         self:spray(x2, y2, { 0.88, 0.14, 0.12 }, 8)
+        self:glow(x2, y2, 22, { 1, 0.3, 0.22 }, 0.14)
     end
+end
+
+--- @param x number
+--- @param y number
+--- @param radius number
+--- @param color table
+--- @param life number
+function Effects:glow(x, y, radius, color, life)
+    self.glows[#self.glows + 1] = { x = x, y = y, radius = radius, color = color, life = life, time = love.timer.getTime() }
+    if #self.glows > 64 then table.remove(self.glows, 1) end
 end
 
 --- @param x number
@@ -75,6 +96,7 @@ function Effects:impact(x, y, dx, dy)
         points[#points + 1] = y + sin(a) * r
     end
     self.impacts[#self.impacts + 1] = { x = x, y = y, points = points, time = now }
+    self:glow(x - ux * 3, y - uy * 3, 16, { 1, 0.66, 0.3 }, 0.12)
     if #self.impacts > MAX_IMPACTS then table.remove(self.impacts, 1) end
     for _ = 1, 7 do
         local a = math.atan2(-uy, -ux) + (random() - 0.5) * 2.2
@@ -99,12 +121,40 @@ function Effects:shatter(x, y, color)
             size = 3 + random() * 5, color = color, time = now
         }
     end
+    self:glow(x, y, 70, color, 0.3)
+end
+
+--- Chiffre de dégâts flottant à côté de la cible.
+--- @param x number
+--- @param y number
+--- @param text string
+--- @param color table
+--- @param big boolean?
+--- @param scale number? taille relative (réglage "Damage number size")
+function Effects:damageNumber(x, y, text, color, big, scale)
+    self.texts[#self.texts + 1] = {
+        x = x + 15 + random() * 8, y = y - 12 - random() * 6, text = text, color = color,
+        big = big, scale = scale or 1, time = love.timer.getTime(), drift = (random() - 0.3) * 10
+    }
+    if #self.texts > 40 then table.remove(self.texts, 1) end
 end
 
 --- @param x number
 --- @param y number
 --- @param kind string
-function Effects:echo(x, y, kind)
+--- @param angle number?
+--- @param side number?
+function Effects:echo(x, y, kind, angle, side)
+    if kind == "step" and angle then
+        self.prints = self.prints or {}
+        local lateral = (side == 1 and 1 or -1) * PRINT_GAP
+        self.prints[#self.prints + 1] = {
+            x = x - sin(angle) * lateral, y = y + cos(angle) * lateral,
+            angle = angle, mirror = side == 1 and -1 or 1, time = love.timer.getTime()
+        }
+        if #self.prints > 60 then table.remove(self.prints, 1) end
+        return
+    end
     self.echoes[#self.echoes + 1] = { x = x, y = y, kind = kind, time = love.timer.getTime() }
     if #self.echoes > 40 then table.remove(self.echoes, 1) end
 end
@@ -122,6 +172,7 @@ end
 function Effects:burst(x, y)
     self.bursts = self.bursts or {}
     self.bursts[#self.bursts + 1] = { x = x, y = y, time = love.timer.getTime() }
+    self:glow(x, y, 420, { 1, 1, 0.92 }, 0.6)
 end
 
 function Effects:hitMarker()
@@ -151,8 +202,13 @@ function Effects:update(dt)
         d.vx, d.vy = d.vx * dustDrag, d.vy * dustDrag
     end
     prune(self.flashes, FLASH_LIFE)
+    for k = #self.glows, 1, -1 do
+        if now - self.glows[k].time > self.glows[k].life then table.remove(self.glows, k) end
+    end
     prune(self.shards, SHARD_LIFE)
+    prune(self.texts, NUMBER_LIFE)
     prune(self.echoes, ECHO_LIFE)
+    if self.prints then prune(self.prints, PRINT_LIFE) end
     local drag = math.exp(-4 * dt)
     for _, shard in ipairs(self.shards) do
         shard.x, shard.y = shard.x + shard.vx * dt, shard.y + shard.vy * dt
@@ -177,6 +233,7 @@ function Effects:drawWorld()
             lg.arc("line", "open", swing.x, swing.y, 34 + 10 * t, a - 0.7 + 0.5 * t, a + 0.4 + 0.5 * t, 16)
         end
     end
+    self:drawPrints(now)
     for _, echo in ipairs(self.echoes) do
         local t = (now - echo.time) / ECHO_LIFE
         local size = ECHO_SIZE[echo.kind] or 36
@@ -203,6 +260,7 @@ function Effects:drawWorld()
             shard.x - sa * s * 0.6, shard.y + ca * s * 0.6,
             shard.x - ca * s * 0.8, shard.y - sa * s * 0.8)
     end
+    Shield.drawEffects()
     for _, tracer in ipairs(self.tracers) do
         local age = now - tracer.time
         local c = tracer.color
@@ -211,8 +269,13 @@ function Effects:drawWorld()
         lg.setLineWidth(3 + 4 * (1 - smoke))
         lg.line(tracer.x1, tracer.y1, tracer.x2, tracer.y2)
         if age < TRACER_LIFE then
-            lg.setColor(c[1], c[2], c[3], 0.85 * (1 - age / TRACER_LIFE))
-            lg.setLineWidth(2.2)
+            local fade = 1 - age / TRACER_LIFE
+            lg.setBlendMode(Shaders.lightBlend())
+            local beam = Shaders.beam(tracer.x1, tracer.y1, tracer.x2, tracer.y2, 10 * (0.6 + 0.4 * fade),
+                c[1], c[2], c[3], 0.8 * fade)
+            lg.setBlendMode("alpha")
+            lg.setColor(c[1], c[2], c[3], (beam and 0.6 or 0.85) * fade)
+            lg.setLineWidth(beam and 1.2 or 2.2)
             lg.line(tracer.x1, tracer.y1, tracer.x2, tracer.y2)
         end
     end
@@ -222,13 +285,75 @@ function Effects:drawWorld()
         if t >= 1 then
             table.remove(self.bursts, k)
         else
-            lg.setColor(1, 1, 0.96, 0.9 * (1 - t))
-            lg.circle("fill", burst.x, burst.y, 30 + 220 * t)
+            if not Shaders.get("glow") then
+                lg.setColor(1, 1, 0.96, 0.9 * (1 - t))
+                lg.circle("fill", burst.x, burst.y, 30 + 220 * t)
+            end
         end
     end
+    lg.setBlendMode(Shaders.lightBlend())
+    for _, glow in ipairs(self.glows) do
+        local t = (now - glow.time) / glow.life
+        local c = glow.color
+        Shaders.glow(glow.x, glow.y, glow.radius * (0.8 + 0.4 * t), c[1], c[2], c[3], 0.9 * (1 - t) ^ 2)
+    end
+    lg.setBlendMode("alpha")
     for _, flash in ipairs(self.flashes) do
         lg.setColor(1, 0.95, 0.8, 1 - (now - flash.time) / FLASH_LIFE)
         lg.circle("fill", flash.x, flash.y, 7)
+    end
+    for _, n in ipairs(self.texts) do
+        local t = (now - n.time) / NUMBER_LIFE
+        local rise = 1 - (1 - t) ^ 3
+        local pop = 1 + 0.55 * math.max(0, 1 - t * 7)
+        local alpha = t < 0.6 and 1 or 1 - (t - 0.6) / 0.4
+        local font = Kit.font(math.floor((n.big and 26 or 20) * n.scale + 0.5))
+        lg.setFont(font)
+        lg.push()
+        lg.translate(n.x + n.drift * rise, n.y - 26 * rise)
+        lg.scale(0.5 * pop)
+        local w, h = font:getWidth(n.text), font:getHeight()
+        lg.setColor(0.04, 0.05, 0.08, 0.75 * alpha)
+        for _, o in ipairs({ { -1.5, 0 }, { 1.5, 0 }, { 0, -1.5 }, { 0, 1.5 } }) do
+            lg.print(n.text, -w / 2 + o[1], -h / 2 + o[2])
+        end
+        lg.setColor(n.color[1], n.color[2], n.color[3], alpha)
+        lg.print(n.text, -w / 2, -h / 2)
+        lg.pop()
+    end
+    lg.setLineWidth(1)
+end
+
+--- @param now number
+function Effects:drawPrints(now)
+    if not self.prints or #self.prints == 0 then return end
+    local lg = love.graphics
+    local shader = Shaders.get("footprint")
+    local ink = T.ink
+    for _, footprint in ipairs(self.prints) do
+        local age = now - footprint.time
+        local t = age / PRINT_LIFE
+        local pop = 1 + 0.35 * math.max(0, 1 - age / 0.12)
+        local alpha = 0.6 * (1 - t) ^ 1.6
+        local sx, sy = PRINT_LENGTH * pop, PRINT_WIDTH * pop * footprint.mirror
+        if age < 0.25 then
+            lg.setColor(ink[1], ink[2], ink[3], 0.25 * (1 - age / 0.25))
+            lg.setLineWidth(1.2)
+            lg.circle("line", footprint.x, footprint.y, 6 + 14 * age / 0.25)
+        end
+        lg.setColor(ink[1], ink[2], ink[3], alpha)
+        if shader then
+            lg.setShader(shader)
+            lg.draw(Shaders.pixel(), footprint.x, footprint.y, footprint.angle, sx, sy, 0.5, 0.5)
+            lg.setShader()
+        else
+            lg.push()
+            lg.translate(footprint.x, footprint.y)
+            lg.rotate(footprint.angle)
+            lg.ellipse("fill", PRINT_LENGTH * 0.14, 0, PRINT_LENGTH * 0.33, PRINT_WIDTH * 0.43)
+            lg.ellipse("fill", -PRINT_LENGTH * 0.3, 0, PRINT_LENGTH * 0.17, PRINT_WIDTH * 0.34)
+            lg.pop()
+        end
     end
     lg.setLineWidth(1)
 end
@@ -251,13 +376,14 @@ function Effects:drawImpacts()
     end
 end
 
-function Effects:drawScreen()
+--- @param composited boolean?
+function Effects:drawScreen(composited)
     local lg = love.graphics
     local W, H = lg.getDimensions()
     local now = love.timer.getTime()
 
     local hurt = now - self.hurt
-    if hurt < HURT_LIFE then
+    if hurt < HURT_LIFE and not composited then
         local alpha = 0.55 * (1 - hurt / HURT_LIFE)
         local d = math.min(W, H) * 0.18
         local r, g, b = 0.88, 0.14, 0.12

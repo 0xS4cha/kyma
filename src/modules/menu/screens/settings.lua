@@ -10,11 +10,14 @@ local function rows()
         { id = "volume", label = "Sound volume", hint = "Sounds are synthesized live, no audio files", kind = "segments", options = { "Off", "25%", "50%", "75%", "100%" } },
         { id = "sensitivity", label = "Mouse sensitivity", hint = "How fast the view turns with the mouse", kind = "segments", options = { "1", "2", "3", "4", "5" } },
         { id = "shake", label = "Screen shake", hint = "How much the camera shakes on shots, hits and kills", kind = "segments", options = require("src.config.feel").labels },
+        { id = "postfx", label = "Shader effects", hint = "Glows, shockwaves, smoke and damage vignette", kind = "toggle" },
         { id = "zoom", label = "Camera distance", hint = "Close shows details, far shows more of the arena", kind = "segments", options = Settings.ZOOM_LABELS },
         { id = "fullscreen", label = "Fullscreen", hint = "Borderless desktop fullscreen", kind = "toggle" },
         { id = "vsync", label = "VSync", hint = "Sync frames with your display", kind = "toggle" },
         { id = "background", label = "Live duel in the menu", hint = "Two bots fight behind the menu", kind = "toggle" },
         { id = "showHelp", label = "Controls reminder", hint = "Show the controls for a few seconds when a game starts", kind = "toggle" },
+        { id = "dmgNumbers", label = "Damage numbers", hint = "Show the damage you deal next to the enemy you hit", kind = "toggle" },
+        { id = "dmgSize", label = "Damage number size", hint = "How big the damage numbers are", kind = "segments", options = Settings.DMG_SIZES },
         { id = "minimapMenu", label = "Mini-map", hint = "Position, size, rotation, vision cone and more", kind = "action", target = "minimap" },
         { id = "keybinds", label = "Key bindings", hint = "Change the keys for every action", kind = "action" }
     }

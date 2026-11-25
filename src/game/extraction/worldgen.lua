@@ -679,16 +679,8 @@ function Worldgen.generate(seed)
         end
         return true
     end
-    for _, g in ipairs(gates) do
-        local angle = math.atan2(half - g.y, half - g.x)
-        B.spawn(m, g.x, g.y, angle)
-    end
-    for _, p in ipairs(roadPoints) do
-        local edgeDistance = min(p.x, p.y, size - p.x, size - p.y)
-        if p.tier <= 2 and edgeDistance < 7000 and not inSettlement(p.x, p.y, 200) and spaced(m.spawns, p.x, p.y, 1200) then
-            B.spawn(m, p.x, p.y, math.atan2(half - p.y, half - p.x))
-        end
-    end
+    -- Odd gates are extraction points, even gates are where players arrive; spawns
+    -- along roads keep away from every extraction point.
     local names = 1
     for k = 1, #gates, 2 do
         m.extracts[#m.extracts + 1] = { id = #m.extracts + 1, name = EXTRACT_NAMES[names], x = gates[k].x, y = gates[k].y }
@@ -699,6 +691,17 @@ function Worldgen.generate(seed)
         if p.tier == 3 and not inSettlement(p.x, p.y, 300) and spaced(m.extracts, p.x, p.y, 9000) then
             m.extracts[#m.extracts + 1] = { id = #m.extracts + 1, name = EXTRACT_NAMES[names], x = p.x, y = p.y }
             names = names + 1
+        end
+    end
+    for k = 2, #gates, 2 do
+        local g = gates[k]
+        B.spawn(m, g.x, g.y, math.atan2(half - g.y, half - g.x))
+    end
+    for _, p in ipairs(roadPoints) do
+        local edgeDistance = min(p.x, p.y, size - p.x, size - p.y)
+        if p.tier <= 2 and edgeDistance < 7000 and not inSettlement(p.x, p.y, 200)
+            and spaced(m.spawns, p.x, p.y, 1200) and spaced(m.extracts, p.x, p.y, 2500) then
+            B.spawn(m, p.x, p.y, math.atan2(half - p.y, half - p.x))
         end
     end
     m.roadCells = ctx.roadCells

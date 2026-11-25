@@ -2,6 +2,7 @@ local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Weapons = require("src.game.weapons")
 local Player = require("src.game.player")
+local Loadout = require("src.config.loadout")
 
 local Combat = {}
 
@@ -33,8 +34,12 @@ end
 --- @param x number
 --- @param y number
 --- @param source number?
-function Combat.noise(world, kind, x, y, source)
-    world.noises[#world.noises + 1] = { kind = kind, x = x, y = y, source = source, radius = Config.noise[kind] }
+--- @param angle number?
+--- @param side number?
+function Combat.noise(world, kind, x, y, source, angle, side)
+    world.noises[#world.noises + 1] = {
+        kind = kind, x = x, y = y, source = source, radius = Config.noise[kind], angle = angle, side = side
+    }
 end
 
 --- @param world table
@@ -49,8 +54,9 @@ function Combat.setup(world)
     world.score = {}
     world.nextItem = 1
     local noWeapons = world.options and world.options.loot == false
+    local noShields = world.options and world.options.shields == false
     for _, pad in ipairs(world.arena.loot) do
-        if not (noWeapons and Weapons.def(pad.kind)) then
+        if not (noWeapons and Weapons.def(pad.kind)) and not (noShields and pad.kind == "plate") then
             world.pads[#world.pads + 1] = { x = pad.x, y = pad.y, kind = pad.kind, timer = 0, item = nil }
         end
     end
@@ -134,6 +140,10 @@ function Combat.kill(world, victim, killer)
     if world.round and world.phase == "playing" then
         victim.out = true
     end
+    local winner = killer and killer ~= victim.slot and world:enemies(killer, victim.slot) and world.players[killer]
+    if winner and world.options and world.options.heal and winner.hp > 0 then
+        winner.hp = math.min(Config.health, winner.hp + Loadout.killHeal)
+    end
     if killer and killer ~= victim.slot and world:enemies(killer, victim.slot) and world.phase == "playing" then
         world.score[killer] = (world.score[killer] or 0) + 1
         local rules = world.rules
@@ -168,11 +178,31 @@ end
 --- @param attacker number?
 --- @param x number?
 --- @param y number?
-function Combat.damage(world, target, amount, attacker, x, y)
+--- @param shieldMult number? multiplicateur de dégâts contre les plaques (ex: Breaker)
+function Combat.damage(world, target, amount, attacker, x, y, shieldMult)
     if target.hp <= 0 or target.dead > 0 or world.over then return end
     if attacker and not world:enemies(attacker, target.slot) then return end
+    local total = amount
+    local absorbed, broken = 0, 0
+    local armor = target.armor or 0
+    if armor > 0 then
+        -- les plaques encaissent d'abord ; l'excédent passe sur la vie
+        local mult = shieldMult or 1
+        absorbed = min(armor, amount * mult)
+        local plateHp = Config.shield.plateHp
+        local before = math.ceil(armor / plateHp)
+        target.armor = armor - absorbed
+        broken = before - math.ceil(target.armor / plateHp)
+        amount = amount - absorbed / mult
+    end
     target.hp = max(0, target.hp - amount)
-    event(world, { kind = "hit", a = attacker, t = target.slot, d = amount, x = x, y = y })
+    event(world, {
+        kind = "hit", a = attacker, t = target.slot, d = total, x = x, y = y,
+        h = math.floor(amount + 0.5),                          -- dégâts réellement pris par la vie
+        s = absorbed > 0 and math.floor(absorbed + 0.5) or nil, -- dégâts pris par les plaques
+        b = broken > 0 and broken or nil,                      -- plaques cassées
+        ar = math.floor((target.armor or 0) + 0.5)             -- armure restante
+    })
     if target.hp <= 0 then
         Combat.kill(world, target, attacker)
     end
@@ -277,7 +307,7 @@ function Combat.fire(world, shooter, command)
         world.shotLog[#world.shotLog + 1] = { tick = world.tick, o = shooter.slot, x = ray.x, y = ray.y, X = ray.x + ray.dx * length, Y = ray.y + ray.dy * length }
     end
     for slot, amount in pairs(hits) do
-        Combat.damage(world, world.players[slot], amount, shooter.slot, shooter.x, shooter.y)
+        Combat.damage(world, world.players[slot], amount, shooter.slot, shooter.x, shooter.y, def.shieldMult)
     end
 end
 
@@ -336,7 +366,7 @@ function Combat.throw(world, p)
 end
 
 local function category(kind)
-    if kind == "ammo" or kind == "health" then return kind end
+    if kind == "ammo" or kind == "health" or kind == "plate" then return kind end
     return "weapon"
 end
 
@@ -391,6 +421,22 @@ function Combat.heal(world, p)
     if not item then return false end
     removeItem(world, item)
     p.hp = math.min(Config.health, p.hp + WeaponConfig.healAmount)
+    return true
+end
+
+--- Ramasse une plaque de bouclier (jusqu'à Config.shield.plates).
+--- @param world table
+--- @param p table
+--- @return boolean
+function Combat.plate(world, p)
+    if world.options and world.options.shields == false then return false end
+    local shield = Config.shield
+    local cap = shield.plates * shield.plateHp
+    if (p.armor or 0) >= cap then return false end
+    local item = nearest(world, p, false, "plate")
+    if not item then return false end
+    removeItem(world, item)
+    p.armor = min(cap, (p.armor or 0) + shield.plateHp)
     return true
 end
 
@@ -461,6 +507,7 @@ function Combat.update(world)
         end
         if p.dead == 0 and p.hp > 0 then
             Combat.heal(world, p)
+            Combat.plate(world, p)
         end
     end
     for _, door in ipairs(world.arena:updateDoors(world.players)) do
