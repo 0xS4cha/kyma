@@ -381,38 +381,44 @@ function GM.Extraction:drawRaidInventory()
     local view = raid.inventory
     if not view then return end
     local W, H = love.graphics.getDimensions()
-    love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.55)
+    love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.6)
     love.graphics.rectangle("fill", 0, 0, W, H)
     local ui = self.raidUI
     local places = raid.places
     ui:begin(places)
-    local M = 24
-    local cell = math.max(28, math.min(40, math.floor((H - 2 * M - 330) / 9)))
+    local cell = math.max(28, math.min(40, math.floor((H - 60 - 330) / 9)))
     local lw = cell * 7 + 16 + 32
+    local lh = UI.loadoutHeight(places, cell) + 60
+    local loot = view.ct and places.ct
+    local rows = loot and math.min(places.ct.h, math.floor((H - 200) / cell)) or 0
+    local rw = loot and places.ct.w * cell + 40 or 360
+    local rh = loot and rows * cell + 118 or 96
+    local gap = 16
+    local x0 = math.floor((W - (lw + gap + rw)) / 2)
+    local y0 = math.max(12, math.floor((H - math.max(lh, rh)) / 2))
     local value = 0
     for _, inst in ipairs(Inventory.all(view.g)) do value = value + Items.value(inst, Config.sellRate) end
-    UI.panel("Inventory", M, M, lw, H - 2 * M, value .. " cr")
-    ui:loadout(view.g, places, M + 16, M + 44, cell)
-    local rx = M + lw + 16
-    if view.ct and places.ct then
-        local rows = math.min(places.ct.h, math.floor((H - 2 * M - 120) / cell))
-        local rw = places.ct.w * cell + 40
-        UI.panel(view.ct.n, rx, M, rw, rows * cell + 118, "Shift click to take")
-        ui:grid("ct", places.ct, rx + 16, M + 44, cell, nil, rows)
-        local by = M + 44 + rows * cell + 16
+    UI.panel("Inventory", x0, y0, lw, lh, value .. " cr")
+    ui:loadout(view.g, places, x0 + 16, y0 + 44, cell)
+    local rx = x0 + lw + gap
+    if loot then
+        UI.panel(view.ct.n, rx, y0, rw, rh, "Shift click to take")
+        ui:grid("ct", places.ct, rx + 16, y0 + 44, cell, nil, rows)
+        local by = y0 + 44 + rows * cell + 16
         local mx, my = love.mouse.getPosition()
         local hot = mx >= rx + 16 and mx < rx + rw - 16 and my >= by and my < by + 42
         Kit.button("ext:lootall", rx + 16, by, rw - 32, 42, "Take all", { size = 14, align = "center", hot = hot })
         self.lootAllButton = { x = rx + 16, y = by, w = rw - 32, h = 42 }
     else
         self.lootAllButton = nil
-        UI.panel(nil, rx, M, 360, 96)
-        Kit.text("Open a crate or a body with F to loot it.", 14, rx + 18, M + 22, Kit.INK, 0.75)
-        Kit.text("Drag an item out of the panels to drop it.", 13, rx + 18, M + 50, Kit.INK, 0.5)
+        UI.panel(nil, rx, y0, rw, rh)
+        Kit.text("Open a crate or a body with " .. Keys.label("pickup") .. " to loot it.", 14, rx + 18, y0 + 22, Kit.INK, 0.75)
+        Kit.text("Drag an item out of the panels to drop it.", 13, rx + 18, y0 + 50, Kit.INK, 0.5)
     end
     ui:finish()
     ui:overlay()
-    Kit.hint("Tab", "Close", W - 130, M + 8, 0.9, 13)
+    local hint = Keys.label("inventory")
+    Kit.hint(hint, "Close", x0 + lw + gap + rw - Kit.measureHint(hint, "Close", 13), y0 + math.max(lh, rh) + 12, 0.9, 13)
 end
 
 function GM.Extraction:drawPause()
@@ -505,7 +511,7 @@ function GM.Extraction:KeyPressed(key, scancode)
         return
     end
     local raid = self.raid
-    if self.showInventory and self.raidUI:keypressed(key) then return end
+    if self.showInventory and self.raidUI:keypressed(key, scancode) then return end
     if key == "escape" then
         if self.showInventory or self.showMap then
             self:closeOverlays()
@@ -516,21 +522,26 @@ function GM.Extraction:KeyPressed(key, scancode)
         return
     end
     if self.paused then return end
-    if scancode == "tab" then
+    if Keys.is("inventory", scancode) then
         self.showInventory = not self.showInventory
         self.showMap = false
         if self.showInventory then self:capture(false) else self:closeOverlays() end
         return
     end
-    if scancode == "m" or (scancode == ";" and key == "m") then
+    if Keys.is("map", scancode) then
         self.showMap = not self.showMap
         self.showInventory = false
         self:capture(not self.showMap)
         return
     end
-    if scancode == "f" then
+    if Keys.is("pickup", scancode) then
+        -- One key for everything at hand: an item on the ground first, else the
+        -- nearest container or body, and again to close it.
         if raid.inventory and raid.inventory.ct then
             self:send("xact", { o = "close" })
+            self:closeOverlays()
+        elseif raid:nearbyItem() then
+            raid.requests.pickup = true
         else
             local target = raid:interactable()
             if target then
@@ -541,25 +552,25 @@ function GM.Extraction:KeyPressed(key, scancode)
         end
         return
     end
-    if scancode == "1" or scancode == "2" then
-        local hand = scancode == "1" and "primary" or "secondary"
-        if raid.inventory and raid.inventory.hd ~= hand and raid.inventory.g[hand] then
-            self:send("xact", { o = "hand", h = hand })
-            sound("pickup")
+    for k, hand in ipairs({ "primary", "secondary" }) do
+        if Keys.is("weapon" .. k, scancode) then
+            if raid.inventory and raid.inventory.hd ~= hand and raid.inventory.g[hand] then
+                self:send("xact", { o = "hand", h = hand })
+                sound("pickup")
+            end
+            return
         end
-        return
     end
-    local quick = tonumber(scancode)
-    if quick and quick >= 3 and quick <= 2 + Config.quickSlots then
-        self:send("xact", { o = "use", k = quick - 2 })
-        return
+    for k = 1, Config.quickSlots do
+        if Keys.is("quick" .. k, scancode) then
+            self:send("xact", { o = "use", k = k })
+            return
+        end
     end
     if Keys.is("dash", scancode) then
         raid.requests.dash = true
     elseif Keys.is("reload", scancode) then
         raid.requests.reload = true
-    elseif Keys.is("pickup", scancode) then
-        raid.requests.pickup = true
     end
 end
 

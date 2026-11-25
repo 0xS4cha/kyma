@@ -14,11 +14,19 @@ Keybinds.actions = {
     { id = "reload", label = "Reload", keys = { "r" } },
     { id = "throw", label = "Throw weapon", keys = { "g" } },
     { id = "gadget", label = "Use gadget", keys = { "q" } },
-    { id = "pickup", label = "Pick up / swap", keys = { "e" } },
+    { id = "pickup", label = "Pick up / open", keys = { "e" } },
     { id = "ready", label = "Ready up", keys = { "f" } },
     { id = "scoreboard", label = "Scoreboard", keys = { "tab" } },
     { id = "chat", label = "Chat", keys = { "return" } },
-    { id = "help", label = "Controls panel", keys = { "h" } }
+    { id = "help", label = "Controls panel", keys = { "h" } },
+    { id = "inventory", label = "Inventory (extraction)", keys = { "tab" } },
+    { id = "map", label = "Map (extraction)", keys = { "m" } },
+    { id = "weapon1", label = "Primary weapon", keys = { "1" } },
+    { id = "weapon2", label = "Secondary weapon", keys = { "2" } },
+    { id = "quick1", label = "Quick slot 1", keys = { "3" } },
+    { id = "quick2", label = "Quick slot 2", keys = { "4" } },
+    { id = "quick3", label = "Quick slot 3", keys = { "5" } },
+    { id = "quick4", label = "Quick slot 4", keys = { "6" } }
 }
 
 Keybinds.byId = {}
