@@ -324,6 +324,12 @@ function Host:bind()
         end
     end)
 
+    server:On("kit", function(client, data)
+        if not client.name or type(data) ~= "table" then return end
+        client.loadout = require("src.config.loadout").sanitize(data.kit)
+        if client.room then client.room:Kit(client) end
+    end)
+
     server:On("ready", function(client, data)
         if client.room then
             client.room:Ready(client, data)

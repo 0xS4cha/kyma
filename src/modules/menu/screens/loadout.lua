@@ -88,11 +88,23 @@ local function drawWeapon(kind, x, y, scale, alpha, mod)
     love.graphics.pop()
 end
 
+--- @return string?
+function Screen.matchNote()
+    local GM = require("src.core.index")
+    local world = GM.Session and GM.Session.active and GM.Session.world
+    if not world or world.spectator then return nil end
+    if world.rules.ladder or world.rules.rounds or world.options.spawn ~= "own" then
+        return "This match doesn't use your own loadout. It is saved for the next one that does."
+    end
+    return "Changes apply the next time you respawn."
+end
+
 function Screen.draw(menu, elements, p)
     local l = layout()
     local preset = menu.loadoutTarget == "preset"
+    local note = not preset and menu.paused and Screen.matchNote() or nil
     Common.header(menu, elements, p, preset and "Set loadout" or "Loadout",
-        preset and "What every player starts with in your games." or "What you start with when a game lets you bring your own.")
+        note or (preset and "What every player starts with in your games." or "What you start with when a game lets you bring your own."))
     local weaponKey, modKey, gadgetKey = keys(menu)
     local s = menu.settings
     local current = Settings.modAt(s[modKey], s[weaponKey])
