@@ -458,22 +458,19 @@ end
 ITEMS.known = { "bandage", "food", "p9", "sawed", "cap", "sling", "reddot", "oilcan", "frag", "smoke" }
 for _, id in ipairs(ITEMS.ammoOrder) do ITEMS.known[#ITEMS.known + 1] = id end
 
--- What the trader sells, and the highest rarity it sells them in.
-ITEMS.shop = {
-    { id = "p9", rarity = 2 }, { id = "viper", rarity = 1 }, { id = "hornet", rarity = 1 }, { id = "pump", rarity = 1 },
-    { id = "sawed", rarity = 1 }, { id = "ar", rarity = 1 }, { id = "carbine", rarity = 1 }, { id = "scout", rarity = 1 },
-    { id = "lever", rarity = 1 }, { id = "bolt", rarity = 1 }, { id = "crossbow", rarity = 1 }, { id = "nailer", rarity = 1 },
-    { id = "ammo_light" }, { id = "ammo_medium" }, { id = "ammo_heavy" }, { id = "ammo_shell" }, { id = "ammo_sniper" },
-    { id = "ammo_bolt" }, { id = "ammo_nail" },
-    { id = "bandage" }, { id = "food" }, { id = "medkit" }, { id = "stim" }, { id = "antidote" }, { id = "plate" },
-    { id = "frag" }, { id = "smoke" }, { id = "flash" }, { id = "molotov" }, { id = "decoy" },
-    { id = "cap" }, { id = "helmet" }, { id = "rig" }, { id = "vest" }, { id = "carrier" },
-    { id = "sling" }, { id = "daypack" }, { id = "rucksack" },
-    { id = "suppressor" }, { id = "compensator" }, { id = "choke" }, { id = "extended" }, { id = "quickmag" }, { id = "reddot" },
-    { id = "holo" }, { id = "flashlight" }, { id = "grip" }, { id = "hollow" }, { id = "rubber" },
-    { id = "scrap" }, { id = "screws" }, { id = "springs" }, { id = "string" }, { id = "cloth" }, { id = "tape" }, { id = "powder" },
-    { id = "plan_hornet" }, { id = "plan_pump" }, { id = "plan_extended" }, { id = "plan_grip" }, { id = "plan_medkit" },
-    { id = "plan_vest" }, { id = "plan_daypack" }, { id = "plan_molotov" }, { id = "plan_hollow" }
+-- What valuables break down into at the workbench (per item in the stack).
+ITEMS.salvage = {
+    phone = { { id = "wires", n = 2 }, { id = "circuit", n = 1 } },
+    lighter = { { id = "scrap", n = 1 }, { id = "fuelcan", n = 1 } },
+    watch = { { id = "springs", n = 2 }, { id = "screws", n = 2 } },
+    drive = { { id = "circuit", n = 1 }, { id = "wires", n = 2 } },
+    chain = { { id = "alloy", n = 1 } },
+    documents = { { id = "string", n = 2 }, { id = "glue", n = 1 } },
+    gpu = { { id = "circuit", n = 3 }, { id = "wires", n = 2 }, { id = "polymer", n = 1 } },
+    statue = { { id = "steel", n = 1 }, { id = "polymer", n = 2 } },
+    painting = { { id = "wood", n = 2 }, { id = "cloth", n = 3 }, { id = "chemicals", n = 1 } },
+    relic = { { id = "alloy", n = 2 }, { id = "core", n = 1 } },
+    crown = { { id = "alloy", n = 3 }, { id = "core", n = 2 } }
 }
 
 return ITEMS

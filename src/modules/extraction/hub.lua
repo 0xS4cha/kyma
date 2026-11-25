@@ -1,4 +1,4 @@
---- The hub between raids: your gear, the stash, the trader and the workbench where
+--- The hub between raids: your gear, the stash and the workbench where
 --- blueprints become items. Every action is a request to the server, which answers
 --- with the new state of the profile.
 local Kit = require("src.ui.kit")
@@ -14,19 +14,16 @@ local Hub = {}
 local lg = love.graphics
 local floor, min, max = math.floor, math.min, math.max
 
-local TABS = { "Trader", "Workbench", "Record" }
-local SHOP_FILTERS = {
-    { "All" }, { "Weapons", "weapon" }, { "Ammo", "ammo" }, { "Gear", "armor", "backpack" }, { "Utilities", "utility" },
-    { "Mods", "mod" }, { "Materials", "material" }, { "Plans", "blueprint" }
-}
+local TABS = { "Workbench", "Record" }
 local CRAFT_FILTERS = { { "All" }, { "Weapons", "weapon" }, { "Mods", "mod" }, { "Utilities", "utility" }, { "Gear", "armor", "backpack" }, { "Ammo", "ammo" } }
 
---- @param amount number
+--- "3 screws, 1 circuit board" for a list of materials.
+--- @param parts table[]
 --- @return string
-function Hub.money(amount)
-    local s = tostring(floor(amount))
-    local out = s:reverse():gsub("(%d%d%d)", "%1 "):reverse():gsub("^ ", "")
-    return out .. " cr"
+function Hub.parts(parts)
+    local out = {}
+    for _, part in ipairs(parts) do out[#out + 1] = part.n .. " " .. ItemConfig.all[part.id].name:lower() end
+    return table.concat(out, ", ")
 end
 
 local function button(state, id, x, y, w, h, label, run, options)
@@ -47,12 +44,15 @@ end
 
 --- @param ext table
 function Hub.new(ext)
-    local state = { tab = 1, buttons = {}, shopFilter = 1, craftFilter = 1, shopScroll = 0, craftScroll = 0, craftRarity = {} }
+    local state = { tab = 1, buttons = {}, craftFilter = 1, craftScroll = 0, craftRarity = {} }
     state.ui = UI.new(function(op) ext:send("xhub", op) end)
     state.ui.extraMenu = function(inst, ref)
         local list = {}
         local def = Items.def(inst)
-        list[#list + 1] = { "Sell for " .. Hub.money(Items.value(inst, Config.sellRate)), function() ext:send("xhub", { o = "sell", i = inst.i }) end }
+        local parts = Items.salvage(inst)
+        if parts then
+            list[#list + 1] = { "Recycle into " .. Hub.parts(parts), function() ext:send("xhub", { o = "recycle", i = inst.i }) end }
+        end
         if def.kind == "blueprint" then
             list[#list + 1] = { "Learn this plan", function() ext:send("xhub", { o = "learn", i = inst.i }) end }
         end
@@ -98,7 +98,7 @@ local function stats(data, x, y, w)
     local s = data.stats or {}
     local lines = {
         { "Raids", s.raids }, { "Extracted", s.extracts }, { "Deaths", s.deaths }, { "Players killed", s.kills },
-        { "Monsters killed", s.monsters }, { "Crafted", s.crafted }, { "Earned", Hub.money(s.earned or 0) }
+        { "Monsters killed", s.monsters }, { "Crafted", s.crafted }, { "Recycled", s.recycled }
     }
     for k, line in ipairs(lines) do
         lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], k % 2 == 0 and 0.03 or 0)
@@ -108,53 +108,16 @@ local function stats(data, x, y, w)
     end
 end
 
-local function trader(state, ext, x, y, w, h)
-    local data = ext.hub
-    local names = {}
-    for k, f in ipairs(SHOP_FILTERS) do names[k] = f[1] end
-    Kit.segments("hub:shopFilter", x, y, w, 34, names, state.shopFilter, 1)
-    local cell = w / #SHOP_FILTERS
-    for k = 1, #SHOP_FILTERS do
-        state.buttons[#state.buttons + 1] = { x = x + (k - 1) * cell, y = y, w = cell, h = 34, run = function() state.shopFilter, state.shopScroll = k, 0 end }
-    end
-    local list = {}
-    for _, entry in ipairs(ItemConfig.shop) do
-        if matches(ItemConfig.all[entry.id], SHOP_FILTERS[state.shopFilter]) then list[#list + 1] = entry end
-    end
-    local rowH = 56
-    local top = y + 50
-    local visible = floor((h - 140) / rowH)
-    state.shopScroll = max(0, min(state.shopScroll, #list - visible))
-    state.shopRegion = { x = x, y = top, w = w, h = visible * rowH }
-    for k = 1, min(visible, #list - state.shopScroll) do
-        local entry = list[k + state.shopScroll]
-        local def = ItemConfig.all[entry.id]
-        local ry = top + (k - 1) * rowH
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
-        lg.rectangle("fill", x, ry, w, rowH - 6, 8, 8)
-        local inst = { i = -k, d = entry.id, r = 1, n = def.kind == "ammo" and def.stack or nil }
-        Icons.draw(inst, x + 6, ry + 4, 72, rowH - 14)
-        Kit.text(def.name .. (def.kind == "ammo" and (" x" .. def.stack) or ""), 15, x + 90, ry + 8, Kit.INK, 0.9)
-        Kit.text(def.class or def.text or (def.kind == "blueprint" and "Learn to craft " .. ItemConfig.all[def.target].name) or def.kind, 11, x + 90, ry + 28, Kit.INK, 0.5, "left", w - 330)
-        local mx, my = love.mouse.getPosition()
-        if mx >= x and mx < x + 80 and my >= ry and my < ry + rowH then state.tooltip = inst end
-        for r = 1, entry.rarity or 1 do
-            local price = Items.price(entry.id, r)
-            local rarity = ItemConfig.rarities[ItemConfig.rarities.order[r]]
-            local bx = x + w - r * 118
-            button(state, "buy" .. entry.id .. r, bx, ry + 6, 112, rowH - 18, Hub.money(price), function()
-                ext:send("xhub", { o = "buy", d = entry.id, r = r })
-            end, { size = 13, arrow = false, sublabel = rarity.name, disabled = data.money < price })
-        end
-    end
-    state.ui:zone("sell", x, y + h - 80, w, 70, "Drop here to sell")
-    if not state.ui.drag then
-        Kit.text("Drag items here or right click them to sell (" .. floor(Config.sellRate * 100) .. "% of their value).", 12, x, y + h - 50, Kit.INK, 0.5, "center", w)
-    end
-end
-
 local function workbench(state, ext, x, y, w, h)
     local data = ext.hub
+    local zoneH = 64
+    state.ui:zone("recycle", x, y + h - zoneH, w, zoneH, "Drop here to recycle into materials")
+    if not state.ui.drag then
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
+        lg.rectangle("fill", x, y + h - zoneH, w, zoneH, 10, 10)
+        Kit.text("Recycle: drag an item here, or right click it. You get part of its recipe back, at its rarity.", 13, x, y + h - zoneH + 22, Kit.INK, 0.55, "center", w)
+    end
+    h = h - zoneH - 12
     local names = {}
     for k, f in ipairs(CRAFT_FILTERS) do names[k] = f[1] end
     Kit.segments("hub:craftFilter", x, y, w, 34, names, state.craftFilter, 1)
@@ -252,12 +215,6 @@ function Hub.draw(ext)
     lg.rectangle("fill", M + 18, M + 18, 6, 40, 3, 3)
     Kit.text("The Wilds", 28, M + 36, M + 12, Kit.INK, 1)
     Kit.text(string.format("Official server  ·  %d / %d in the world", data.players or 0, data.max or 64), 13, M + 37, M + 48, Kit.INK, 0.55)
-    local money = Hub.money(data.money)
-    local mw = Kit.font(22):getWidth(money) + 34
-    local mx = W - M - 18 - 200 - 12 - 200 - 16 - mw
-    Kit.color(Kit.AMBER, 0.16)
-    lg.rectangle("fill", mx, M + 18, mw, 40, 20, 20)
-    Kit.text(money, 22, mx + 17, M + 24, Kit.AMBER, 1)
     button(state, "deploy", W - M - 18 - 200, M + 12, 200, 52, "Deploy", function() ext:send("xhub", { o = "deploy" }) end, { primary = true, size = 21, hint = "Enter" })
     local kit = data.kit or 0
     button(state, "kit", W - M - 18 - 200 - 12 - 200, M + 12, 200, 52, kit > 0 and string.format("Free kit  %d:%02d", floor(kit / 60), kit % 60) or "Free kit",
@@ -268,9 +225,7 @@ function Hub.draw(ext)
     local cell = max(28, min(42, floor((bottom - top - 330) / 9), floor(W / 46)))
     -- Loadout
     local lw = cell * 7 + 16 + 32
-    local value = 0
-    for _, inst in ipairs(Inventory.all(data.g)) do value = value + Items.value(inst, Config.sellRate) end
-    UI.panel("Loadout", M, top, lw, bottom - top, Hub.money(value))
+    UI.panel("Loadout", M, top, lw, bottom - top, #Inventory.all(data.g) .. " items")
     state.ui:loadout(data.g, places, M + 16, top + 44, cell)
     -- Stash
     local sw = Config.stash.w * cell + 40
@@ -290,8 +245,6 @@ function Hub.draw(ext)
     local contentY = top + 66
     local contentH = bottom - contentY - 16
     if state.tab == 1 then
-        trader(state, ext, cx + 16, contentY, cw - 32, contentH)
-    elseif state.tab == 2 then
         workbench(state, ext, cx + 16, contentY, cw - 32, contentH)
     else
         stats(data, cx + 24, contentY + 40, min(cw - 48, 420))
@@ -300,7 +253,7 @@ function Hub.draw(ext)
             "Shift click moves an item between your loadout and the stash.",
             "R rotates an item while you drag it.",
             "Drop an attachment on a weapon to fit it; a utility on a quick slot to bind it.",
-            "Right click a plan in the stash to learn it, any item to sell it."
+            "Right click a plan in the stash to learn it, any other item to recycle it."
         }
         for k, tip in ipairs(tips) do Kit.text("·  " .. tip, 13, cx + 24, contentY + 300 + k * 22, Kit.INK, 0.7) end
     end
@@ -340,11 +293,7 @@ function Hub.wheelmoved(ext, y)
     local state = ext.hubState
     local mx, my = love.mouse.getPosition()
     local function over(r) return r and mx >= r.x and mx < r.x + r.w and my >= r.y and my < r.y + r.h end
-    if state.tab == 1 and over(state.shopRegion) then
-        state.shopScroll = state.shopScroll - y
-        return
-    end
-    if state.tab == 2 and over(state.craftRegion) then
+    if state.tab == 1 and over(state.craftRegion) then
         state.craftScroll = state.craftScroll - y
         return
     end

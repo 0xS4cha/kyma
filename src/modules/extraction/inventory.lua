@@ -206,12 +206,12 @@ function UI:quick(gear, x, y, size)
     end
 end
 
---- A zone that accepts drops (sell, ground...).
+--- A zone that accepts drops (recycle, ground...).
 function UI:zone(kind, x, y, w, h, label)
     local mx, my = love.mouse.getPosition()
     local hot = self.drag and inside({ x = x, y = y, w = w, h = h }, mx, my)
     if self.drag then
-        Kit.color(kind == "sell" and Kit.AMBER or Kit.RED, hot and 0.3 or 0.1)
+        Kit.color(kind == "recycle" and Kit.GREEN or Kit.RED, hot and 0.3 or 0.1)
         lg.rectangle("fill", x, y, w, h, 10, 10)
         if label then Kit.text(label, 16, x, y + h / 2 - 10, Kit.INK, 0.8, "center", w) end
     end
@@ -301,8 +301,8 @@ function UI:mousereleased(mx, my, button)
         end
     elseif r.kind == "quick" then
         if def.kind == "utility" then self.send({ o = "quick", k = r.k, i = inst.i }) end
-    elseif r.kind == "sell" then
-        self.send({ o = "sell", i = inst.i })
+    elseif r.kind == "recycle" then
+        self.send({ o = "recycle", i = inst.i })
     elseif r.kind == "ground" then
         self.send({ o = "drop", i = inst.i })
     end
@@ -438,7 +438,12 @@ function UI.describe(inst)
     elseif def.kind == "material" then
         lines[#lines + 1] = { "Crafting material" }
     end
-    lines[#lines + 1] = { "Sells for " .. Items.value(inst, Config.sellRate), Kit.AMBER, 12 }
+    local parts = Items.salvage(inst)
+    if parts then
+        local names = {}
+        for _, part in ipairs(parts) do names[#names + 1] = part.n .. " " .. ItemConfig.all[part.id].name:lower() end
+        lines[#lines + 1] = { "Recycles into " .. table.concat(names, ", "), Kit.GREEN, 12 }
+    end
     return lines
 end
 

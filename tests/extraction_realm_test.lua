@@ -69,7 +69,7 @@ return {
                 local welcome = NetKit.last(a, "welcome")
                 assert(welcome and welcome.server.official == true)
                 local hub = NetKit.last(a, "xhub")
-                assert(hub and hub.money == Config.startMoney, "a new profile")
+                assert(hub and hub.money == nil and hub.stash, "a new profile, no money")
                 assert(hub.g.primary and hub.g.primary.d == "p9", "starter kit equipped")
                 local hubs = NetKit.count(a, "xhub")
                 NetKit.send(a, "xhub", { o = "deploy" })
@@ -86,38 +86,38 @@ return {
         end
     },
     {
-        name = "the trader buys and sells, the workbench learns plans and crafts by rarity",
+        name = "the workbench recycles items, learns plans and crafts by rarity",
         run = function()
             local r = realm()
             local c = fake("Ann", "key-trade")
             r:Join(c)
             local profile = r.members[c].profile
-            local money = profile.money
+            local stash = { st = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = profile.stash } }
             r:Hub(c, { o = "buy", d = "hornet", r = 1 })
-            local smg = find(profile.stash, "hornet")
-            assert(smg and profile.money == money - Items.price("hornet", 1))
-            r:Hub(c, { o = "buy", d = "hornet", r = 5 })
-            assert(profile.money == money - Items.price("hornet", 1), "the trader only sells common hornets")
-            r:Hub(c, { o = "sell", i = smg.i })
-            assert(not find(profile.stash, "hornet") and profile.money > money - Items.price("hornet", 1))
-
-            local before = profile.money
-            profile.money = 0
-            r:Hub(c, { o = "buy", d = "medkit" })
-            assert(c:last("xtoast").t:find("money"))
-            profile.money = before
+            assert(not find(profile.stash, "hornet"), "there is no trader any more")
+            local gpu = r.store:item("gpu")
+            Inventory.give(stash, gpu, { "st" })
+            local circuits = 0
+            r:Hub(c, { o = "recycle", i = gpu.i })
+            for _, inst in ipairs(profile.stash) do if inst.d == "circuit" then circuits = circuits + inst.n end end
+            assert(not find(profile.stash, "gpu") and circuits == 3, "the graphics card became circuit boards")
+            assert(profile.stats.recycled == 1)
+            local plan = r.store:item("plan_hornet")
+            Inventory.give(stash, plan, { "st" })
+            r:Hub(c, { o = "recycle", i = plan.i })
+            assert(find(profile.stash, "plan_hornet") and c:last("xtoast").t:find("recycled"), "plans are learned, not recycled")
+            Inventory.consume({ pk = stash.st }, "plan_hornet", 1)
 
             r:Hub(c, { o = "craft", d = "ar", r = 1 })
             assert(c:last("xtoast").t:find("plan"), "no plan, no craft")
             local plan = r.store:item("plan_ar", 4)
-            Inventory.give({ st = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = profile.stash } }, plan, { "st" })
+            Inventory.give(stash, plan, { "st" })
             r:Hub(c, { o = "learn", i = plan.i })
             assert(profile.known.ar == 4 and not find(profile.stash, "plan_ar"), "the epic plan was learned")
             r:Hub(c, { o = "craft", d = "ar", r = 5 })
             assert(c:last("xtoast").t:find("Epic"), "the plan caps the rarity")
             r:Hub(c, { o = "craft", d = "ar", r = 4 })
             assert(c:last("xtoast").t:find("Missing"), "not enough materials")
-            local stash = { st = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = profile.stash } }
             for _, part in ipairs(Items.recipe("ar", 4)) do
                 local need = part.n
                 while need > 0 do
@@ -192,6 +192,21 @@ return {
         end
     },
     {
+        name = "recycling refuses when the stash has no room, and loses nothing",
+        run = function()
+            local r = realm()
+            local c = fake("Ann", "key-full")
+            r:Join(c)
+            local profile = r.members[c].profile
+            local stash = { st = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = profile.stash } }
+            while Inventory.give(stash, r.store:item("documents"), { "st" }) do end
+            local gpu = profile.stash[#profile.stash]
+            local before = #profile.stash
+            r:Hub(c, { o = "recycle", i = gpu.i })
+            assert(#profile.stash == before and c:last("xtoast").t:find("room"))
+        end
+    },
+    {
         name = "profiles survive a restart",
         run = function()
             local path = "extraction_test_profiles.json"
@@ -199,13 +214,12 @@ return {
             local Store = require("src.server.extraction.store")
             local store = Store(path)
             local profile = store:Get("key-save", "Ann")
-            profile.money = 1234
             profile.known.railgun = 6
             local id = store:alloc()
             assert(store:Save())
             local again = Store(path)
             local loaded = again:Get("key-save")
-            assert(loaded.money == 1234 and loaded.known.railgun == 6 and loaded.gear.primary.d == "p9")
+            assert(loaded.known.railgun == 6 and loaded.gear.primary.d == "p9")
             assert(again:alloc() > id, "item ids never repeat")
             love.filesystem.remove(path)
         end

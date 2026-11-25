@@ -100,7 +100,7 @@ function Realm:hubView(member)
     local profile = member.profile
     local now = os.time()
     return {
-        money = profile.money, stash = profile.stash, g = profile.gear, known = profile.known, stats = profile.stats,
+        stash = profile.stash, g = profile.gear, known = profile.known, stats = profile.stats,
         kit = math.max(0, profile.kitAt + Config.kitCooldown - now),
         players = self:Count(), max = Config.players, seed = self.world.seed
     }
@@ -173,28 +173,36 @@ function Realm:hubAction(member, op)
         end
         profile.gear.quick[k] = uid or 0
         return true
-    elseif kind == "sell" then
+    elseif kind == "recycle" then
         local loc = uid and Inventory.locate(places, uid)
         if not loc then return false, "Item not found" end
-        local price = Items.value(loc.inst, Config.sellRate)
-        Inventory.take(places, uid)
-        profile.money = profile.money + price
-        profile.stats.earned = profile.stats.earned + price
-        return true
-    elseif kind == "buy" then
-        local entry
-        for _, e in ipairs(ItemConfig.shop) do
-            if e.id == op.d then entry = e end
+        if loc.inst.c and #loc.inst.c > 0 then return false, "Empty the backpack first" end
+        local parts = Items.salvage(loc.inst)
+        if not parts then return false, "That can't be recycled" end
+        -- Check the stash has room for every material before taking the item apart.
+        local trial = {}
+        for k, inst in ipairs(profile.stash) do trial[k] = Items.copy(inst) end
+        local trialPlace = { st = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = trial } }
+        local made = {}
+        for _, part in ipairs(parts) do
+            local left = part.n
+            while left > 0 do
+                local n = math.min(left, ItemConfig.all[part.id].stack)
+                made[#made + 1] = { id = part.id, n = n }
+                if not Inventory.give(trialPlace, { i = -1, d = part.id, r = 1, x = 0, y = 0, n = n }, { "st" }) then
+                    return false, "No room in the stash for the materials"
+                end
+                left = left - n
+            end
         end
-        if not entry then return false, "Not for sale" end
-        local rarity = math.max(1, math.floor(tonumber(op.r) or 1))
-        if rarity > (entry.rarity or 1) then return false, "The trader does not sell that rarity" end
-        local price = Items.price(entry.id, rarity)
-        if profile.money < price then return false, "Not enough money" end
-        local def = ItemConfig.all[entry.id]
-        local inst = self.store:item(entry.id, rarity, def.kind == "ammo" and def.stack or (def.stack > 1 and 1 or nil))
-        if not Inventory.give(places, inst, { "st" }) then return false, "Your stash is full" end
-        profile.money = profile.money - price
+        Inventory.take(places, uid)
+        for k, q in ipairs(profile.gear.quick) do
+            if q == uid then profile.gear.quick[k] = 0 end
+        end
+        for _, part in ipairs(made) do
+            Inventory.give(places, self.store:item(part.id, 1, part.n), { "st" })
+        end
+        profile.stats.recycled = profile.stats.recycled + 1
         return true
     elseif kind == "learn" then
         local loc = uid and Inventory.locate(places, uid)
@@ -299,12 +307,11 @@ function Realm:finish(member, reason)
         profile.gear = Inventory.newGear()
     end
     self.store.dirty = true
-    local value = 0
-    for _, inst in ipairs(Inventory.all(profile.gear)) do value = value + Items.value(inst, Config.sellRate) end
+    local carried = #Inventory.all(profile.gear)
     if member.client then
         member.client:Send("xend", {
             r = reason, k = p and p.killer or nil, kills = p and p.kills or 0, monsters = p and p.monsterKills or 0,
-            v = value, time = p and math.floor((self.world.tick - p.joinedAt) / 60) or 0
+            v = carried, time = p and math.floor((self.world.tick - p.joinedAt) / 60) or 0
         })
         self:sendHub(member)
     end
