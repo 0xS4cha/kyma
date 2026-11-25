@@ -14,17 +14,13 @@ local function invalid(field, value)
     return { field = field, value = value }
 end
 
-function AntiCheat.sync(player)
-    player._antiCheatX, player._antiCheatY = player.x, player.y
-end
-
---- Validate the state produced by one authoritative simulation step.
+--- Validate the state produced by one client command.
 --- @param player table
---- @param previous table
---- @param arena table
---- @param dt number
+--- @param previous table position before the command ({ x, y })
+--- @param world table
 --- @return table?
-function AntiCheat.validate(player, previous, arena, dt)
+function AntiCheat.validate(player, previous, world)
+    local arena, dt = world.arena, world.dt
     for _, field in ipairs({ "x", "y", "vx", "vy", "angle" }) do
         if not finite(player[field]) then return invalid(field, player[field]) end
     end
@@ -54,14 +50,14 @@ function AntiCheat.validate(player, previous, arena, dt)
     local def = Weapons.def(player.weapon)
     if def then
         local magazine = Weapons.stat(player, "magazine")
-        local reserve = Weapons.stat(player, "reserve")
         local reserveCap = Weapons.reserveCap(def, player)
         if not finite(player.ammo) or player.ammo ~= math.floor(player.ammo)
             or player.ammo < 0 or player.ammo > magazine then
             return invalid("ammo", player.ammo)
         end
-        if not finite(player.reserve) or player.reserve ~= math.floor(player.reserve)
-            or player.reserve < 0 or player.reserve > reserveCap then
+        -- Ladder modes (gun game) hand out an unlimited reserve.
+        if not world.rules.ladder and (not finite(player.reserve) or player.reserve ~= math.floor(player.reserve)
+            or player.reserve < 0 or player.reserve > reserveCap) then
             return invalid("reserve", player.reserve)
         end
         if not finite(player.reload) or player.reload ~= math.floor(player.reload)
@@ -71,10 +67,6 @@ function AntiCheat.validate(player, previous, arena, dt)
         if not finite(player.fireCooldown) or player.fireCooldown ~= math.floor(player.fireCooldown)
             or player.fireCooldown < 0 or player.fireCooldown > def.fireTicks then
             return invalid("fireCooldown", player.fireCooldown)
-        end
-    else
-        if player.ammo ~= 0 or player.reserve ~= 0 or player.reload ~= 0 or player.fireCooldown ~= 0 then
-            return invalid("unarmedAmmo", player.ammo)
         end
     end
     return nil

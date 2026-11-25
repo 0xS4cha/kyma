@@ -351,8 +351,11 @@ function Room:Update(dt)
                     "Disconnecting %s in room %d: invalid %s (%s)",
                     offender.name, self.id, violation.field, tostring(violation.value)))
                 offender:Disconnect()
+            else
+                Logger:warn("anticheat", string.format(
+                    "Slot %d in room %d: invalid %s (%s)",
+                    violation.slot, self.id, violation.field, tostring(violation.value)))
             end
-            return
         end
         self:flushEvents()
         if self.world.tick % Config.snapshotTicks == 0 then
