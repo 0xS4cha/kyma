@@ -3,6 +3,7 @@ local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Weapons = require("src.game.weapons")
 local Keys = require("src.input.keybinds")
+local Loading = require("src.modules.session.loading")
 
 local Hud = {}
 Hud.__index = Hud
@@ -1163,20 +1164,17 @@ end
 
 function Hud:drawOverlay(session)
     local W, H = love.graphics.getDimensions()
-    local now = love.timer.getTime()
     local c = self.connecting
     if c > 0.01 then
         local status = session.status
         local mp = GM.Multiplayer
-        local label = mp.error or (status == "queued" and "Looking for a room" or "Connecting")
-        if mp.error or status == "offline" then
-            label = (mp.error or "Disconnected") .. "  -  Esc for the menu"
-        end
-        local w, h = 360, 120
-        local x, y = (W - w) / 2, (H - h) / 2
         love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], c)
         love.graphics.rectangle("fill", 0, 0, W, H)
-        if session.world then return end
+        if session.world then
+            if self.loadingShown then Loading.draw(session.pending, "Ready", false, c) end
+            return
+        end
+        self.loadingShown = nil
         if require("src.modules.session.tournament").active(session) then
             love.graphics.setColor(1, 1, 1, 1)
             require("src.modules.session.tournament").draw(session)
@@ -1186,17 +1184,10 @@ function Hud:drawOverlay(session)
             self:drawSearch(mp, c)
             return
         end
-        card(x, y, w, h, c, 18)
-        text("Kyma", 14, x, y + 20, INK, 0.45 * c, "center", w)
-        text(label, 20, x + 20, y + 46, mp.error and RED or INK, c, "center", w - 40)
-        if not mp.error then
-            local lg = love.graphics
-            lg.setLineWidth(3)
-            color(INK, c)
-            local start = now * 5
-            lg.arc("line", "open", W / 2, y + 94, 10, start, start + pi * 1.3, 24)
-            lg.setLineWidth(1)
-        end
+        local failed = mp.error ~= nil or status == "offline"
+        local line = failed and (mp.error or "Disconnected") or (status == "queued" and "Looking for a room" or "Connecting")
+        Loading.draw(session.pending, line, failed, c)
+        self.loadingShown = true
         return
     end
 

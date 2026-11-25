@@ -138,6 +138,11 @@ function GM.Session:Start(options)
     self.active = true
     self.status = "connecting"
     self.room = nil
+    self.pending = {
+        map = options.map, label = options.label,
+        game = options.game or ((options.mode == "practice" or options.mode == "host" or options.mode == nil) and "duel" or nil),
+        at = love.timer.getTime(), seed = love.math.random(0, 999)
+    }
     self.effects = Effects.new()
     self.postfx = PostFX.new()
     self.hitstop = Hitstop.new()
