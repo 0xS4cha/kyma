@@ -720,7 +720,7 @@ function Hud:drawWeapon(session)
         local progress = 1 - me.reload / (Weapons.stat(me, "reloadTicks") or def.reloadTicks)
         ring(right - 22, y + 46, 18, progress, 4, INK, 1)
         text("Reloading", 13, right - 50, y + 14, INK, 0.6, "right")
-    elseif empty and me.reserve == 0 then
+    elseif empty and me.reserve == 0 and not Weapons.sidearm(me.weapon) then
         local iw = measureHint(Keys.label("throw"), "Throw it", 14)
         hint(Keys.label("throw"), "Throw it", right - iw, y + 38, 1, 14, RED)
     elseif me.ammo <= count * 0.25 and me.reserve > 0 then
@@ -961,6 +961,37 @@ function Hud:drawSpotted(session)
     end
 end
 
+--- Pings hors écran : flèche au bord de l'écran avec le nom de l'arme / objet.
+function Hud:drawPings(session)
+    local lg = love.graphics
+    local Effects = require("src.modules.session.effects")
+    local now = love.timer.getTime()
+    for _, ping in ipairs(session.effects.pings) do
+        local px, py, angle = edge(session, ping.x, ping.y)
+        if px then
+            local age = now - ping.time
+            local fade = age > Effects.PING_LIFE - 1 and max(0, Effects.PING_LIFE - age) or 1
+            local c = Effects.pingColor(ping)
+            lg.push()
+            lg.translate(px, py)
+            lg.push()
+            lg.rotate(angle)
+            color(c, fade)
+            lg.polygon("fill", 16, 0, 8, 6, 8, -6)
+            lg.setLineWidth(2)
+            lg.circle("line", 0, 0, 9)
+            lg.setLineWidth(1)
+            lg.pop()
+            if ping.label and ping.label ~= "" then
+                local w = font(13):getWidth(ping.label)
+                local tx = clamp(-w / 2, -px + 8, love.graphics.getWidth() - px - w - 8)
+                text(ping.label, 13, tx, py > love.graphics.getHeight() / 2 and -34 or 16, INK, fade)
+            end
+            lg.pop()
+        end
+    end
+end
+
 function Hud:drawNoises(session)
     if #self.noises == 0 then return end
     local now = love.timer.getTime()
@@ -1047,6 +1078,7 @@ function Hud:drawHelp(session)
         { both("quiet"), "Walk quietly" },
         { Keys.label("reload"), "Reload" },
         { Keys.label("throw"), "Throw your weapon" },
+        { Keys.label("ping"), "Ping, also middle click" },
         { Keys.label("gadget"), "Use your gadget" },
         { Keys.label("pickup"), "Swap with a weapon on the floor" },
         { Keys.label("scoreboard"), "Hold for the scoreboard" },
@@ -1229,6 +1261,7 @@ function Hud:draw(session)
         self:drawDamage(session)
         self:drawNoises(session)
         self:drawSpotted(session)
+        self:drawPings(session)
         self:drawScore(session)
         self:drawRound(session)
         self:drawBanner()

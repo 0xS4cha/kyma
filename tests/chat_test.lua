@@ -83,5 +83,47 @@ return {
             local log = received(b, "chatlog")[1]
             assert(log and #log.messages == 1 and log.messages[1].x == "first")
         end
+    },
+    {
+        name = "pings reach only teammates, are clamped to the arena and carry the weapon",
+        run = function()
+            local room = Room(1, { mode = "teams" })
+            local a, b, c = client("a", "Alice"), client("b", "Bob"), client("c", "Carol")
+            room:Add(a)
+            room:Add(b)
+            room:Add(c)
+            local teams = {}
+            for _, m in ipairs({ a, b, c }) do teams[m.id] = room.world.players[m.slot].team end
+            local mate, enemy
+            for _, m in ipairs({ b, c }) do
+                if teams[m.id] == teams.a then mate = m else enemy = m end
+            end
+            local me = room.world.players[a.slot]
+            assert(room:Ping(a, { x = me.x + 40, y = me.y, t = 1, k = 2 }))
+            local got = received(mate, "ping")
+            assert(#got == 1 and got[1].n == "Alice" and got[1].t == 1 and got[1].k == 2, "a close ping keeps its weapon")
+            assert(got[1].x == math.floor(me.x + 40), "and its position")
+            assert(#received(a, "ping") == 1, "the sender sees their own ping")
+            assert(#received(enemy, "ping") == 0, "the enemy team doesn't see it")
+            assert(not room:Ping(a, { x = 10, y = 10 }), "pings have a cooldown")
+            room:Ping(mate, { x = 99999, y = -50, t = 2, k = 3 })
+            local far = received(a, "ping")[2]
+            local bp = room.world.players[mate.slot]
+            local reach = require("src.config.game").vision.range + 60
+            assert(far and far.t == 0 and far.k == nil, "a ping beyond the field of view loses its target")
+            assert(math.sqrt((far.x - bp.x) ^ 2 + (far.y - bp.y) ^ 2) <= reach + 2, "and stops at the field of view")
+            assert(not room:Ping(b, { x = "oops", y = 1 }) and not room:Ping(b, "nope"), "junk is dropped")
+        end
+    },
+    {
+        name = "in a duel a ping only comes back to its sender",
+        run = function()
+            local room = Room(1, { mode = "ffa" })
+            local a, b = client("a", "Alice"), client("b", "Bob")
+            room:Add(a)
+            room:Add(b)
+            assert(room:Ping(a, { x = 500, y = 500, t = 2, k = 1 }))
+            assert(#received(a, "ping") == 1 and #received(b, "ping") == 0)
+        end
     }
 }

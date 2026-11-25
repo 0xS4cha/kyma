@@ -126,6 +126,8 @@ function GM.Menu:setOption(key, value)
         end
     elseif key == "zoom" and GM.Session.active then
         GM.Session.camera.scale = require("src.config.game").camera.scale
+    elseif (key == "kitWeapon" or key == "kitMods" or key == "kitGadget") and GM.Session.active then
+        GM.Multiplayer:Send("kit", { kit = Settings.kit(self.settings) })
     end
 end
 

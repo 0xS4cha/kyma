@@ -10,6 +10,7 @@ local Maps = require("src.maps.index")
 local Ratings = require("src.server.ratings")
 local Matchmaker = require("src.server.matchmaker")
 local Tournaments = require("src.server.tournaments")
+local Realm = require("src.server.extraction.realm")
 
 local Host = Class()
 
@@ -25,7 +26,23 @@ function Host:init(options)
     self.ratings = Ratings(Host.ratingsPath(options))
     self.matchmaker = Matchmaker(self)
     self.tournaments = Tournaments(self)
+    self.official = options.official == true
+    if self.official then
+        self.realm = Realm(self, { path = Host.dataPath(options, "extraction.json"), seed = options.seed })
+    end
     self:bind()
+end
+
+--- Where a dedicated server keeps a data file, nil for servers started by the game.
+--- @param options table
+--- @param file string
+--- @return string?
+function Host.dataPath(options, file)
+    if type(options.data) == "string" and options.data ~= "" then
+        return (options.data:gsub("/+$", "")) .. "/" .. file
+    end
+    if options.dedicated then return file end
+    return nil
 end
 
 --- Dedicated servers keep ratings on disk, in --data when given. Servers started by
@@ -46,6 +63,7 @@ end
 
 function Host:Stop()
     self.ratings:Save()
+    if self.realm then self.realm:Save() end
     self.server:Stop()
 end
 
@@ -111,7 +129,7 @@ end
 function Host:Info()
     return {
         name = self.name, motd = self.motd ~= "" and self.motd or nil, dedicated = self.dedicated,
-        players = self.server.count, rooms = self:RoomCount()
+        players = self.server.count, rooms = self:RoomCount(), official = self.official or nil
     }
 end
 
@@ -253,6 +271,16 @@ function Host:bind()
             return
         end
         if client.tournament then return end
+        if type(data) == "table" and data.extraction == true then
+            self.matchmaker:Remove(client)
+            if not self.realm then
+                client:Send("error", { message = "Extraction is only played on the official server", fatal = true })
+                return
+            end
+            self.realm:Join(client)
+            return
+        end
+        if client.realm then return end
         if type(data) == "table" and data.matchmaking == true then
             self.matchmaker:Enqueue(client, type(data.mode) == "string" and data.mode or nil)
             return
@@ -284,10 +312,22 @@ function Host:bind()
         end
     end)
 
+    server:On("ping", function(client, data)
+        if client.room then
+            client.room:Ping(client, data)
+        end
+    end)
+
     server:On("hold", function(client, data)
         if client.room then
             client.room:Hold(client, data)
         end
+    end)
+
+    server:On("kit", function(client, data)
+        if not client.name or type(data) ~= "table" then return end
+        client.loadout = require("src.config.loadout").sanitize(data.kit)
+        if client.room then client.room:Kit(client) end
     end)
 
     server:On("ready", function(client, data)
@@ -297,6 +337,7 @@ function Host:bind()
     end)
 
     server:On("leave", function(client)
+        if client.realm then client.realm:Leave(client) end
         self:leaveRoom(client)
         self.tournaments:Leave(client)
     end)
@@ -304,7 +345,17 @@ function Host:bind()
     server:On("input", function(client, data)
         if client.room then
             client.room:Input(client, data)
+        elseif client.realm then
+            client.realm:Input(client, data)
         end
+    end)
+
+    server:On("xhub", function(client, data)
+        if client.realm then client.realm:Hub(client, data) end
+    end)
+
+    server:On("xact", function(client, data)
+        if client.realm then client.realm:Act(client, data) end
     end)
 
     server:On("update", function(_, dt)
@@ -314,9 +365,11 @@ function Host:bind()
             room:Update(dt)
         end
         self.ratings:Update(dt)
+        if self.realm then self.realm:Update(dt) end
     end)
 
     server:On("disconnect", function(client)
+        if client.realm then client.realm:Leave(client) end
         self:leaveRoom(client)
         self.tournaments:Leave(client)
     end)

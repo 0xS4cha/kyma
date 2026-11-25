@@ -32,7 +32,7 @@ Settings.STATS = {
     { key = "statUp", stat = "up", label = "Bandwidth out", hint = "Data sent to the server, in KB/s" }
 }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "dmgNumbers", "dmgSize", "shields", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal", "statFps", "statFrame", "statTick", "statRtt", "statJitter", "statLoss", "statDown", "statUp" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "minimapPings", "dmgNumbers", "dmgSize", "shields", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal", "statFps", "statFrame", "statTick", "statRtt", "statJitter", "statLoss", "statDown", "statUp" }
 
 --- @return table
 function Settings.defaults()
@@ -66,6 +66,7 @@ function Settings.defaults()
         minimapAllies = true,
         minimapEnemies = true,
         minimapLoot = false,
+        minimapPings = true,
         dmgNumbers = true,
         dmgSize = 2,
         shields = true,

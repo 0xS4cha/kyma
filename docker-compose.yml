@@ -9,6 +9,8 @@ services:
       SERVER_NAME: "Kyma official"
       SERVER_MOTD: "Welcome to the official Kyma server. Be nice."
       MAX_PEERS: "128"
+      # Runs the persistent extraction world (only the official server does)
+      OFFICIAL: "1"
     volumes:
       - kyma-data:/data
 

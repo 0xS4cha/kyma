@@ -19,6 +19,22 @@ function Weapons.def(kind)
     return kind and Config[kind] or nil
 end
 
+--- The stats of the weapon a player holds: the effective stats set by the extraction
+--- mode (attachments, rarity) when present, else the base weapon definition.
+--- @param p table
+--- @return table?
+function Weapons.held(p)
+    return p.def or Weapons.def(p.weapon)
+end
+
+--- Les armes de poing (petits flingues) ne se lâchent pas, ne se jettent pas et ne se volent pas.
+--- @param kind string?
+--- @return boolean
+function Weapons.sidearm(kind)
+    local def = kind and Config[kind]
+    return def ~= nil and def.sidearm == true
+end
+
 --- @param kind string?
 --- @return number
 function Weapons.pack(kind)
@@ -39,6 +55,7 @@ local INTEGER = { magazine = true, reserve = true, reloadTicks = true }
 --- @param key string
 --- @return number?
 function Weapons.stat(p, key)
+    if p.def then return p.def[key] end
     local def = Weapons.def(p.weapon)
     if not def then return nil end
     local value = def[key]
@@ -73,6 +90,20 @@ function Weapons.give(p, kind, ammo, reserve)
     p.fireCooldown = 0
 end
 
+--- Fit a picked-up weapon's rounds to the holder's own magazine and reserve,
+--- which differ from the previous owner's when their mods differ.
+--- @param p table
+function Weapons.fit(p)
+    local def = Weapons.def(p.weapon)
+    if not def then return end
+    local magazine = Weapons.stat(p, "magazine")
+    if p.ammo > magazine then
+        p.reserve = p.reserve + p.ammo - magazine
+        p.ammo = magazine
+    end
+    p.reserve = math.min(p.reserve, Weapons.reserveCap(def, p))
+end
+
 local function noise(a, b, c)
     local h = (a * 73856093 + b * 19349663 + c * 83492791) % 1000003
     return h / 1000003 * 2 - 1
@@ -83,7 +114,7 @@ end
 --- @return boolean
 function Weapons.update(p, input)
     local held = input.b == 1
-    local def = Weapons.def(p.weapon)
+    local def = Weapons.held(p)
     if not def then
         local melee = Config.melee
         if p.meleeCooldown > 0 then p.meleeCooldown = p.meleeCooldown - 1 end
@@ -109,6 +140,10 @@ function Weapons.update(p, input)
         p.reload = Weapons.stat(p, "reloadTicks")
     end
 
+    local fresh = held and not p.trigger
+    if fresh and p.reload > 0 and p.ammo > 0 then
+        p.reload = 0
+    end
     local pull = held and (def.auto or not p.trigger)
     p.trigger = held
     if not pull or p.dash > 0 or p.stun > 0 or p.dead > 0 or p.fireCooldown > 0 or p.reload > 0 then
@@ -129,7 +164,7 @@ end
 --- @param p table
 --- @return number, number
 function Weapons.muzzle(p)
-    local def = Weapons.def(p.weapon)
+    local def = Weapons.held(p)
     local reach = def and def.muzzle or UNARMED_REACH
     local ca, sa = cos(p.angle), sin(p.angle)
     return p.x + ca * reach - sa * MUZZLE_SIDE, p.y + sa * reach + ca * MUZZLE_SIDE
@@ -139,7 +174,7 @@ end
 --- @param sequence number
 --- @return table[]
 function Weapons.rays(p, sequence)
-    local def = Weapons.def(p.weapon)
+    local def = Weapons.held(p)
     if not def then return {} end
     local mx, my = Weapons.muzzle(p)
     local list = {}

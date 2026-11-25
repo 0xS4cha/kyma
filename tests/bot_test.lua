@@ -75,9 +75,13 @@ return {
             local world = open(nil, { x = 2900, y = 2900, angle = 0 })
             local Combat = require("src.game.combat")
             local bot = Bot.new(2, "medium", 1)
-            world.players[2].weapon = nil
             Combat.spawnItem(world, "rifle", nil, nil, 1350, 1500)
-            run(world, bot, 120)
+            for _ = 1, 120 do
+                -- le pistolet de secours est redonné à chaque tick : on le retire pour tester la recherche d'arme
+                world.players[2].weapon = nil
+                run(world, bot, 1)
+                if world.players[2].weapon == "rifle" then break end
+            end
             assert(world.players[2].weapon == "rifle")
         end
     },

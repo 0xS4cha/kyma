@@ -20,7 +20,8 @@ love . --server --name "My server" --motd "Hello there"
 | `--peers`   | `MAX_PEERS`   | `64`           | Most players connected at once                  |
 | `--name`    | `SERVER_NAME` | `Kyma server`  | Name shown to players while they queue          |
 | `--motd`    | `SERVER_MOTD` | none           | Message of the day shown while they queue       |
-| `--data`    | `DATA_DIR`    | LÖVE save dir  | Folder that holds `ratings.json`                |
+| `--data`    | `DATA_DIR`    | LÖVE save dir  | Folder that holds `ratings.json` and `extraction.json` |
+| `--official`| `OFFICIAL`    | off            | Runs the persistent [extraction world](EXTRACTION.md) (official server only) |
 
 Flags win over environment variables. Open the UDP port in your firewall
 (`sudo ufw allow 6789/udp`) and forward it on your router if the server sits

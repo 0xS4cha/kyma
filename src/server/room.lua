@@ -250,6 +250,51 @@ function Room:Chat(client, data)
     return true
 end
 
+--- Ping d'équipe (clic molette). Le serveur ne fait que nettoyer et relayer :
+--- t = 0 lieu, 1 objet au sol, 2 ennemi ; k = arme / objet (voir Weapons.pack).
+--- En équipe, seuls les coéquipiers le reçoivent ; sinon il revient uniquement à son auteur.
+--- @param client table
+--- @param data any
+--- @return boolean
+function Room:Ping(client, data)
+    if type(data) ~= "table" or not client.slot then return false end
+    local player = self.world.players[client.slot]
+    if not player or player.dead > 0 then return false end
+    local x, y = tonumber(data.x), tonumber(data.y)
+    if not x or not y or x ~= x or y ~= y then return false end
+    local now = love.timer.getTime()
+    if client.pingAt and now - client.pingAt < GameConfig.pingCooldown then return false end
+    client.pingAt = now
+    local arena = self.world.arena
+    local kind = math.floor(tonumber(data.t) or 0)
+    if kind < 0 or kind > 2 then kind = 0 end
+    local k = tonumber(data.k)
+    if k then k = math.max(-2, math.min(#WeaponConfig.order, math.floor(k))) end
+    -- le ping s'arrête au champ de vision : on le ramène à portée de vue de son auteur
+    local reach = GameConfig.vision.range + 60
+    local ox, oy = x - player.x, y - player.y
+    local far = math.sqrt(ox * ox + oy * oy)
+    if far > reach then
+        x, y = player.x + ox / far * reach, player.y + oy / far * reach
+        kind = 0
+    end
+    local message = {
+        s = client.slot, n = client.name, t = kind, k = kind > 0 and k or nil,
+        x = math.floor(math.max(0, math.min(arena.width, x))), y = math.floor(math.max(0, math.min(arena.height, y)))
+    }
+    local team = self.rules.teams and player.team or nil
+    if not team then
+        client:Send("ping", message)
+        return true
+    end
+    local raw = Protocol.Encode("ping", message)
+    for _, member in ipairs(self.members) do
+        local other = member.slot and self.world.players[member.slot]
+        if other and other.team == team then member:SendRaw(raw) end
+    end
+    return true
+end
+
 --- @return number
 function Room:Humans()
     local count = 0
@@ -268,6 +313,12 @@ function Room:Hold(client, data)
     self.held = on or nil
     self.accumulator = 0
     return true
+end
+
+--- @param client table
+function Room:Kit(client)
+    local player = client.slot and self.world.players[client.slot]
+    if player then player.kit = client.loadout end
 end
 
 function Room:Ready(client, data)

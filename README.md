@@ -159,6 +159,10 @@ Settings > Appearance turns the whole game around, from the floor and the fog to
 - **Spectating**: watch any game, or fill a map with bots and watch them play.
 - **Chat**, team chat, and a pause that really pauses when you practice alone.
 
+### Extraction
+
+A persistent 40 000 x 40 000 world on the official server, shared by up to 64 players: natural land with forests, fields, highlands and lakes, about 130 villages, towns, industrial zones and military camps around a central citadel, monsters in nests, random events and extraction points. Tarkov-like grid inventories, 36 weapons and 48 attachments in six rarities, utilities, blueprints, crafting and recycling, all kept by the server. Open it from **Extraction** in the main menu; the [extraction guide](docs/EXTRACTION.md) covers everything.
+
 ## Quick start
 
 ### Prerequisites
@@ -188,6 +192,7 @@ New to the game? Open **How to play** from the main menu, or jump straight into 
 | `love . --connect 127.0.0.1:6789 --name Bob` | Join a game. |
 | `love . --server` or `make server` | Run a headless dedicated server. |
 | `love . --test` or `make test` | Run the test suite. |
+| `make dev` | Start a local official server and play the extraction mode on it (`DEV_CLIENTS=2` for two players). |
 | `make build` | Package Windows, macOS and Linux builds into `dist/`. |
 
 Every other flag is listed in the [technical guide](docs/TECHNICAL.md#command-line).
@@ -293,6 +298,7 @@ A dedicated server runs rated matchmaking and tournaments, and keeps ratings acr
 | [**Gameplay guide**](docs/GAMEPLAY.md) | Every mechanic in detail: combat, noise, modes, maps, loadouts, feel, menus. |
 | [**Technical guide**](docs/TECHNICAL.md) | Networking, camera, command line and project structure. |
 | [**Hosting guide**](docs/HOSTING.md) | Dedicated servers, Docker, Pterodactyl, matchmaking and tournaments. |
+| [**Extraction guide**](docs/EXTRACTION.md) | The extraction mode: world, items, rarities, crafting, monsters, events. |
 
 ## Contributing
 
@@ -303,6 +309,7 @@ Issues and pull requests are welcome. Run `make test` before opening a pull requ
 - [LÖVE](https://love2d.org/) and [LuaJIT](https://luajit.org/)
 - [Athena](https://github.com/0xS4cha/athena), the sister project the sound synthesizer comes from
 - [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License (`assets/fonts/OFL.txt`)
+- Extraction item icons from [Kenney](https://kenney.nl)'s Generic Items pack, CC0 (`assets/kenney/`)
 
 ## License
 
