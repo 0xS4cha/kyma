@@ -123,7 +123,7 @@ function Player.step(p, input, arena, dt)
         local quiet = Config.noise.quietSpeed
         wx, wy = wx * quiet, wy * quiet
     end
-    local held = Weapons.def(p.weapon)
+    local held = Weapons.held(p)
     if held and held.speed then
         wx, wy = wx * held.speed, wy * held.speed
     end
