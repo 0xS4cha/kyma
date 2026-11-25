@@ -53,6 +53,14 @@ function GM.Multiplayer:Initialize()
         if type(data.me) == "table" then self.rating = data.me end
     end)
     self:On("rating", function(data) self.rating = data end)
+    self:On("tournament", function(data)
+        self.tournament = data
+        self.tournaments = nil
+    end)
+    self:On("tournaments", function(data)
+        self.tournaments = type(data.list) == "table" and data.list or {}
+        self.tournament = nil
+    end)
     self:On("error", function(data)
         self.error = tostring(data.message)
         Logger:warn("multiplayer", self.error)
@@ -99,6 +107,25 @@ function GM.Multiplayer:Disconnect()
     self.server = nil
     self.search = nil
     self.leaderboard = nil
+    self.tournament = nil
+    self.tournaments = nil
+end
+
+--- Connects to a server for a tournament: request is { a = "create", ... },
+--- { a = "join", id } or { a = "list" }.
+--- @param address string
+--- @param name string
+--- @param request table
+function GM.Multiplayer:OpenTournament(address, name, request)
+    self.queueOptions = { tournament = request }
+    self.lanHost = false
+    return self:Connect(address, name)
+end
+
+--- @param request table
+function GM.Multiplayer:Tournament(request)
+    self.error = nil
+    return self:Send("tournament", request)
 end
 
 --- The official server address, which a OFFICIAL_SERVER line in .env overrides.

@@ -16,6 +16,7 @@ local Character = require("src.modules.session.character")
 local Hud = require("src.modules.session.hud")
 local Text = require("src.core.text")
 local Keys = require("src.input.keybinds")
+local TournamentView = require("src.modules.session.tournament")
 local CHAT_LOG = 40
 
 local function sound(name, gain, pan)
@@ -67,6 +68,11 @@ function GM.Session:Initialize()
     mp:On("room", function(data) self.room = data end)
     mp:On("state", function(data) self:receive(data) end)
     mp:On("disconnected", function() self:leave() end)
+    mp:On("left", function()
+        self.world = nil
+        self.room = nil
+        self:capture(false)
+    end)
     mp:On("hit", function(data) self:onHit(data) end)
     mp:On("kill", function(data) self:onKill(data) end)
     mp:On("melee", function(data) self:onMelee(data) end)
@@ -133,7 +139,9 @@ function GM.Session:Start(options)
     self.chat = { open = false, text = "", team = false, log = {} }
     self.camera.scale = Config.camera.scale
     GM.State = "game"
-    if options.mode == "matchmaking" then
+    if options.mode == "tournament" then
+        mp:OpenTournament(options.address or mp:OfficialAddress(), name, options.request or { a = "list" })
+    elseif options.mode == "matchmaking" then
         mp:FindMatch(options.address or mp:OfficialAddress(), name, options.game or "duel")
     elseif options.mode == "connect" then
         mp:Join(options.address, name, options.spectate and { spectate = true } or nil)
@@ -929,8 +937,12 @@ function GM.Session:MouseMoved(_, _, dx)
     end
 end
 
-function GM.Session:MousePressed(_, _, button)
+function GM.Session:MousePressed(x, y, button)
     if not self.active or self:paused() then return end
+    if TournamentView.active(self) then
+        if button == 1 then TournamentView.mousePressed(x, y) end
+        return
+    end
     if self.world and self.world.spectator then
         if button == 1 then self:follow(1) elseif button == 2 then self:follow(-1) end
         return
@@ -955,6 +967,10 @@ end
 
 function GM.Session:KeyPressed(key, scancode)
     if not self.active or self:paused() then return end
+    if TournamentView.active(self) and not self.chat.open then
+        TournamentView.keyPressed(self, key)
+        return
+    end
     if self.chat.open then
         if key == "escape" then
             self:closeChat(false)
