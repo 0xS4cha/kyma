@@ -104,6 +104,7 @@ return {
         run = function()
             sequences = {}
             local world = duel(nil, { x = 1200, y = 1000, angle = 0 })
+            require("src.game.weapons").give(world.players[1], "rifle") -- un pistolet ne se lance pas
             run(world, 1, { d = 1, angle = math.pi })
             assert(count(heard(world, 2), "dash") == 1)
             run(world, Config.dash.ticks, { k = 1, angle = math.pi })

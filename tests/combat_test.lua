@@ -111,7 +111,7 @@ return {
             assert(kinds.hit == 3 and kinds.kill == 1)
             local kinds = {}
             for _, item in ipairs(world.items) do kinds[item.kind] = true end
-            assert(not b.weapon and #world.items == 2 and kinds.pistol and kinds.ammo, "the dead player drops their weapon and ammo")
+            assert(not b.weapon and #world.items == 1 and kinds.ammo and not kinds.pistol, "the dead player drops ammo but not their pistol")
         end
     },
     {
@@ -185,15 +185,16 @@ return {
         run = function()
             sequences = {}
             local world, a, b = duel()
+            Weapons.give(a, "rifle")
             tick(world, command(1, { t = 1 }))
-            assert(not a.weapon and #world.items == 1 and world.items[1].flying)
+            assert(a.weapon == "pistol" and #world.items == 1 and world.items[1].flying, "a pistol replaces the thrown weapon")
             for _ = 1, 40 do tick(world, command(1, {})) end
             assert(b.hp == Config.health - WeaponConfig.throw.damage, "hp " .. b.hp)
             local item = world.items[1]
             assert(item and not item.flying, "landed")
             a.x, a.y = item.x, item.y
-            tick(world, command(1, {}))
-            assert(a.weapon == "pistol" and #world.items == 0, "unarmed players pick up weapons they walk on")
+            tick(world, command(1, { e = 1 }))
+            assert(a.weapon == "rifle" and #world.items == 0, "E picks the weapon up again")
         end
     },
     {
@@ -205,7 +206,24 @@ return {
             Combat.spawnItem(world, "shotgun", nil, nil, a.x + 10, a.y)
             tick(world, command(1, { e = 1 }))
             assert(a.weapon == "shotgun" and a.ammo == WeaponConfig.shotgun.magazine)
-            assert(#world.items == 1 and world.items[1].kind == "pistol")
+            assert(#world.items == 0, "the pistol does not drop")
+        end
+    },
+    {
+        name = "pistols can't be thrown or knocked away, and an empty-handed player gets one",
+        run = function()
+            sequences = {}
+            local world, a = duel()
+            tick(world, command(1, { t = 1 }))
+            assert(a.weapon == "pistol" and #world.items == 0, "a pistol stays in hand")
+            Weapons.give(a, "rifle")
+            Weapons.give(a, nil)
+            tick(world, command(1, {}))
+            assert(a.weapon == "pistol", "no weapon means a pistol")
+            for _, kind in ipairs({ "pistol", "silencer", "revolver" }) do
+                assert(Weapons.sidearm(kind) and WeaponConfig[kind].sidearm, kind)
+            end
+            assert(not Weapons.sidearm("rifle") and not Weapons.sidearm(nil))
         end
     },
     {

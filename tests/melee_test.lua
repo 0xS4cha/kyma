@@ -36,12 +36,13 @@ return {
         name = "an unarmed strike hurts, stuns and knocks the weapon out",
         run = function()
             local world, a, b = duel(40)
+            Weapons.give(b, "rifle")
             strike(world)
             assert(b.hp == Config.health - WeaponConfig.melee.damage, "hp " .. b.hp)
-            assert(b.stun > 0 and not b.weapon, "stunned and disarmed")
+            assert(b.stun > 0 and b.weapon ~= "rifle", "stunned and disarmed")
             local dropped = false
             for _, item in ipairs(world.items) do
-                if item.kind == "pistol" then dropped = true end
+                if item.kind == "rifle" then dropped = true end
             end
             assert(dropped, "the weapon lies on the floor")
         end
@@ -60,7 +61,7 @@ return {
     {
         name = "strikes wait for their cooldown and need a new click",
         run = function()
-            local world, a, b = duel(40)
+            local world, a, b = duel(40, "gungame") -- le gun game laisse les poings (pas d'arme de secours)
             strike(world)
             local hp = b.hp
             strike(world)
@@ -95,7 +96,7 @@ return {
     {
         name = "prediction matches the server while striking",
         run = function()
-            local world = World.new()
+            local world = World.new(nil, "gungame")
             world:add(1, "a")
             Weapons.give(world.players[1], nil)
             local predicted = Player.new(1, "a", { x = 0, y = 0, angle = 0 })
@@ -114,7 +115,7 @@ return {
         name = "an unarmed bot strikes an enemy in reach",
         run = function()
             local Bot = require("src.game.bot")
-            local world = World.new(Arena.new({ width = 3000, height = 3000, walls = {}, spawns = { { x = 1000, y = 1000, angle = 0 }, { x = 1050, y = 1000, angle = math.pi } } }))
+            local world = World.new(Arena.new({ width = 3000, height = 3000, walls = {}, spawns = { { x = 1000, y = 1000, angle = 0 }, { x = 1050, y = 1000, angle = math.pi } } }), "gungame")
             world:add(1, "bot")
             world:add(2, "target")
             Weapons.give(world.players[1], nil)

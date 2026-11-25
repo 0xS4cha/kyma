@@ -116,6 +116,11 @@ end
 --- @return table?
 function Combat.drop(world, p, x, y)
     if not p.weapon or world.rules.ladder then return nil end
+    if Weapons.sidearm(p.weapon) then
+        -- un petit flingue ne tombe pas par terre : il disparaît (le suivant est redonné automatiquement)
+        Weapons.give(p, nil)
+        return nil
+    end
     local item = Combat.spawnItem(world, p.weapon, p.ammo, p.reserve, x or p.x, y or p.y)
     item.angle = p.angle
     Weapons.give(p, nil)
@@ -334,11 +339,11 @@ function Combat.melee(world, striker, command)
     end
     event(world, { kind = "melee", o = striker.slot, t = best and best.slot or nil })
     if not best then return end
-    if best.weapon and not world.rules.ladder then
+    if best.weapon and not world.rules.ladder and not Weapons.sidearm(best.weapon) then
         local ca, sa = cos(striker.angle), sin(striker.angle)
         local x, y = world.arena:resolve(best.x + ca * 60, best.y + sa * 60, WeaponConfig.throw.radius)
         local item = Combat.drop(world, best, x, y)
-        item.angle = striker.angle
+        if item then item.angle = striker.angle end
     end
     best.stun = def.stun
     best.reload = 0
@@ -350,6 +355,7 @@ end
 function Combat.throw(world, p)
     if world.rules.ladder then return end
     if not p.weapon or p.dead > 0 or p.dash > 0 then return end
+    if Weapons.sidearm(p.weapon) then return end
     local def = WeaponConfig.throw
     local ca, sa = cos(p.angle), sin(p.angle)
     local x, y = world.arena:resolve(p.x + ca * 16, p.y + sa * 16, def.radius)
@@ -498,6 +504,9 @@ function Combat.update(world)
             world:loadout(p)
         elseif not p.weapon and p.dead == 0 then
             Combat.pickup(world, p)
+            if not p.weapon and not world.rules.ladder then
+                Weapons.give(p, WeaponConfig.fallback)
+            end
         elseif p.dead == 0 then
             Combat.refill(world, p)
         end

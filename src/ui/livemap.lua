@@ -161,6 +161,35 @@ function Livemap.draw(session, x, y)
         end
     end
 
+    -- pings (les miens et ceux de mon équipe) : losange + onde, avec le nom de l'arme / objet
+    local pings = session.effects and session.effects.pings
+    if opt.minimapPings ~= false and pings and #pings > 0 then
+        local Effects = require("src.modules.session.effects")
+        local now = love.timer.getTime()
+        for _, ping in ipairs(pings) do
+            local age = now - ping.time
+            local fade = age > Effects.PING_LIFE - 1 and math.max(0, Effects.PING_LIFE - age) or 1
+            local c = Effects.pingColor(ping)
+            local px, py = ping.x * scale, ping.y * scale
+            local k = (age * 1.2) % 1
+            lg.push()
+            lg.translate(px, py)
+            if follow and opt.minimapRotate then lg.rotate(math.pi / 2 + me.angle) end -- texte toujours droit
+            lg.setLineWidth(1.5)
+            lg.setColor(c[1], c[2], c[3], (1 - k) * 0.8 * fade * alpha)
+            lg.circle("line", 0, 0, 5 + 10 * k)
+            lg.setLineWidth(1)
+            lg.setColor(0.05, 0.07, 0.1, 0.6 * fade * alpha)
+            lg.polygon("fill", 0, -8, 8, 0, 0, 8, -8, 0)
+            lg.setColor(c[1], c[2], c[3], fade * alpha)
+            lg.polygon("fill", 0, -6, 6, 0, 0, 6, -6, 0)
+            if ping.label and ping.label ~= "" then
+                Kit.text(ping.label, 11, -45, 9, c, fade * alpha, "center", 90)
+            end
+            lg.pop()
+        end
+    end
+
     -- le joueur local : flèche + halo
     if me and me.dead == 0 then
         local mx, my = me.x * scale, me.y * scale

@@ -118,7 +118,7 @@ function Screen.draw(menu, elements, p)
     if menu.bindMessage then
         Kit.text(menu.bindMessage, 14, reset.x + reset.w + 20, reset.y + 14, Kit.INK, 0.6)
     end
-    Kit.text("Mouse: left click fires or strikes, right click dashes, middle click throws.", 13, reset.x, reset.y + reset.h + 18, Kit.INK, 0.45)
+    Kit.text("Mouse: left click fires or strikes, right click dashes, middle click pings.", 13, reset.x, reset.y + reset.h + 18, Kit.INK, 0.45)
 end
 
 function Screen.back(menu)

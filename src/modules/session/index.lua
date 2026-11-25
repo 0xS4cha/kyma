@@ -81,6 +81,7 @@ function GM.Session:Initialize()
     mp:On("melee", function(data) self:onMelee(data) end)
     mp:On("flash", function(data) self:onFlash(data) end)
     mp:On("chat", function(data) self:onChat(data, true) end)
+    mp:On("ping", function(data) self:onPing(data) end)
     mp:On("chatlog", function(data)
         self.chat.log = {}
         for _, message in ipairs(type(data.messages) == "table" and data.messages or {}) do self:onChat(message, false) end
@@ -353,7 +354,7 @@ function GM.Session:tick()
         self:shake(Feel.shake.dash)
     end
     if me.slide == Config.slide.ticks - 1 then sound("slide") end
-    if command.t == 1 and me.weapon then sound("throw") end
+    if command.t == 1 and me.weapon and not Weapons.sidearm(me.weapon) then sound("throw") end
     world.pending[#world.pending + 1] = command
 
     local batch = {}
@@ -930,6 +931,80 @@ function GM.Session:dashCharge()
 end
 
 --- @param action string
+local PING_ITEMS = { [-1] = "HEALTH", [-2] = "SHIELD PLATE", [0] = "AMMO" }
+
+--- Texte affiché sur un ping : nom de l'arme visée (ou de l'objet).
+--- @param kind number? 0 lieu, 1 objet, 2 ennemi
+--- @param k number?
+--- @return string
+function GM.Session.pingLabel(kind, k)
+    local weapon = k and k > 0 and WeaponConfig[Weapons.unpack(k) or ""]
+    if kind == 1 then
+        return weapon and weapon.name or PING_ITEMS[k or 0] or "ITEM"
+    elseif kind == 2 then
+        return weapon and ("ENEMY - " .. weapon.name) or "ENEMY"
+    end
+    return ""
+end
+
+--- Vise le long du regard, mais seulement dans le champ de vision : le rayon s'arrête au premier mur
+--- (le verre laisse voir) ou à la portée de vue ; seuls un ennemi ou un objet que tu VOIS sont nommés.
+--- Sinon le ping tombe sur le point où s'arrête ta vue.
+--- @return table? message
+function GM.Session:pingTarget()
+    local world = self.world
+    local me = self:localView()
+    local dx, dy = math.cos(world.aim), math.sin(world.aim)
+    local range = Config.vision.range
+    local length = world.arena:raycast(me.x, me.y, dx, dy, range, "vision")
+    local best, bestScore
+    local function consider(x, y, kind, k, reach, bonus)
+        local ox, oy = x - me.x, y - me.y
+        local along = ox * dx + oy * dy
+        if along <= 0 or along > length + reach then return end
+        local across = math.abs(ox * dy - oy * dx)
+        if across > reach then return end
+        local score = across - bonus
+        if not bestScore or score < bestScore then
+            best, bestScore = { x = x, y = y, t = kind, k = k }, score
+        end
+    end
+    for _, p in ipairs(self:visibleOpponents()) do
+        if not p.ally and not p.marked then consider(p.x, p.y, 2, Weapons.pack(p.weapon), 38, 12) end
+    end
+    for _, item in ipairs(world.items) do
+        if item.f == 0 and Vision.sees(world.arena, me, item.x, item.y, 10) then consider(item.x, item.y, 1, item.k, 32, 0) end
+    end
+    if best then return best end
+    return { x = me.x + dx * length, y = me.y + dy * length, t = 0 }
+end
+
+--- Ping de l'équipe (clic molette / touche Ping).
+function GM.Session:ping()
+    local world = self.world
+    if not world or world.spectator or world.me.dead > 0 or not self.captured or self.autoplay or self.chat.open then return end
+    local now = love.timer.getTime()
+    if self.lastPing and now - self.lastPing < Config.pingCooldown then return end
+    self.lastPing = now
+    local target = self:pingTarget()
+    GM.Multiplayer:Send("ping", { x = math.floor(target.x), y = math.floor(target.y), t = target.t, k = target.k })
+end
+
+--- @param data table
+function GM.Session:onPing(data)
+    local world = self.world
+    if not world or type(data) ~= "table" then return end
+    local x, y = tonumber(data.x), tonumber(data.y)
+    if not x or not y then return end
+    local mine = data.s == world.slot
+    self.effects:ping({
+        x = x, y = y, s = data.s, mine = mine, t = tonumber(data.t) or 0,
+        label = GM.Session.pingLabel(tonumber(data.t), tonumber(data.k)),
+        name = not mine and tostring(data.n or "") or nil
+    })
+    if mine then sound("ping") else soundAt("ping", x, y, 0.9) end
+end
+
 function GM.Session:request(action)
     if self.world and self.captured and not self.autoplay and not self.chat.open then
         self.world.requests[action] = true
@@ -1029,7 +1104,7 @@ function GM.Session:MousePressed(x, y, button)
     elseif button == 2 then
         self:request("dash")
     elseif button == 3 then
-        self:request("throw")
+        self:ping()
     end
 end
 
@@ -1094,6 +1169,8 @@ function GM.Session:KeyPressed(key, scancode)
         self:request("dash")
     elseif Keys.is("reload", scancode) then
         self:request("reload")
+    elseif Keys.is("ping", scancode) then
+        self:ping()
     elseif Keys.is("throw", scancode) then
         self:request("throw")
     elseif Keys.is("gadget", scancode) then
