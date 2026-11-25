@@ -8,6 +8,7 @@ local Player = require("src.game.player")
 local Vision = require("src.game.vision")
 local Shaders = require("src.modules.session.shaders")
 local Shadows = require("src.modules.session.shadows")
+local Occlusion = require("src.modules.session.occlusion")
 
 local Renderer = {}
 
@@ -97,6 +98,7 @@ local function drawFloor(arena)
     end
     lg.setColor(COLORS.wallShadow[1], COLORS.wallShadow[2], COLORS.wallShadow[3], COLORS.wallShadow[4] * 0.6)
     for _, block in ipairs(arena.cover or {}) do shadow(block, ox * 0.4, oy * 0.4) end
+    Occlusion.draw(arena, require("src.ui.theme").dark() and 0.55 or 0.38)
     for _, pane in ipairs(arena.glass or {}) do
         if pane.broken then drawShards(pane) end
     end
