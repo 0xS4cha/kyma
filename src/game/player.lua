@@ -127,6 +127,9 @@ function Player.step(p, input, arena, dt)
     if held and held.speed then
         wx, wy = wx * held.speed, wy * held.speed
     end
+    if p.haste then
+        wx, wy = wx * p.haste, wy * p.haste
+    end
     local stunned = p.stun > 0
     if stunned then
         p.stun = p.stun - 1
@@ -136,7 +139,8 @@ function Player.step(p, input, arena, dt)
 
     local dash = Config.dash
     if p.cooldown > 0 then
-        p.cooldown = p.cooldown - 1
+        p.cooldown = p.cooldown - (p.rush and 2 or 1)
+        if p.cooldown < 0 then p.cooldown = 0 end
     end
     local slide = Config.slide
     if input.d == 1 and not stunned and p.cooldown == 0 and p.dash == 0 and p.slide == 0 then

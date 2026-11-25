@@ -21,7 +21,8 @@ return {
     {
         name = "there are many weapons, attachments and utilities, each with a size",
         run = function()
-            assert(#ItemConfig.weaponOrder >= 20 and #ItemConfig.modOrder >= 20 and #ItemConfig.utilityOrder >= 8)
+            assert(#ItemConfig.weaponOrder >= 35 and #ItemConfig.modOrder >= 45 and #ItemConfig.utilityOrder >= 20)
+            assert(#ItemConfig.materialOrder >= 18)
             for id, def in pairs(ItemConfig.all) do
                 assert(def.w >= 1 and def.h >= 1 and def.price > 0, id)
                 if def.kind == "weapon" then
@@ -30,6 +31,12 @@ return {
                 end
             end
             for _, entry in ipairs(ItemConfig.shop) do assert(ItemConfig.all[entry.id], entry.id) end
+            for _, id in ipairs(ItemConfig.craftOrder) do
+                assert(#ItemConfig.recipes[id] > 0, id .. " has a recipe")
+                for _, part in ipairs(ItemConfig.recipes[id]) do assert(ItemConfig.material[part.id], id .. " needs unknown " .. part.id) end
+                if ItemConfig.all[id].kind ~= "ammo" then assert(ItemConfig.all["plan_" .. id], id .. " has a plan") end
+            end
+            for _, id in ipairs(ItemConfig.known) do assert(ItemConfig.recipes[id], id) end
             assert(#ItemConfig.rarities.order == 6)
         end
     },
@@ -113,6 +120,23 @@ return {
             assert(second.m.optic == mod and #gear.pockets == 1)
             assert(Inventory.move(places, mod.i, "pk", 3, 0), "detaching moves it out")
             assert(not second.m.optic)
+        end
+    },
+    {
+        name = "crafting a rarer item costs more and needs rare parts",
+        run = function()
+            local common, epic, legendary = Items.recipe("ar", 1), Items.recipe("ar", 4), Items.recipe("ar", 5)
+            local function count(list, id)
+                for _, part in ipairs(list) do if part.id == id then return part.n end end
+                return 0
+            end
+            assert(count(epic, "scrap") > count(common, "scrap"))
+            assert(count(common, "alloy") == 0 and count(epic, "alloy") == 1 and count(legendary, "core") == 1)
+            assert(#Items.recipe("ammo_light", 5) == #Items.recipe("ammo_light", 1), "ammo has no rarity")
+            local railgun = Items.weaponStats(item("railgun"))
+            assert(railgun.pierce >= 3 and railgun.chain, "built-in traits")
+            local mythic = Items.weaponStats(item("ar", { m = { rounds = item("bouncing", { r = 6 }) } }))
+            assert(mythic.bounce == 3, "a mythic attachment adds a bounce")
         end
     },
     {
