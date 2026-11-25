@@ -15,7 +15,7 @@ local WeaponConfig = require("src.config.weapons")
 
 local Room = Class()
 
-local BOT_NAMES = { "Nova", "Echo", "Vega", "Orion", "Lyra", "Atlas", "Iris", "Juno" }
+local BOT_NAMES = { "Nova", "Echo", "Vega", "Orion", "Lyra", "SkibidiBananoo", "Atlas", "Iris", "Juno" }
 
 function Room:init(id, options)
     options = type(options) == "table" and options or {}
@@ -340,7 +340,20 @@ function Room:Update(dt)
         for _, bot in ipairs(self.bots) do
             self.world:queue(bot.slot, { bot:command(self.world) })
         end
-        self.world:step()
+        local violation = self.world:step()
+        if violation then
+            local offender
+            for _, member in ipairs(self.members) do
+                if member.slot == violation.slot then offender = member break end
+            end
+            if offender then
+                Logger:warn("anticheat", string.format(
+                    "Disconnecting %s in room %d: invalid %s (%s)",
+                    offender.name, self.id, violation.field, tostring(violation.value)))
+                offender:Disconnect()
+            end
+            return
+        end
         self:flushEvents()
         if self.world.tick % Config.snapshotTicks == 0 then
             self:sendState()
