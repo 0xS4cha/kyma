@@ -392,7 +392,9 @@ end
 --- @param color table
 function GM.Session:shoot(p, sequence, color)
     local arena = self.world.arena
-    for _, ray in ipairs(Weapons.rays(p, sequence)) do
+    local rays = Weapons.rays(p, sequence)
+    if rays[1] then self.effects:muzzle(arena, rays[1].x, rays[1].y, p.weapon) end
+    for _, ray in ipairs(rays) do
         local length = arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
         local hit = length < ray.range - 1e-6 and 1 or 0
         self.effects:tracer(ray.x, ray.y, ray.x + ray.dx * length, ray.y + ray.dy * length, color, hit, 0.5)
@@ -741,6 +743,7 @@ function GM.Session:receive(data)
             local recoil = Feel.recoil[Weapons.unpack(shot.g) or ""]
             if recoil and shot.o then Character.fire(shot.o, recoil.gun) end
             soundAt(Weapons.unpack(shot.g) or "pistol", shot.x, shot.y)
+            self.effects:muzzle(world.arena, shot.x, shot.y, Weapons.unpack(shot.g))
             self.effects:tracer(shot.x, shot.y, shot.X, shot.Y, TRACER_OPPONENT, shot.h)
             local d = math.sqrt((shot.x - world.me.x) ^ 2 + (shot.y - world.me.y) ^ 2)
             if d < Feel.shake.nearbyRange then
@@ -782,7 +785,14 @@ function GM.Session:receive(data)
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.mod, me.modWeapon = own.md, Weapons.unpack(own.mw)
+    local wasBlind = me.blind or 0
     me.gadget, me.gadgets, me.blind = GadgetConfig.unpack(own.gk), own.gn or 0, own.bl or 0
+    if me.blind > wasBlind + 10 then
+        self.blindPeak = me.blind
+        self.postfx:freeze()
+    elseif me.blind <= 0 then
+        self.blindPeak = nil
+    end
     me.trigger = own.z == 1
     if me.dead == 0 and beforeDead == 0 then
         if me.weapon and me.weapon ~= beforeWeapon then

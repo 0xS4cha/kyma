@@ -13,6 +13,7 @@ local modules = require("src.modules.index")
 local GM = require("src.core.index")
 local ArgParser = require("src.core.args")
 local Threads = require("src.core.thread")
+local Transition = require("src.modules.menu.transition")
 
 local BACKGROUND = { 0.93, 0.95, 0.97 }
 
@@ -107,8 +108,12 @@ function love.update(dt)
     end
 end
 
-function love.draw()
+local function drawFrame()
     GM:Draw()
+end
+
+function love.draw()
+    if not Transition.draw(drawFrame) then drawFrame() end
 end
 
 function love.wheelmoved(x, y)

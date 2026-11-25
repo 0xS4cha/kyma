@@ -35,11 +35,18 @@ local PRINT_GAP = 6
 local NUMBER_LIFE = 0.9
 local PING_LIFE = 6
 local ECHO_SIZE = { shot = 70, dash = 46, step = 30, throw = 40, clank = 40 }
+local LIGHT_LIFE = 0.09
+local LIGHT_RADIUS = 230
+local LIGHT_RAYS = 72
+local LIGHT_COLOR = { 1, 0.78, 0.45 }
+local LIGHT_TINT = { 1, 0.66, 0.3 }
+--- How much light each weapon's muzzle gives off.
+local MUZZLE = { pistol = 1, rifle = 0.85, lmg = 0.95, shotgun = 1.25, sniper = 1.45, silencer = 0.25 }
 
 --- @return table
 function Effects.new()
     return setmetatable({
-        tracers = {}, flashes = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, texts = {}, pings = {}, hit = -1, hurt = -1
+        tracers = {}, flashes = {}, lights = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, texts = {}, pings = {}, hit = -1, hurt = -1
     }, Effects)
 end
 
@@ -62,6 +69,64 @@ function Effects:tracer(x1, y1, x2, y2, color, hit, trail)
     elseif hit == 2 then
         self:spray(x2, y2, { 0.88, 0.14, 0.12 }, 8)
         self:glow(x2, y2, 22, { 1, 0.3, 0.22 }, 0.14)
+    end
+end
+
+--- A muzzle flash that lights up the floor around the shooter for a few
+--- frames, stopped by walls like the view is.
+--- @param arena table?
+--- @param x number
+--- @param y number
+--- @param weapon string?
+function Effects:muzzle(arena, x, y, weapon)
+    if not arena then return end
+    local strength = MUZZLE[weapon or ""] or 1
+    local now = love.timer.getTime()
+    for _, light in ipairs(self.lights) do
+        if now - light.time < 0.02 and math.abs(light.x - x) < 2 and math.abs(light.y - y) < 2 then return end
+    end
+    local radius = LIGHT_RADIUS * (0.75 + 0.25 * strength) * (0.9 + 0.2 * love.math.random())
+    local shape = { x, y }
+    for k = 0, LIGHT_RAYS do
+        local a = k / LIGHT_RAYS * 2 * math.pi
+        local dx, dy = math.cos(a), math.sin(a)
+        local length = arena:raycast(x, y, dx, dy, radius, "vision")
+        shape[#shape + 1] = x + dx * length
+        shape[#shape + 1] = y + dy * length
+    end
+    self.lights[#self.lights + 1] = { x = x, y = y, radius = radius, strength = strength, shape = shape, time = now }
+    if #self.lights > 24 then table.remove(self.lights, 1) end
+end
+
+--- Draws the muzzle lights on the floor, clipped by the walls around them.
+function Effects:drawLights()
+    if #self.lights == 0 then return end
+    local shader = Shaders.get("light")
+    if not shader then return end
+    local lg = love.graphics
+    local now = love.timer.getTime()
+    local dark = require("src.ui.theme").dark()
+    for _, light in ipairs(self.lights) do
+        local t = (now - light.time) / LIGHT_LIFE
+        if t < 1 then
+            local shape = light.shape
+            lg.stencil(function()
+                for k = 3, #shape - 3, 2 do
+                    lg.polygon("fill", shape[1], shape[2], shape[k], shape[k + 1], shape[k + 2], shape[k + 3])
+                end
+            end, "replace", 1)
+            lg.setStencilTest("equal", 1)
+            lg.setBlendMode(dark and "add" or "alpha")
+            lg.setShader(shader)
+            local a = (1 - t) ^ 1.6 * math.min(1, light.strength) * (dark and 0.55 or 0.5)
+            local c = dark and LIGHT_COLOR or LIGHT_TINT
+            lg.setColor(c[1], c[2], c[3], a)
+            local size = light.radius * 2
+            lg.draw(Shaders.pixel(), light.x, light.y, 0, size, size, 0.5, 0.5)
+            lg.setShader()
+            lg.setBlendMode("alpha")
+            lg.setStencilTest()
+        end
     end
 end
 
@@ -239,6 +304,7 @@ function Effects:update(dt)
         d.vx, d.vy = d.vx * dustDrag, d.vy * dustDrag
     end
     prune(self.flashes, FLASH_LIFE)
+    prune(self.lights, LIGHT_LIFE)
     for k = #self.glows, 1, -1 do
         if now - self.glows[k].time > self.glows[k].life then table.remove(self.glows, k) end
     end

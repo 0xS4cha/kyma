@@ -763,12 +763,32 @@ function Hud:drawPlates(session)
     end
 end
 
+--- A flashbang: a white screen at first, then the picture frozen at the bang
+--- burnt into the eyes, fading while the sight comes back.
 function Hud:drawBlind(session)
     local blind = session.world.me.blind or 0
     if blind <= 0 or session.world.me.dead > 0 then return end
-    local W, H = love.graphics.getDimensions()
-    love.graphics.setColor(1, 1, 0.98, math.min(1, blind / 50) * 0.97)
-    love.graphics.rectangle("fill", 0, 0, W, H)
+    local lg = love.graphics
+    local W, H = lg.getDimensions()
+    local peak = math.max(blind, session.blindPeak or blind)
+    local left = blind / peak
+    local image = session.postfx and session.postfx.afterimage
+    local shader = image and require("src.modules.session.shaders").get("afterimage")
+    if shader and session.blindPeak then
+        local burn = Kit.clamp(left * 1.25, 0, 1)
+        lg.push("all")
+        lg.setShader(shader)
+        shader:send("size", { W, H })
+        shader:send("burn", burn)
+        lg.setColor(1, 1, 1, math.min(1, blind / 40) * 0.92)
+        lg.draw(image, 0, 0, 0, W / image:getWidth(), H / image:getHeight())
+        lg.pop()
+        lg.setColor(1, 1, 0.98, Kit.clamp((left - 0.45) / 0.35, 0, 1) * 0.97)
+        lg.rectangle("fill", 0, 0, W, H)
+        return
+    end
+    lg.setColor(1, 1, 0.98, math.min(1, blind / 50) * 0.97)
+    lg.rectangle("fill", 0, 0, W, H)
 end
 
 function Hud:drawGadget(session)

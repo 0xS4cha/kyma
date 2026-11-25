@@ -64,6 +64,34 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
+SOURCES.light = [[
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    float d = length(uv * 2.0 - 1.0);
+    float fall = pow(clamp(1.0 - d, 0.0, 1.0), 2.2);
+    float core = exp(-d * d * 40.0);
+    vec3 rgb = mix(color.rgb, vec3(1.0), core * 0.7);
+    return vec4(rgb, color.a * clamp(fall + core * 0.5, 0.0, 1.0));
+}
+]]
+
+SOURCES.afterimage = [[
+extern vec2 size;
+extern number burn;
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    vec2 drift = vec2(6.0, -4.0) / size * burn;
+    vec3 a = Texel(tex, uv).rgb;
+    vec3 b = Texel(tex, uv + drift).rgb;
+    vec3 c = Texel(tex, uv - drift * 1.6).rgb;
+    float grey = dot(a * 0.6 + b * 0.25 + c * 0.15, vec3(0.299, 0.587, 0.114));
+    float bright = 1.0 - (1.0 - grey) * mix(0.35, 0.8, 1.0 - burn);
+    vec3 rgb = vec3(bright) * mix(vec3(1.0, 0.97, 0.9), vec3(1.0), 1.0 - burn);
+    vec2 center = uv - 0.5;
+    float glare = exp(-dot(center, center) * 5.0) * 0.25 * burn;
+    return vec4(min(rgb + glare, 1.0), color.a);
+}
+]]
+
 SOURCES.beam = [[
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float y = abs(uv.y * 2.0 - 1.0);

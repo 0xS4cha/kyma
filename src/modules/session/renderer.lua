@@ -8,6 +8,7 @@ local Player = require("src.game.player")
 local Vision = require("src.game.vision")
 local Shaders = require("src.modules.session.shaders")
 local Shadows = require("src.modules.session.shadows")
+local Occlusion = require("src.modules.session.occlusion")
 
 local Renderer = {}
 
@@ -97,6 +98,7 @@ local function drawFloor(arena)
     end
     lg.setColor(COLORS.wallShadow[1], COLORS.wallShadow[2], COLORS.wallShadow[3], COLORS.wallShadow[4] * 0.6)
     for _, block in ipairs(arena.cover or {}) do shadow(block, ox * 0.4, oy * 0.4) end
+    Occlusion.draw(arena, require("src.ui.theme").dark() and 0.55 or 0.38)
     for _, pane in ipairs(arena.glass or {}) do
         if pane.broken then drawShards(pane) end
     end
@@ -570,6 +572,7 @@ function Renderer.draw(session)
         camera:apply()
         drawFloor(world.arena)
         if world.round then drawObjectives(world) end
+        session.effects:drawLights()
         drawItems(world)
         for _, p in ipairs(opponents) do
             if not p.marked then
@@ -588,7 +591,10 @@ function Renderer.draw(session)
             drawPlayer(me, world.arena, Renderer.selfPalette(), true)
         end
         camera:clear()
-        if post then session.postfx:finish(camera) end
+        if post then
+            session.postfx:capture()
+            session.postfx:finish(camera)
+        end
         for _, p in ipairs(opponents) do
             label(camera, p, p.ally and Character.PALETTES.ally.body or COLORS.opponent)
         end

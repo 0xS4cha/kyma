@@ -77,6 +77,9 @@ function PostFX:begin()
     local W, H = lg.getDimensions()
     if not self.canvas or self.canvas:getWidth() ~= W or self.canvas:getHeight() ~= H then
         self.canvas = lg.newCanvas(W, H)
+        self.afterimage = lg.newCanvas(W, H)
+        Shaders.get("afterimage")
+        Shaders.get("light")
     end
     self.previousCanvas = lg.getCanvas()
     lg.setCanvas({ self.canvas, stencil = true })
@@ -120,6 +123,33 @@ function PostFX:finish(camera)
     lg.setBlendMode("alpha", "premultiplied")
     lg.setColor(1, 1, 1, 1)
     lg.setShader(shader)
+    lg.draw(self.canvas)
+    lg.pop()
+end
+
+--- Asks for the next finished frame to be kept as an afterimage.
+function PostFX:freeze()
+    self.freezing = true
+end
+
+--- Copies the frame drawn so far into the afterimage, when one was asked
+--- for. Called before finish, while the frame is still in the canvas.
+function PostFX:capture()
+    if not self.freezing or not self.canvas then return end
+    self.freezing = nil
+    local lg = love.graphics
+    local W, H = self.canvas:getWidth(), self.canvas:getHeight()
+    if not self.afterimage or self.afterimage:getWidth() ~= W or self.afterimage:getHeight() ~= H then
+        self.afterimage = lg.newCanvas(W, H)
+    end
+    lg.push("all")
+    lg.origin()
+    lg.setShader()
+    lg.setStencilTest()
+    lg.setCanvas(self.afterimage)
+    lg.clear(0, 0, 0, 1)
+    lg.setBlendMode("replace", "premultiplied")
+    lg.setColor(1, 1, 1, 1)
     lg.draw(self.canvas)
     lg.pop()
 end
