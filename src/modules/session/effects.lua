@@ -1,4 +1,5 @@
 local T = require("src.ui.theme").colors
+local Shaders = require("src.modules.session.shaders")
 
 local Effects = {}
 Effects.__index = Effects
@@ -11,6 +12,7 @@ local IMPACT_LIFE = 10
 local DUST_LIFE = 0.6
 local MAX_IMPACTS = 80
 local FLASH_LIFE = 0.06
+local GLOW_LIFE = 0.1
 local SHARD_LIFE = 1.4
 local HIT_LIFE = 0.25
 local HURT_LIFE = 0.45
@@ -20,7 +22,7 @@ local ECHO_SIZE = { shot = 70, dash = 46, step = 30, throw = 40, clank = 40 }
 --- @return table
 function Effects.new()
     return setmetatable({
-        tracers = {}, flashes = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, hit = -1, hurt = -1
+        tracers = {}, flashes = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, hit = -1, hurt = -1
     }, Effects)
 end
 
@@ -37,11 +39,23 @@ function Effects:tracer(x1, y1, x2, y2, color, hit, trail)
         x1 = x1, y1 = y1, x2 = x2, y2 = y2, color = color, time = now, trail = trail or TRAIL_LIFE
     }
     self.flashes[#self.flashes + 1] = { x = x1, y = y1, time = now }
+    self:glow(x1, y1, 30, { 1, 0.78, 0.42 }, GLOW_LIFE)
     if hit == 1 then
         self:impact(x2, y2, x2 - x1, y2 - y1)
     elseif hit == 2 then
         self:spray(x2, y2, { 0.88, 0.14, 0.12 }, 8)
+        self:glow(x2, y2, 22, { 1, 0.3, 0.22 }, 0.14)
     end
+end
+
+--- @param x number
+--- @param y number
+--- @param radius number
+--- @param color table
+--- @param life number
+function Effects:glow(x, y, radius, color, life)
+    self.glows[#self.glows + 1] = { x = x, y = y, radius = radius, color = color, life = life, time = love.timer.getTime() }
+    if #self.glows > 64 then table.remove(self.glows, 1) end
 end
 
 --- @param x number
@@ -75,6 +89,7 @@ function Effects:impact(x, y, dx, dy)
         points[#points + 1] = y + sin(a) * r
     end
     self.impacts[#self.impacts + 1] = { x = x, y = y, points = points, time = now }
+    self:glow(x - ux * 3, y - uy * 3, 16, { 1, 0.66, 0.3 }, 0.12)
     if #self.impacts > MAX_IMPACTS then table.remove(self.impacts, 1) end
     for _ = 1, 7 do
         local a = math.atan2(-uy, -ux) + (random() - 0.5) * 2.2
@@ -99,6 +114,7 @@ function Effects:shatter(x, y, color)
             size = 3 + random() * 5, color = color, time = now
         }
     end
+    self:glow(x, y, 70, color, 0.3)
 end
 
 --- @param x number
@@ -122,6 +138,7 @@ end
 function Effects:burst(x, y)
     self.bursts = self.bursts or {}
     self.bursts[#self.bursts + 1] = { x = x, y = y, time = love.timer.getTime() }
+    self:glow(x, y, 420, { 1, 1, 0.92 }, 0.6)
 end
 
 function Effects:hitMarker()
@@ -151,6 +168,9 @@ function Effects:update(dt)
         d.vx, d.vy = d.vx * dustDrag, d.vy * dustDrag
     end
     prune(self.flashes, FLASH_LIFE)
+    for k = #self.glows, 1, -1 do
+        if now - self.glows[k].time > self.glows[k].life then table.remove(self.glows, k) end
+    end
     prune(self.shards, SHARD_LIFE)
     prune(self.echoes, ECHO_LIFE)
     local drag = math.exp(-4 * dt)
@@ -211,8 +231,13 @@ function Effects:drawWorld()
         lg.setLineWidth(3 + 4 * (1 - smoke))
         lg.line(tracer.x1, tracer.y1, tracer.x2, tracer.y2)
         if age < TRACER_LIFE then
-            lg.setColor(c[1], c[2], c[3], 0.85 * (1 - age / TRACER_LIFE))
-            lg.setLineWidth(2.2)
+            local fade = 1 - age / TRACER_LIFE
+            lg.setBlendMode(Shaders.lightBlend())
+            local beam = Shaders.beam(tracer.x1, tracer.y1, tracer.x2, tracer.y2, 10 * (0.6 + 0.4 * fade),
+                c[1], c[2], c[3], 0.8 * fade)
+            lg.setBlendMode("alpha")
+            lg.setColor(c[1], c[2], c[3], (beam and 0.6 or 0.85) * fade)
+            lg.setLineWidth(beam and 1.2 or 2.2)
             lg.line(tracer.x1, tracer.y1, tracer.x2, tracer.y2)
         end
     end
@@ -222,10 +247,19 @@ function Effects:drawWorld()
         if t >= 1 then
             table.remove(self.bursts, k)
         else
-            lg.setColor(1, 1, 0.96, 0.9 * (1 - t))
-            lg.circle("fill", burst.x, burst.y, 30 + 220 * t)
+            if not Shaders.get("glow") then
+                lg.setColor(1, 1, 0.96, 0.9 * (1 - t))
+                lg.circle("fill", burst.x, burst.y, 30 + 220 * t)
+            end
         end
     end
+    lg.setBlendMode(Shaders.lightBlend())
+    for _, glow in ipairs(self.glows) do
+        local t = (now - glow.time) / glow.life
+        local c = glow.color
+        Shaders.glow(glow.x, glow.y, glow.radius * (0.8 + 0.4 * t), c[1], c[2], c[3], 0.9 * (1 - t) ^ 2)
+    end
+    lg.setBlendMode("alpha")
     for _, flash in ipairs(self.flashes) do
         lg.setColor(1, 0.95, 0.8, 1 - (now - flash.time) / FLASH_LIFE)
         lg.circle("fill", flash.x, flash.y, 7)
@@ -251,13 +285,14 @@ function Effects:drawImpacts()
     end
 end
 
-function Effects:drawScreen()
+--- @param composited boolean?
+function Effects:drawScreen(composited)
     local lg = love.graphics
     local W, H = lg.getDimensions()
     local now = love.timer.getTime()
 
     local hurt = now - self.hurt
-    if hurt < HURT_LIFE then
+    if hurt < HURT_LIFE and not composited then
         local alpha = 0.55 * (1 - hurt / HURT_LIFE)
         local d = math.min(W, H) * 0.18
         local r, g, b = 0.88, 0.14, 0.12
