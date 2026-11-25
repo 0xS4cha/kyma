@@ -63,6 +63,10 @@ function Online.build(menu)
         press = function() menu.editing = "server" end,
         text = Common.textHandler(menu, "server", 64, Common.SERVER_PATTERN)
     }
+    list[#list + 1] = {
+        id = "extraction", x = rx, y = l.y + 330, w = rw, h = 60,
+        press = function() Online.extraction(menu) end
+    }
     return list
 end
 
@@ -105,6 +109,26 @@ function Online.draw(menu, elements, p)
     local server = menu.find(elements, "server")
     Kit.text("Your server", 12, server.x, server.y - 20, Kit.INK, 0.5 * ra)
     Kit.field("server", server.x, server.y, server.w, server.h, menu.settings.server, "localhost:6789", menu.editing == "server", menu.focus == "server", ra)
+
+    local xa = menu:stagger(p, 5)
+    local ex = menu.find(elements, "extraction")
+    local top = ex.y - 150
+    Kit.card(ex.x, top, ex.w, ex.y + ex.h + 18 - top, xa, 16)
+    Kit.dot(ex.x + 26, top + 30, 5, Kit.AMBER, xa)
+    Kit.text("Extraction", 18, ex.x + 40, top + 18, Kit.INK, xa)
+    Common.paragraph("A huge persistent world shared by everyone on the official server. Loot, fight monsters and players, then get out alive: your stash is kept by the server.", 13, ex.x + 20, top + 52, ex.w - 40, Kit.INK, 0.6 * xa)
+    Kit.button("extraction", ex.x + 12, ex.y, ex.w - 24, ex.h, "Enter the wilds", {
+        hot = menu.focus == "extraction", primary = true, size = 18, alpha = xa
+    })
+end
+
+--- Opens the extraction mode on the official server.
+function Online.extraction(menu)
+    menu:saveSettings()
+    menu:Launch("Entering the wilds", function()
+        menu.background:stop()
+        GM.Extraction:Start(GM.Multiplayer:OfficialAddress(), menu.settings.name)
+    end)
 end
 
 function Online.keyPressed(menu, key)

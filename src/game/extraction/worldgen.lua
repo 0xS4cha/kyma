@@ -22,8 +22,8 @@ Worldgen.BIOMES = {
 }
 
 local EXTRACT_NAMES = {
-    "North gate", "Old bridge", "Radio mast", "Rail yard", "Fishing pier", "Quarry road", "Pine pass",
-    "Dam tunnel", "Cliff stairs", "South checkpoint", "Helipad", "Sewer outlet"
+    "Pine pass", "Old bridge", "Radio mast", "Rail yard", "Fishing pier", "Quarry road", "Toll gate",
+    "Dam tunnel", "Cliff stairs", "Checkpoint", "Helipad", "Sewer outlet"
 }
 
 --- Smooth noise in [0, 1] from a lattice of hashed values.

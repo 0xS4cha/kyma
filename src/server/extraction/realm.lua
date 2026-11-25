@@ -148,7 +148,7 @@ function Realm:Hub(client, op)
     if not member or member.slot or type(op) ~= "table" then return end
     local ok, err = self:hubAction(member, op)
     if not ok and err then client:Send("xtoast", { t = err }) end
-    self:sendHub(member)
+    if not member.slot then self:sendHub(member) end
 end
 
 --- @param member table
