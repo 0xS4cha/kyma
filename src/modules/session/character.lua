@@ -202,6 +202,25 @@ GUNS.breaker = {
     right = { 8.5, 4.8 }
 }
 
+--- The box a gun model covers, in its own units (x along the barrel), so other
+--- screens can fit it in a frame.
+--- @param kind string
+--- @return number?, number?, number?, number? min x, max x, min y, max y
+function Character.weaponBounds(kind)
+    local gun = GUNS[kind]
+    if not gun then return nil end
+    local x0, x1, y0, y1 = math.huge, -math.huge, math.huge, -math.huge
+    local function add(x, y)
+        x0, x1, y0, y1 = math.min(x0, x), math.max(x1, x), math.min(y0, y), math.max(y1, y)
+    end
+    for _, point in ipairs(gun.body) do add(point[1], point[2]) end
+    add(gun.barrel[1], gun.barrel[3] / 2)
+    add(gun.barrel[2], -gun.barrel[3] / 2)
+    if gun.mag then add(gun.mag[1], gun.mag[2]) add(gun.mag[3], gun.mag[4]) end
+    if gun.scope then add(gun.scope[1], -1) add(gun.scope[2], -1) end
+    return x0 - gun.center, x1 - gun.center, y0 - LINE, y1 - LINE
+end
+
 local function animate(p)
     local state = states[p.slot]
     if not state then

@@ -23,6 +23,7 @@ function love.load(args)
     parser:add_argument("name", { default = nil, type = "value" })
     parser:add_argument("motd", { default = nil, type = "value" })
     parser:add_argument("data", { default = nil, type = "value" })
+    parser:add_argument("official", { default = false, type = "boolean" })
     local flags = parser:parse(args)
 
     math.randomseed(os.time())
@@ -32,6 +33,7 @@ function love.load(args)
         name = fromEnv(flags.name and tostring(flags.name), "SERVER_NAME"),
         motd = fromEnv(flags.motd and tostring(flags.motd), "SERVER_MOTD"),
         data = fromEnv(flags.data and tostring(flags.data), "DATA_DIR"),
+        official = flags.official == true or ({ ["1"] = true, ["true"] = true, yes = true })[tostring(fromEnv(nil, "OFFICIAL") or ""):lower()] == true,
         dedicated = true
     })
     local ok, err = host:Start()

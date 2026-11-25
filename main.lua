@@ -58,16 +58,23 @@ function love.load(args)
     parser:add_argument("theme", { default = nil, type = "value" })
     parser:add_argument("find", { default = nil, type = "value" })
     parser:add_argument("tournament", { default = nil, type = "value" })
+    parser:add_argument("extraction", { default = false, type = "boolean" })
+    parser:add_argument("profile", { default = nil, type = "value" })
+    parser:add_argument("deploy", { default = false, type = "boolean" })
+    parser:add_argument("show", { default = nil, type = "value" })
     flags = parser:parse(args)
     GM.Flags = flags
 
     GM:InitializeModules()
     love.graphics.setBackgroundColor(BACKGROUND)
 
+    if flags.profile then require("src.net.identity").use(tostring(flags.profile)) end
     local name = flags.name and tostring(flags.name) or GM.Menu.settings.name
     local game = flags.mode and tostring(flags.mode) or nil
     local map = flags.map and tostring(flags.map) or nil
-    if flags.tournament then
+    if flags.extraction then
+        GM.Extraction:Start(flags.connect and tostring(flags.connect) or nil, name)
+    elseif flags.tournament then
         local id = tonumber(flags.tournament)
         local request = id and { a = "join", id = id } or { a = "list" }
         GM.Session:Start({ mode = "tournament", address = flags.connect and tostring(flags.connect) or nil, name = name, request = request })

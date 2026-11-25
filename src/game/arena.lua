@@ -128,9 +128,12 @@ function Arena:spawn(slot)
     return self.spawns[(slot - 1) % #self.spawns + 1]
 end
 
+--- Calls fn on every rectangle that blocks in this mode until it returns true. The
+--- optional box (x0, y0, x1, y1) is the area the caller cares about: this arena
+--- ignores it, large arenas with a spatial index only visit rectangles near it.
 --- @param mode string
 --- @param fn function
-function Arena:each(mode, fn)
+function Arena:each(mode, fn, x0, y0, x1, y1)
     for _, wall in ipairs(self.walls) do
         if fn(wall) then return end
     end
@@ -159,6 +162,7 @@ function Arena:resolve(x, y, radius)
     local nx, ny = 0, 0
     for _ = 1, 2 do
         local hit = false
+        local reach = radius + 1
         self:each("move", function(wall)
             local cx = max(wall.x, min(x, wall.x + wall.w))
             local cy = max(wall.y, min(y, wall.y + wall.h))
@@ -185,7 +189,7 @@ function Arena:resolve(x, y, radius)
                     end
                 end
             end
-        end)
+        end, x - reach, y - reach, x + reach, y + reach)
         if not hit then break end
     end
     return x, y, nx, ny
@@ -214,12 +218,13 @@ end
 --- @return number, table?
 function Arena:raycast(x, y, dx, dy, maxLength, mode)
     local best, target = maxLength, nil
+    local ex, ey = x + dx * maxLength, y + dy * maxLength
     self:each(mode or "bullet", function(rect)
         local t = slab(x, y, dx, dy, rect, best)
         if t and t < best then
             best, target = t, rect
         end
-    end)
+    end, min(x, ex), min(y, ey), max(x, ex), max(y, ey))
     if mode == "vision" then
         for _, smoke in ipairs(self.smokes) do
             local t = Arena.circle(x, y, dx, dy, smoke.x, smoke.y, smoke.r)
