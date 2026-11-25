@@ -72,6 +72,35 @@ standalone-server: $(APPIMAGETOOL)
 	@ARCH=x86_64 ./$(APPIMAGETOOL) $(BUILD_DIR)/$(SERVER_NAME).AppDir ./$(SERVER_NAME)
 	@chmod +x ./$(SERVER_NAME)
 
+LOVE ?= $(shell command -v love 2>/dev/null || echo $(HOME)/.local/love2d/bin/love)
+DEV_PORT ?= 6795
+DEV_CLIENTS ?= 1
+DEV_DIR ?= $(CURDIR)/.dev
+
+# Local extraction test: an official server on DEV_PORT (profiles in .dev/) and
+# DEV_CLIENTS game windows joining the extraction mode, each as its own player.
+dev:
+	@mkdir -p $(DEV_DIR)
+	@$(LOVE) . --server --official --port $(DEV_PORT) --name "Kyma dev" --data $(DEV_DIR) > $(DEV_DIR)/server.log 2>&1 & \
+	server=$$!; \
+	trap "kill $$server 2>/dev/null" EXIT INT TERM; \
+	sleep 1; \
+	echo "Dev server on 127.0.0.1:$(DEV_PORT), log in $(DEV_DIR)/server.log"; \
+	for i in $$(seq 2 $(DEV_CLIENTS)); do \
+		$(LOVE) . --extraction --connect 127.0.0.1:$(DEV_PORT) --name Dev$$i --profile dev$$i & \
+	done; \
+	$(LOVE) . --extraction --connect 127.0.0.1:$(DEV_PORT) --name Dev1 --profile dev1; \
+	wait
+
+# Only the local official server, to join from the menu with OFFICIAL_SERVER=127.0.0.1:6795.
+dev-server:
+	@mkdir -p $(DEV_DIR)
+	@$(LOVE) . --server --official --port $(DEV_PORT) --name "Kyma dev" --data $(DEV_DIR)
+
+# Wipes the local extraction profiles.
+dev-reset:
+	@rm -rf $(DEV_DIR)
+
 run:
 	@love .
 
@@ -100,4 +129,4 @@ fclean: clean
 dist: build
 	@ls -1 $(DIST_DIR)/$(VERSION)/$(APP_NAME)-*.zip
 
-.PHONY: all build build-windows build-macos build-linux run server docker-server host test clean fclean dist standalone standalone-server
+.PHONY: dev dev-server dev-reset all build build-windows build-macos build-linux run server docker-server host test clean fclean dist standalone standalone-server

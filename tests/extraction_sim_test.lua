@@ -200,6 +200,7 @@ return {
             local w = small()
             local p = w:add(1, "Ann", gear())
             p.x, p.y = 5000, 5000
+            p.joinedAt = -1e6
             run(w, 31)
             local count = 0
             for _, m in pairs(w.monsters) do

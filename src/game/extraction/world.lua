@@ -105,7 +105,10 @@ function Wilds:spawnPoint()
             if p.hp > 0 then nearest = min(nearest, (p.x - spawn.x) ^ 2 + (p.y - spawn.y) ^ 2) end
         end
         for _, m in pairs(self.monsters) do
-            nearest = min(nearest, (m.x - spawn.x) ^ 2 + (m.y - spawn.y) ^ 2 * 4)
+            nearest = min(nearest, (m.x - spawn.x) ^ 2 + (m.y - spawn.y) ^ 2)
+        end
+        for _, nest in pairs(self.nests) do
+            nearest = min(nearest, ((nest.x - spawn.x) ^ 2 + (nest.y - spawn.y) ^ 2) * 1.5)
         end
         if nearest > Config.spawnClearance ^ 2 then return spawn end
         if not bestScore or nearest > bestScore then best, bestScore = spawn, nearest end

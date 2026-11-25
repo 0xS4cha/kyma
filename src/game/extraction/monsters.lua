@@ -13,6 +13,8 @@ local floor, sqrt, min, max, cos, sin, atan2 = math.floor, math.sqrt, math.min, 
 
 local CELL = 500
 local THINK = 6
+-- Monsters leave a player alone for a while after they arrive in the world.
+local SPAWN_GRACE = 60 * 10
 
 function Monsters.setup(w)
     w.monsters, w.nextMonster, w.monsterCells, w.nests = {}, 1, {}, {}
@@ -153,7 +155,7 @@ local function think(w, m, budget)
     local def = m.def
     local best, bestD
     for _, p in pairs(w.players) do
-        if p.dead == 0 and p.hp > 0 then
+        if p.dead == 0 and p.hp > 0 and (w.tick - (p.joinedAt or -1e9) >= SPAWN_GRACE or p == m.aggro) then
             local d = sqrt((p.x - m.x) ^ 2 + (p.y - m.y) ^ 2)
             local sight = def.sight
             if p == m.aggro then sight = sight * 2 end
