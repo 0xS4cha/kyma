@@ -27,6 +27,7 @@ function Room:init(id, options)
     self.world = World.new(Arena.new(Maps.get(self.map)), self.mode, true, options.rules)
     self.bots = {}
     self.practice = type(options.bot) == "string"
+    self.matched = options.matched == true
     if self.practice then
         local count = self.rules.players - (options.watch and 0 or 1)
         for k = 1, count do
@@ -123,7 +124,7 @@ function Room:Info()
     end
     table.sort(players, function(a, b) return a.slot < b.slot end)
     return {
-        id = self.id, state = self.state, players = players, practice = self.practice,
+        id = self.id, state = self.state, players = players, practice = self.practice, matched = self.matched or nil,
         mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers(), ru = Loadout.pack(self.world.options)
     }
 end
@@ -140,7 +141,9 @@ function Room:refresh()
     self:Broadcast("room", self:Info())
 end
 
-function Room:Add(client)
+--- @param client table
+--- @param team number? side to put the player on in team modes, the smaller team when nil
+function Room:Add(client, team)
     if self:Full() then
         return false, "Room is full"
     end
@@ -148,7 +151,7 @@ function Room:Add(client)
     client.room = self
     client.slot = slot
     self.members[#self.members + 1] = client
-    local player = self.world:add(slot, client.name, self:teamFor(), client.loadout)
+    local player = self.world:add(slot, client.name, team or self:teamFor(), client.loadout)
     client:Send("chatlog", { messages = self.chat })
     client:Send("joined", {
         room = self.id, slot = slot, tick = self.world.tick, tickRate = Config.tickRate,
@@ -281,6 +284,9 @@ function Room:flushEvents()
     end
     for _, data in ipairs(events) do
         self:Broadcast(data.kind, data)
+        if data.kind == "over" and self.onOver then
+            self.onOver(self, data)
+        end
         if data.kind == "kill" and data.k and data.k ~= data.v then
             for _, member in ipairs(self.members) do
                 if member.slot == data.v then

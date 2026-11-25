@@ -6,6 +6,9 @@ local Profile = require("src.config.profile")
 local GameConfig = require("src.config.game")
 local Identity = require("src.net.identity")
 local Text = require("src.core.text")
+local Maps = require("src.maps.index")
+local Ratings = require("src.server.ratings")
+local Matchmaker = require("src.server.matchmaker")
 
 local Host = Class()
 
@@ -18,7 +21,21 @@ function Host:init(options)
     self.dedicated = options.dedicated == true
     self.rooms = {}
     self.nextRoomId = 1
+    self.ratings = Ratings(Host.ratingsPath(options))
+    self.matchmaker = Matchmaker(self)
     self:bind()
+end
+
+--- Dedicated servers keep ratings on disk, in --data when given. Servers started by
+--- the game itself keep them in memory.
+--- @param options table
+--- @return string?
+function Host.ratingsPath(options)
+    if type(options.data) == "string" and options.data ~= "" then
+        return (options.data:gsub("/+$", "")) .. "/ratings.json"
+    end
+    if options.dedicated then return "ratings.json" end
+    return nil
 end
 
 function Host:Start()
@@ -26,7 +43,62 @@ function Host:Start()
 end
 
 function Host:Stop()
+    self.ratings:Save()
     self.server:Stop()
+end
+
+--- @param options table
+--- @return table
+function Host:CreateRoom(options)
+    local room = Room(self.nextRoomId, options)
+    self.nextRoomId = self.nextRoomId + 1
+    self.rooms[room.id] = room
+    Logger:info("server", "Room created", room.id)
+    return room
+end
+
+--- Opens a room for a group found by the matchmaker. In team modes the players are
+--- spread over both sides from the highest rating down, so the sides stay even.
+--- @param mode string
+--- @param group table[] matchmaker entries
+--- @return table
+function Host:StartMatch(mode, group)
+    local rules = GameConfig.modes[mode]
+    local map = rules.map or Maps.order[math.random(#Maps.order)]
+    local room = self:CreateRoom({ mode = mode, map = map, matched = true })
+    room.onOver = function(r, data) self:rate(r, data) end
+    table.sort(group, function(a, b) return a.rating > b.rating end)
+    local names = {}
+    for k, entry in ipairs(group) do
+        local team = rules.teams and ((k % 4 == 1 or k % 4 == 0) and 1 or 2) or nil
+        room:Add(entry.client, team)
+        names[#names + 1] = entry.client.name
+    end
+    Logger:info("matchmaker", string.format("Room %d: %s on %s for %s", room.id, mode, map, table.concat(names, ", ")))
+    return room
+end
+
+--- Rates a finished game of a matchmade room and tells every player their new rating.
+--- @param room table
+--- @param data table the "over" event
+function Host:rate(room, data)
+    local winners, losers, players = {}, {}, {}
+    for _, member in ipairs(room.members) do
+        local player = member.slot and room.world.players[member.slot]
+        if player and not member.spectator then
+            local won = data.tm == 1 and player.team == data.w or data.tm ~= 1 and member.slot == data.w
+            local side = won and winners or losers
+            side[#side + 1] = { key = member.key, name = member.name }
+            players[#players + 1] = member
+        end
+    end
+    local changes = self.ratings:Record(winners, losers)
+    for _, member in ipairs(players) do
+        if member.key and changes[member.key] then
+            local stats = self.ratings:Get(member.key)
+            member:Send("rating", { r = stats.r, d = changes[member.key], w = stats.w, l = stats.l })
+        end
+    end
 end
 
 function Host:Think(dt)
@@ -49,6 +121,7 @@ function Host:RoomCount()
 end
 
 function Host:leaveRoom(client)
+    self.matchmaker:Remove(client)
     local room = client.room
     if not room then return end
     room:Remove(client)
@@ -74,9 +147,7 @@ function Host:matchmake(client, options)
             end
         end
         if not watched and practice then
-            watched = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, watch = true, rules = options.rules })
-            self.nextRoomId = self.nextRoomId + 1
-            self.rooms[watched.id] = watched
+            watched = self:CreateRoom({ bot = practice, mode = mode, map = map, watch = true, rules = options.rules })
         end
         if not watched then
             client:Send("error", { message = "There is no game to watch" })
@@ -88,15 +159,12 @@ function Host:matchmake(client, options)
     local best
     for _, room in pairs(self.rooms) do
         local fits = (not mode or room.mode == mode) and (not map or room.map == map)
-        if not practice and not room.practice and fits and not room:Full() and (not best or room.id < best.id) then
+        if not practice and not room.practice and not room.matched and fits and not room:Full() and (not best or room.id < best.id) then
             best = room
         end
     end
     if not best then
-        best = Room(self.nextRoomId, { bot = practice, mode = mode, map = map, rules = options.rules })
-        self.nextRoomId = self.nextRoomId + 1
-        self.rooms[best.id] = best
-        Logger:info("server", "Room created", best.id)
+        best = self:CreateRoom({ bot = practice, mode = mode, map = map, rules = options.rules })
     end
     local ok, err = best:Add(client)
     if not ok then
@@ -119,12 +187,24 @@ function Host:bind()
         client.look = Profile.sanitize(data.look)
         client.loadout = require("src.config.loadout").sanitize(data.kit)
         client.key = Identity.key(data.token)
-        client:Send("welcome", { id = client.id, server = self:Info() })
+        local welcome = { id = client.id, server = self:Info() }
+        if client.key then welcome.rating = self.ratings:Get(client.key) end
+        client:Send("welcome", welcome)
     end)
 
     server:On("queue", function(client, data)
         if not client.name or client.room then return end
+        if type(data) == "table" and data.matchmaking == true then
+            self.matchmaker:Enqueue(client, type(data.mode) == "string" and data.mode or nil)
+            return
+        end
+        self.matchmaker:Remove(client)
         self:matchmake(client, data)
+    end)
+
+    server:On("leaderboard", function(client)
+        if not client.name then return end
+        client:Send("leaderboard", { top = self.ratings:Top(10), me = client.key and self.ratings:Get(client.key) or nil })
     end)
 
     server:On("chat", function(client, data)
@@ -156,9 +236,11 @@ function Host:bind()
     end)
 
     server:On("update", function(_, dt)
+        self.matchmaker:Update(dt)
         for _, room in pairs(self.rooms) do
             room:Update(dt)
         end
+        self.ratings:Update(dt)
     end)
 
     server:On("disconnect", function(client)
