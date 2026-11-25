@@ -11,6 +11,7 @@ local function rows()
         { id = "sensitivity", label = "Mouse sensitivity", hint = "How fast the view turns with the mouse", kind = "segments", options = { "1", "2", "3", "4", "5" } },
         { id = "shake", label = "Screen shake", hint = "How much the camera shakes on shots, hits and kills", kind = "segments", options = require("src.config.feel").labels },
         { id = "postfx", label = "Shader effects", hint = "Glows, shockwaves, smoke and damage vignette", kind = "toggle" },
+        { id = "debris", label = "Physical debris", hint = "Casings, wall chips, glass shards and facets that bounce around", kind = "toggle" },
         { id = "zoom", label = "Camera distance", hint = "Close shows details, far shows more of the arena", kind = "segments", options = Settings.ZOOM_LABELS },
         { id = "fullscreen", label = "Fullscreen", hint = "Borderless desktop fullscreen", kind = "toggle" },
         { id = "vsync", label = "VSync", hint = "Sync frames with your display", kind = "toggle" },

@@ -26,6 +26,15 @@ return {
         end
     },
     {
+        name = "physical debris can be turned off and stays off",
+        run = function()
+            assert(Settings.defaults().debris == true)
+            local values = Settings.defaults()
+            values.debris = false
+            assert(Settings.parse(Settings.serialize(values)).debris == false)
+        end
+    },
+    {
         name = "out of range and broken values are clamped or ignored",
         run = function()
             local values = Settings.parse("sensitivity=42\nzoom=-3\nbot=9\nfullscreen=maybe\nunknown=1\nname=Bob\nmap=nowhere\nmode=7")
