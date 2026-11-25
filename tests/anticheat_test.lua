@@ -89,5 +89,33 @@ return {
             p.ammo = 0
             assert(tick(w) == nil, "the next tick is clean once the state is valid")
         end
+    },
+    {
+        name = "picking up a weapon dropped by a player with an extended mag is not a violation",
+        run = function()
+            local Combat = require("src.game.combat")
+            local w, p = world()
+            Weapons.give(p, nil)
+            local magazine = Weapons.def("rifle").magazine
+            local item = Combat.spawnItem(w, "rifle", math.floor(magazine * 1.5 + 0.5), 48, p.x, p.y)
+            assert(item)
+            assert(Combat.pickup(w, p), "picked up")
+            assert(tick(w) == nil, "no violation after the pickup")
+            assert(p.ammo == magazine, "the magazine is capped at " .. magazine .. ": " .. p.ammo)
+            assert(p.reserve == 48 + math.floor(magazine * 1.5 + 0.5) - magazine, "the extra rounds go to the reserve")
+        end
+    },
+    {
+        name = "picking up a weapon dropped with an ammo pouch reserve is not a violation",
+        run = function()
+            local Combat = require("src.game.combat")
+            local w, p = world()
+            Weapons.give(p, nil)
+            local cap = Weapons.reserveCap(Weapons.def("rifle"))
+            Combat.spawnItem(w, "rifle", 10, cap * 2, p.x, p.y)
+            assert(Combat.pickup(w, p), "picked up")
+            assert(tick(w) == nil, "no violation after the pickup")
+            assert(p.reserve == cap, "the reserve is capped")
+        end
     }
 }
