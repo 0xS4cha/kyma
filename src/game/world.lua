@@ -10,6 +10,7 @@ local Loadout = require("src.config.loadout")
 local Gadgets = require("src.game.gadgets")
 local GadgetConfig = require("src.config.gadgets")
 local Rounds = require("src.game.rounds")
+local AntiCheat = require("src.game.anticheat")
 
 local World = {}
 World.__index = World
@@ -105,6 +106,7 @@ function World:add(slot, name, team, kit)
     self.score[slot] = 0
     Player.respawn(player, self:spawnPoint(player))
     self:loadout(player)
+    AntiCheat.sync(player)
     self.inputs[slot] = { queue = {}, last = 0, acked = 0, credit = 0 }
     return player
 end
@@ -199,6 +201,7 @@ function World:restart(phase)
     for _, p in pairs(self.players) do
         Player.respawn(p, self:spawnPoint(p))
         self:loadout(p)
+        AntiCheat.sync(p)
     end
     self.events[#self.events + 1] = { kind = "restart" }
 end
@@ -218,7 +221,10 @@ end
 --- @param player table
 --- @param command table
 function World:apply(player, command)
+    local previous = { x = player._antiCheatX or player.x, y = player._antiCheatY or player.y }
     if Player.step(player, command, self.arena, self.dt) then
+        local violation = AntiCheat.validate(player, previous, self.arena, self.dt)
+        if violation then return violation end
         if player.weapon then
             Combat.fire(self, player, command)
         else
@@ -234,6 +240,9 @@ function World:apply(player, command)
     elseif command.e == 1 then
         Combat.pickup(self, player)
     end
+    local violation = AntiCheat.validate(player, previous, self.arena, self.dt)
+    if not violation then AntiCheat.sync(player) end
+    return violation
 end
 
 --- @param slot number
@@ -264,7 +273,11 @@ function World:step()
         state.credit = math.min(state.credit + 1, NetConfig.inputCredit)
         while state.credit >= 1 and #state.queue > 0 and self.players[slot] do
             local command = table.remove(state.queue, 1)
-            self:apply(player, command)
+            local violation = self:apply(player, command)
+            if violation then
+                self.violation = { slot = slot, field = violation.field, value = violation.value }
+                return self.violation
+            end
             state.acked = command.s
             state.credit = state.credit - 1
         end
@@ -273,6 +286,7 @@ function World:step()
     Rounds.update(self)
     Combat.update(self)
     Combat.record(self)
+    for _, player in pairs(self.players) do AntiCheat.sync(player) end
     if self.over then
         self.over.timer = self.over.timer - 1
         if self.over.timer <= 0 then
@@ -280,6 +294,7 @@ function World:step()
         end
     end
     self:lobby()
+    return nil
 end
 
 --- @param player table
