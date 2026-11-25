@@ -236,7 +236,7 @@ end
 function GM.Session:join(data)
     local arena = Arena.new(Maps.get(data.map))
     if self.debris then self.debris:destroy() end
-    self.debris = Debris.new(arena)
+    self.debris = GM.Session.debrisEnabled() and Debris.new(arena) or nil
     local slot = data.spectator and 0 or data.slot
     local me = Player.new(slot, GM.Multiplayer.name, arena:spawn(slot))
     if data.x and data.y then
@@ -526,6 +526,24 @@ function GM.Session:onKill(data)
     end
     local killer = data.k and data.k ~= victim and name(data.k) or nil
     self.hud:announce(killer, name(victim), data.k and self:friendly(data.k), self:friendly(victim))
+end
+
+--- Whether physical debris is turned on in the settings.
+--- @return boolean
+function GM.Session.debrisEnabled()
+    local settings = GM.Menu and GM.Menu.settings
+    return not settings or settings.debris ~= false
+end
+
+--- Turns physical debris on or off during a game.
+--- @param on boolean
+function GM.Session:setDebris(on)
+    if not on and self.debris then
+        self.debris:destroy()
+        self.debris = nil
+    elseif on and not self.debris and self.world then
+        self.debris = Debris.new(self.world.arena)
+    end
 end
 
 --- An eliminated player bursting into facets: physical ones when the

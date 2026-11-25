@@ -124,6 +124,8 @@ function GM.Menu:setOption(key, value)
         elseif not value then
             self.background:stop()
         end
+    elseif key == "debris" and GM.Session.active then
+        GM.Session:setDebris(value)
     elseif key == "zoom" and GM.Session.active then
         GM.Session.camera.scale = require("src.config.game").camera.scale
     elseif (key == "kitWeapon" or key == "kitMods" or key == "kitGadget") and GM.Session.active then
