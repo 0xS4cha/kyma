@@ -394,6 +394,7 @@ function Combat.pickup(world, p)
     removeItem(world, item)
     Combat.drop(world, p)
     Weapons.give(p, item.kind, item.ammo, item.reserve)
+    Weapons.fit(p)
     return true
 end
 

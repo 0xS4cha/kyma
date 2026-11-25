@@ -73,6 +73,20 @@ function Weapons.give(p, kind, ammo, reserve)
     p.fireCooldown = 0
 end
 
+--- Fit a picked-up weapon's rounds to the holder's own magazine and reserve,
+--- which differ from the previous owner's when their mods differ.
+--- @param p table
+function Weapons.fit(p)
+    local def = Weapons.def(p.weapon)
+    if not def then return end
+    local magazine = Weapons.stat(p, "magazine")
+    if p.ammo > magazine then
+        p.reserve = p.reserve + p.ammo - magazine
+        p.ammo = magazine
+    end
+    p.reserve = math.min(p.reserve, Weapons.reserveCap(def, p))
+end
+
 local function noise(a, b, c)
     local h = (a * 73856093 + b * 19349663 + c * 83492791) % 1000003
     return h / 1000003 * 2 - 1
