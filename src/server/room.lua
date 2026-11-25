@@ -124,7 +124,7 @@ function Room:Info()
     end
     table.sort(players, function(a, b) return a.slot < b.slot end)
     return {
-        id = self.id, state = self.state, players = players, practice = self.practice, matched = self.matched or nil,
+        id = self.id, state = self.state, players = players, practice = self.practice, matched = self.matched or nil, tl = self.label,
         mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers(), ru = Loadout.pack(self.world.options)
     }
 end

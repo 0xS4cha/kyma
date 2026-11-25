@@ -176,12 +176,15 @@ function Hud:drawStatus(session)
     local duel = room and #room.players >= 2
     local rules = session.world and session.world.rules
     local label = duel and (rules and rules.name or "Duel") or "Waiting for an opponent"
+    if room and room.tl and duel then
+        label = room.tl .. "  -  " .. (rules and rules.name or "Duel")
+    end
     if session.world and session.world.spectator then
         label = "Watching - " .. (rules and rules.name or "Duel")
     end
     local phase = session.world and session.world.phase
     if phase == "warmup" or phase == "countdown" then
-        label = "Warmup - " .. (rules and rules.name or "Duel")
+        label = "Warmup - " .. (room and room.tl or (rules and rules.name or "Duel"))
     end
     local w = font(16):getWidth(label) + 46
     card(MARGIN, MARGIN, w, 36, 1, 18)
@@ -971,6 +974,11 @@ function Hud:drawOverlay(session)
         love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], c)
         love.graphics.rectangle("fill", 0, 0, W, H)
         if session.world then return end
+        if require("src.modules.session.tournament").active(session) then
+            love.graphics.setColor(1, 1, 1, 1)
+            require("src.modules.session.tournament").draw(session)
+            return
+        end
         if mp.search and not mp.error and status == "queued" then
             self:drawSearch(mp, c)
             return
