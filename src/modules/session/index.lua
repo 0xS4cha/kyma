@@ -10,6 +10,7 @@ local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
 local PostFX = require("src.modules.session.postfx")
 local Feel = require("src.config.feel")
+local Debris = require("src.modules.session.debris")
 local Loadout = require("src.config.loadout")
 local GadgetConfig = require("src.config.gadgets")
 local Hitstop = require("src.modules.session.hitstop")
@@ -193,6 +194,10 @@ function GM.Session:Stop()
     self.active = false
     self.halted = nil
     self.world = nil
+    if self.debris then
+        self.debris:destroy()
+        self.debris = nil
+    end
     self.room = nil
     self.status = "idle"
     if self.chat.open then self:closeChat(false) end
@@ -230,6 +235,8 @@ end
 --- @param data table
 function GM.Session:join(data)
     local arena = Arena.new(Maps.get(data.map))
+    if self.debris then self.debris:destroy() end
+    self.debris = Debris.new(arena)
     local slot = data.spectator and 0 or data.slot
     local me = Player.new(slot, GM.Multiplayer.name, arena:spawn(slot))
     if data.x and data.y then
@@ -393,10 +400,14 @@ end
 function GM.Session:shoot(p, sequence, color)
     local arena = self.world.arena
     local rays = Weapons.rays(p, sequence)
-    if rays[1] then self.effects:muzzle(arena, rays[1].x, rays[1].y, p.weapon) end
+    if rays[1] then
+        self.effects:muzzle(arena, rays[1].x, rays[1].y, p.weapon)
+        if self.debris then self.debris:casing(p.x + math.cos(p.angle) * 10, p.y + math.sin(p.angle) * 10, p.angle, p.weapon) end
+    end
     for _, ray in ipairs(rays) do
         local length = arena:raycast(ray.x, ray.y, ray.dx, ray.dy, ray.range)
         local hit = length < ray.range - 1e-6 and 1 or 0
+        if hit == 1 and self.debris then self.debris:chips(ray.x + ray.dx * length, ray.y + ray.dy * length, ray.dx, ray.dy) end
         self.effects:tracer(ray.x, ray.y, ray.x + ray.dx * length, ray.y + ray.dy * length, color, hit, 0.5)
     end
 end
@@ -489,7 +500,7 @@ function GM.Session:onKill(data)
     end
     if victim == world.slot then
         sound("death")
-        self.effects:shatter(world.me.x, world.me.y, Theme.lifted(SELF_COLOR))
+        self:shatter(world.me.x, world.me.y, Theme.lifted(SELF_COLOR))
         self.postfx:wave(world.me.x, world.me.y, 1, 420)
         self.postfx:kick(10)
         self:shake(Feel.shake.death)
@@ -497,7 +508,7 @@ function GM.Session:onKill(data)
     else
         local seen = world.lastSeen[victim]
         if seen then
-            self.effects:shatter(seen.x, seen.y, OPPONENT_COLOR)
+            self:shatter(seen.x, seen.y, OPPONENT_COLOR)
             self.postfx:wave(seen.x, seen.y, data.k == world.slot and 0.75 or 0.35, 300)
             if data.k == world.slot then
                 self.postfx:kick(4)
@@ -515,6 +526,20 @@ function GM.Session:onKill(data)
     end
     local killer = data.k and data.k ~= victim and name(data.k) or nil
     self.hud:announce(killer, name(victim), data.k and self:friendly(data.k), self:friendly(victim))
+end
+
+--- An eliminated player bursting into facets: physical ones when the
+--- debris world runs, flat ones otherwise.
+--- @param x number
+--- @param y number
+--- @param color table
+function GM.Session:shatter(x, y, color)
+    if self.debris then
+        self.debris:burst(x, y, color)
+        self.effects:glow(x, y, 70, color, 0.3)
+    else
+        self.effects:shatter(x, y, color)
+    end
 end
 
 --- @return table?
@@ -608,6 +633,7 @@ function GM.Session:onFlash(data)
     if not world or type(data.x) ~= "number" or type(data.y) ~= "number" then return end
     self.effects:burst(data.x, data.y)
     self.postfx:wave(data.x, data.y, 1, 700)
+    if self.debris then self.debris:blast(data.x, data.y, 320, 520) end
     soundAt("bang", data.x, data.y)
     local d = math.sqrt((data.x - world.me.x) ^ 2 + (data.y - world.me.y) ^ 2)
     if d < GadgetConfig.flash.radius then
@@ -712,7 +738,10 @@ function GM.Session:receive(data)
         if door.open and not doors[k] then soundAt("door", door.x + door.w / 2, door.y + door.h / 2, 0.8) end
     end
     for k, pane in ipairs(arena.glass) do
-        if pane.broken and not panes[k] then soundAt("glass", pane.x + pane.w / 2, pane.y + pane.h / 2) end
+        if pane.broken and not panes[k] then
+            soundAt("glass", pane.x + pane.w / 2, pane.y + pane.h / 2)
+            if self.debris then self.debris:glass(pane) end
+        end
     end
     world.aims = type(data.l) == "table" and data.l or {}
     for _, entry in ipairs(data.sc or {}) do
@@ -738,7 +767,17 @@ function GM.Session:receive(data)
         self.hud:noise(noise.x, noise.y, noise.k)
         if NOISE_SOUNDS[noise.k] then soundAt(NOISE_SOUNDS[noise.k], noise.x, noise.y, 0.8) end
     end
+    local ejected = {}
     for _, shot in ipairs(data.s or {}) do
+        if self.debris and shot.o ~= world.slot then
+            local key = tostring(shot.o) .. ":" .. shot.x .. ":" .. shot.y
+            if not ejected[key] then
+                ejected[key] = true
+                local angle = math.atan2(shot.Y - shot.y, shot.X - shot.x)
+                self.debris:casing(shot.x - math.cos(angle) * 12, shot.y - math.sin(angle) * 12, angle, Weapons.unpack(shot.g))
+            end
+            if shot.h == 1 then self.debris:chips(shot.X, shot.Y, shot.X - shot.x, shot.Y - shot.y) end
+        end
         if shot.o ~= world.slot then
             local recoil = Feel.recoil[Weapons.unpack(shot.g) or ""]
             if recoil and shot.o then Character.fire(shot.o, recoil.gun) end
@@ -1109,6 +1148,7 @@ function GM.Session:Think(dt)
     local dustColor = { 0.6, 0.63, 0.68 }
     local views = self:visibleOpponents()
     views[#views + 1] = self:localView()
+    if self.debris then self.debris:update(views, fxDt) end
     for _, view in ipairs(views) do
         if view.sliding and love.math.random() < 0.6 then
             local ca, sa = math.cos(view.angle), math.sin(view.angle)

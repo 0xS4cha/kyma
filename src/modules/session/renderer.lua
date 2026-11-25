@@ -573,6 +573,7 @@ function Renderer.draw(session)
         drawFloor(world.arena)
         if world.round then drawObjectives(world) end
         session.effects:drawLights()
+        if session.debris then session.debris:draw() end
         drawItems(world)
         for _, p in ipairs(opponents) do
             if not p.marked then
