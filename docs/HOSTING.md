@@ -41,6 +41,30 @@ ratings up:
 docker compose cp kyma:/data/ratings.json ./ratings-backup.json
 ```
 
+## Pterodactyl
+
+`pterodactyl/egg-kyma.json` is an egg for the Pterodactyl panel. It uses the
+generic `ghcr.io/parkervcp/yolks:debian` image, so there is nothing to build or
+publish.
+
+1. In the panel, go to **Admin > Nests**, create a nest (for example *Kyma*),
+   then **Import Egg** and pick `pterodactyl/egg-kyma.json`.
+2. Create a server with that egg. Give it one allocation: players connect over
+   **UDP** on that port, so make sure the node firewall lets UDP through.
+3. Set **Server name**, **Message of the day** and **Max players** on the
+   server's Startup page. 256 MB of memory and one CPU core are plenty for a few
+   rooms.
+
+The install script downloads LÖVE 11.5 as an AppImage and extracts it to
+`love/`, then copies the server files of the `main` branch to `game/`.
+`game/REVISION` holds the commit that was installed. Ratings live in `data/`,
+which a reinstall keeps, so **Reinstall Server** is how you update to the latest
+commit. The panel sends `^C` to stop the server, and the server saves ratings
+before exiting.
+
+`install.sh` next to the egg is the same script. After you change it, regenerate
+the egg so the script inside it matches, or `make test` fails.
+
 ## systemd
 
 ```ini
