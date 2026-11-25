@@ -168,6 +168,42 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
+SOURCES.mist = [[
+extern number time;
+extern number seed;
+extern vec2 scale;
+extern number drift;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+        v += a * noise(p);
+        p = p * 2.07 + vec2(3.1, 7.7);
+        a *= 0.5;
+    }
+    return v;
+}
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    vec2 q = uv * scale + vec2(seed, seed * 0.7);
+    float warp = fbm(q * 0.8 + vec2(time * 0.05 * drift, -time * 0.03));
+    float n = fbm(q + vec2(time * 0.09 * drift, time * 0.04) + warp * 1.6);
+    vec2 e = min(uv, 1.0 - uv) * scale;
+    float border = smoothstep(0.0, 0.6, min(e.x, e.y));
+    float alpha = smoothstep(0.32, 0.78, n) * border;
+    return vec4(color.rgb * (0.9 + 0.2 * n), color.a * alpha);
+}
+]]
+
 SOURCES.footprint = [[
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     vec2 p = uv * 2.0 - 1.0;
