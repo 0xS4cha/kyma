@@ -5,6 +5,9 @@ runs rated matchmaking: players who pick **Online > Find a match** are queued
 per mode, grouped with players of a close rating and put in a room of their own.
 Ratings are kept on the server and survive restarts.
 
+Every server also hosts tournaments, created and joined from **Tournaments** in
+the main menu (see below).
+
 ## Quick start
 
 ```sh
@@ -84,3 +87,24 @@ publish a release that bumps it.
 - `window`: rating gap allowed at once, `widen`: extra gap per second waited.
 - `fillAfter`: seconds before a game starts with fewer players than `sizes`
   asks for, as long as at least two are waiting.
+
+## Tournaments
+
+Any player can create a tournament on a server: a name, a mode, a map, a
+bracket of 4, 8 or 16 seats and matches of one game or a best of three or five.
+Others join it from **Browse tournaments**, and the organiser starts it once at
+least two players are in.
+
+- The bracket is single elimination, seeded by rating, and empty seats become
+  byes for the top seeds.
+- Each match is played in a private room that casual players never land in.
+  Players who do not ready up within `readyTimeout` seconds are readied by the
+  server, so a series cannot stall.
+- Leaving or disconnecting forfeits the current match, and any match the player
+  already reached.
+- Tournament games do not change ratings.
+
+`tournament` in `src/net/config.lua` sets how many tournaments may be open at
+once (`maxOpen`), the name length, how long players stay on the result screen
+before going back to the bracket (`resultDelay`, `forfeitDelay`) and
+`readyTimeout`.
