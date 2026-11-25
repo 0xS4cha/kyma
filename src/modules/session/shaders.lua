@@ -64,6 +64,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
+SOURCES.light = [[
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    float d = length(uv * 2.0 - 1.0);
+    float fall = pow(clamp(1.0 - d, 0.0, 1.0), 2.2);
+    float core = exp(-d * d * 40.0);
+    vec3 rgb = mix(color.rgb, vec3(1.0), core * 0.7);
+    return vec4(rgb, color.a * clamp(fall + core * 0.5, 0.0, 1.0));
+}
+]]
+
 SOURCES.beam = [[
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float y = abs(uv.y * 2.0 - 1.0);

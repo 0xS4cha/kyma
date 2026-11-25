@@ -570,6 +570,7 @@ function Renderer.draw(session)
         camera:apply()
         drawFloor(world.arena)
         if world.round then drawObjectives(world) end
+        session.effects:drawLights()
         drawItems(world)
         for _, p in ipairs(opponents) do
             if not p.marked then
