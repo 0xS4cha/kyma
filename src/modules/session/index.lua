@@ -13,6 +13,7 @@ local Loadout = require("src.config.loadout")
 local GadgetConfig = require("src.config.gadgets")
 local Hitstop = require("src.modules.session.hitstop")
 local Character = require("src.modules.session.character")
+local Shield = require("src.modules.session.shield")
 local Hud = require("src.modules.session.hud")
 local Text = require("src.core.text")
 local Keys = require("src.input.keybinds")
@@ -368,10 +369,50 @@ function GM.Session:shoot(p, sequence, color)
     end
 end
 
+local ARMOR_COLOR = { 0.35, 0.78, 1 }
+local DAMAGE_COLOR = { 1, 0.96, 0.9 }
+
+--- Plaques (flash, fissures, éclats, son) et chiffres de dégâts à côté de la cible.
+--- @param data table
+function GM.Session:hitFeedback(data)
+    local world = self.world
+    local victim = data.t
+    local at
+    if victim == world.slot then
+        at = self:localView()
+    else
+        for _, p in ipairs(self:opponents()) do
+            if p.slot == victim then at = p break end
+        end
+    end
+    if not at then return end
+    if data.s then
+        Shield.hit(victim, data.ar or 0, data.s, at.x, at.y, at.angle or 0)
+        if data.b then
+            soundAt("plateBreak", at.x, at.y, 0.9)
+        else
+            soundAt("plate", at.x, at.y, 0.8)
+        end
+    end
+    local settings = GM.Menu and GM.Menu.settings
+    local enabled = not settings or settings.dmgNumbers ~= false
+    local scale = settings and require("src.modules.menu.settings").DMG_SCALES[settings.dmgSize or 2] or 1
+    if enabled and data.a == world.slot and victim ~= world.slot then
+        local health = tonumber(data.h) or 0
+        if data.s then
+            self.effects:damageNumber(at.x, at.y + 8, tostring(data.s), ARMOR_COLOR, false, scale)
+        end
+        if health > 0 then
+            self.effects:damageNumber(at.x, at.y - 4, tostring(health), DAMAGE_COLOR, health >= 40, scale)
+        end
+    end
+end
+
 --- @param data table
 function GM.Session:onHit(data)
     local world = self.world
     if not world then return end
+    self:hitFeedback(data)
     if data.t == world.slot then
         sound("hurt")
         self.effects:hurtFlash()
@@ -666,6 +707,7 @@ function GM.Session:receive(data)
     me.dash, me.cooldown, me.dashX, me.dashY = own.e or 0, own.w or 0, own.m or 0, own.n or 0
     me.slide, me.slideX, me.slideY = own.j or 0, own.sx or 0, own.sy or 0
     me.hp, me.dead = own.h or me.hp, own.o or 0
+    me.armor = own.ar or 0
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.mod, me.modWeapon = own.md, Weapons.unpack(own.mw)
@@ -723,6 +765,7 @@ function GM.Session:opponents()
                 sliding = (b.j or 0) > 0,
                 team = b.t,
                 hp = b.h,
+                armor = b.ar or 0,
                 mod = b.md,
                 look = self:lookOf(slot),
                 spotted = b.sp == 1,
@@ -813,6 +856,7 @@ function GM.Session:liveView()
         mod = b.mod and b.modWeapon == b.weapon and b.mod or nil,
         dead = b.dead,
         hp = b.hp,
+        armor = b.armor or 0,
         name = GM.Multiplayer.name
     }
 end

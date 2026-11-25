@@ -206,6 +206,21 @@ local function drawHealth(x, y)
     lg.rectangle("fill", x - 6, y - 2.5, 12, 5, 1, 1)
 end
 
+local function drawPlate(x, y)
+    local lg = love.graphics
+    local c = require("src.modules.session.shield").COLOR
+    lg.setColor(0.05, 0.1, 0.16, 0.25)
+    lg.setLineWidth(8)
+    lg.arc("line", "open", x, y + 1, 8, -1.05, 1.05, 12)
+    lg.setColor(c[1], c[2], c[3], 1)
+    lg.setLineWidth(5)
+    lg.arc("line", "open", x, y, 8, -1.05, 1.05, 12)
+    lg.setColor(0.9, 0.98, 1, 0.8)
+    lg.setLineWidth(1.4)
+    lg.arc("line", "open", x, y, 7, -0.85, 0.85, 12)
+    lg.setLineWidth(1)
+end
+
 local function drawTrail(p, palette)
     local now = love.timer.getTime()
     local trail = trails[p.slot] or {}
@@ -353,6 +368,7 @@ local function drawItems(world)
     local noWeapons = world.options and world.options.loot == false
     for _, pad in ipairs(world.arena.loot) do
         if noWeapons and Weapons.def(pad.kind) then goto continue end
+        if pad.kind == "plate" and world.options and world.options.shields == false then goto continue end
         lg.setColor(COLORS.pad)
         lg.setLineWidth(2)
         lg.circle("line", pad.x, pad.y, 22)
@@ -370,6 +386,10 @@ local function drawItems(world)
             lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.3 + 0.3 * pulse)
             lg.circle("fill", item.x, item.y, 15)
             drawHealth(item.x, item.y)
+        elseif item.k == -2 then
+            lg.setColor(0.35, 0.78, 1, 0.25 + 0.3 * pulse)
+            lg.circle("fill", item.x, item.y, 15)
+            drawPlate(item.x - 3, item.y)
         elseif item.k == 0 then
             lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.3 + 0.3 * pulse)
             lg.circle("fill", item.x, item.y, 13)

@@ -397,6 +397,7 @@ function World:snapshot(viewer)
             local entry = {
                 i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy,
                 e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp, t = p.team, st = p.stun,
+                ar = (p.armor or 0) > 0 and math.floor(p.armor + 0.5) or nil,
                 sp = shared and 1 or nil,
                 md = p.mod and p.modWeapon == p.weapon and p.mod or nil
             }

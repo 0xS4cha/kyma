@@ -63,11 +63,41 @@ local function copy(list, extra)
     return out
 end
 
+-- Autre arme possible pour un type de pad (appliqué à TOUS les pads de ce type sur une carte,
+-- choisi par un hash de l'id de la carte : identique serveur/client, et équitable pour les 2 camps).
+local VARIANTS = { rifle = "smg", sniper = "dmr", silencer = "revolver", lmg = "autoshotgun", shotgun = "breaker" }
+
+local function hash(text)
+    local h = 7
+    for k = 1, #text do h = (h * 31 + text:byte(k)) % 1000003 end
+    return h
+end
+
+local function buildLoot(def)
+    local loot = {}
+    local id = tostring(def.id or def.name or "")
+    for _, pad in ipairs(def.loot or {}) do
+        local kind = pad.kind
+        local variant = VARIANTS[kind]
+        if variant and hash(id .. kind) % 3 == 0 then kind = variant end
+        loot[#loot + 1] = { x = pad.x, y = pad.y, kind = kind }
+    end
+    -- une plaque de bouclier à côté de chaque soin
+    local extra = {}
+    for _, pad in ipairs(loot) do
+        if pad.kind == "health" then
+            extra[#extra + 1] = { x = pad.x + 44, y = pad.y + 10, kind = "plate" }
+        end
+    end
+    for _, pad in ipairs(extra) do loot[#loot + 1] = pad end
+    return loot
+end
+
 --- @param def table?
 --- @return table
 function Arena.new(def)
     def = def or DEFAULT
-    return setmetatable({
+    local arena = setmetatable({
         id = def.id,
         name = def.name,
         width = def.width,
@@ -78,10 +108,18 @@ function Arena.new(def)
         doors = copy(def.doors, { open = false, timer = 0, kind = "door" }),
         glass = copy(def.glass, { broken = false, timer = 0, kind = "glass" }),
         spawns = def.spawns,
-        loot = def.loot or {},
+        loot = {},
         objectives = def.objectives or {},
         smokes = {}
     }, Arena)
+    arena.loot = buildLoot(def)
+    -- on pousse les plaques hors des murs
+    for _, pad in ipairs(arena.loot) do
+        if pad.kind == "plate" then
+            pad.x, pad.y = arena:resolve(pad.x, pad.y, 18)
+        end
+    end
+    return arena
 end
 
 --- @param slot number

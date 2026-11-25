@@ -15,6 +15,8 @@ local function rows()
         { id = "vsync", label = "VSync", hint = "Sync frames with your display", kind = "toggle" },
         { id = "background", label = "Live duel in the menu", hint = "Two bots fight behind the menu", kind = "toggle" },
         { id = "showHelp", label = "Controls reminder", hint = "Show the controls for a few seconds when a game starts", kind = "toggle" },
+        { id = "dmgNumbers", label = "Damage numbers", hint = "Show the damage you deal next to the enemy you hit", kind = "toggle" },
+        { id = "dmgSize", label = "Damage number size", hint = "How big the damage numbers are", kind = "segments", options = Settings.DMG_SIZES },
         { id = "minimapMenu", label = "Mini-map", hint = "Position, size, rotation, vision cone and more", kind = "action", target = "minimap" },
         { id = "keybinds", label = "Key bindings", hint = "Change the keys for every action", kind = "action" }
     }

@@ -44,6 +44,7 @@ function Player.new(slot, name, spawn)
         slideX = 0,
         slideY = 0,
         hp = Config.health,
+        armor = 0,
         dead = 0,
         stun = 0,
         meleeCooldown = 0,
@@ -60,6 +61,7 @@ function Player.respawn(p, spawn)
     p.angle = Player.unpackAngle(Player.packAngle(spawn.angle or 0))
     p.vx, p.vy, p.dash, p.cooldown, p.slide = 0, 0, 0, 0, 0
     p.hp, p.dead, p.stun, p.meleeCooldown = Config.health, 0, 0, 0
+    p.armor = 0
     Weapons.give(p, "pistol")
 end
 
@@ -72,6 +74,7 @@ function Player.copy(from, to)
     to.x, to.y, to.angle, to.vx, to.vy = from.x, from.y, from.angle, from.vx, from.vy
     to.dash, to.cooldown, to.dashX, to.dashY = from.dash, from.cooldown, from.dashX, from.dashY
     to.hp, to.dead, to.trigger = from.hp, from.dead, from.trigger
+    to.armor = from.armor
     to.slide, to.slideX, to.slideY = from.slide, from.slideX, from.slideY
     to.stun, to.meleeCooldown = from.stun, from.meleeCooldown
     to.weapon, to.ammo, to.reserve, to.reload, to.fireCooldown = from.weapon, from.ammo, from.reserve, from.reload, from.fireCooldown

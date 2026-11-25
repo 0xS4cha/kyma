@@ -23,6 +23,7 @@ end
 --- @return number
 function Weapons.pack(kind)
     if kind == "health" then return -1 end
+    if kind == "plate" then return -2 end
     return kind and Weapons.index[kind] or 0
 end
 
