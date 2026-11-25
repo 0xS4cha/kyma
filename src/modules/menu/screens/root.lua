@@ -20,9 +20,8 @@ function Root.build(menu)
     local map = require("src.maps.index").get(menu.settings.map).name
     local list = {
         { id = "play", label = "Play", sublabel = mode .. " on " .. map .. ", " .. level:lower() .. " bots, or host a game", primary = true, h = 78, press = function() menu:switch("play", 1) end },
-        { id = "online", label = "Online", sublabel = "Rated matchmaking on the official server", h = 62, press = function() menu:switch("online", 1) end },
+        { id = "multiplayer", label = "Multiplayer", sublabel = "Rated matches, server games and your network", h = 62, press = function() menu:switch("multiplayer", 1) end },
         { id = "tournament", label = "Tournaments", sublabel = "Create or join a bracket, in any mode", h = 62, press = function() menu:switch("tournament", 1) end },
-        { id = "multiplayer", label = "Multiplayer", sublabel = "Join a duel on your network or a server", h = 62, press = function() menu:switch("multiplayer", 1) end },
         { id = "profile", label = "Profile", sublabel = "Name, colors and head", h = 58, press = function() menu:switch("profile", 1) end },
         { id = "loadout", label = "Loadout", sublabel = "Your weapon and its mod", h = 58, press = function() menu.loadoutTarget = nil; menu:switch("loadout", 1) end },
         { id = "howto", label = "How to play", h = 50, press = function() menu:switch("howto", 1) end },
