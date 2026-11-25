@@ -16,10 +16,11 @@ local Hitstop = require("src.modules.session.hitstop")
 local Character = require("src.modules.session.character")
 local Shield = require("src.modules.session.shield")
 local Hud = require("src.modules.session.hud")
-local Text = require("src.core.text")
+local TextEdit = require("src.ui.textedit")
 local Keys = require("src.input.keybinds")
 local TournamentView = require("src.modules.session.tournament")
 local CHAT_LOG = 40
+local CHAT_INPUT = { limit = 200 }
 
 local function sound(name, gain, pan)
     if GM.Audio then GM.Audio:Play(name, gain, pan) end
@@ -520,6 +521,7 @@ end
 
 function GM.Session:openChat()
     self.chat.open, self.chat.text = true, ""
+    self.chat.edit = TextEdit.new("")
     self.hud.helpUntil, self.hud.helpOpen = 0, false
     self.chat.team = false
     love.keyboard.setKeyRepeat(true)
@@ -536,7 +538,9 @@ end
 
 function GM.Session:TextInput(text)
     if not self.active or not self.chat.open then return end
-    if #self.chat.text < 200 then self.chat.text = self.chat.text .. text end
+    local chat = self.chat
+    chat.edit = chat.edit or TextEdit.new(chat.text)
+    if TextEdit.insert(chat.edit, text, CHAT_INPUT) then chat.text = chat.edit.text end
 end
 
 function GM.Session:toggleReady()
@@ -1049,12 +1053,15 @@ function GM.Session:KeyPressed(key, scancode)
         return
     end
     if self.chat.open then
+        local chat = self.chat
+        chat.edit = chat.edit or TextEdit.new(chat.text)
+        local handled, changed = TextEdit.key(chat.edit, key, TextEdit.mods(), CHAT_INPUT)
+        if changed then chat.text = chat.edit.text end
+        if handled then return end
         if key == "escape" then
             self:closeChat(false)
         elseif key == "return" or key == "kpenter" then
             self:closeChat(true)
-        elseif key == "backspace" then
-            self.chat.text = Text.dropLast(self.chat.text)
         elseif key == "tab" and self.world and self.world.rules.teams then
             self.chat.team = not self.chat.team
         end

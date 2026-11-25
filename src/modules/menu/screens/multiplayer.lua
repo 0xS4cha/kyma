@@ -157,7 +157,7 @@ function Multiplayer.build(menu)
     list[#list + 1] = {
         id = "password", x = ix, y = cy + 144, w = iw, h = 44,
         press = function() menu.editing = "password" end,
-        text = Common.textHandler(menu, "password", 24, Common.PASSWORD_PATTERN)
+        text = Common.textHandler(menu, "password", 24, Common.PASSWORD_PATTERN, true)
     }
     list[#list + 1] = {
         id = "watchServer", x = ix + iw - 110, y = cy + 206, w = 110, h = 52,
@@ -259,7 +259,7 @@ function Multiplayer.draw(menu, elements, p)
     local ra = menu:stagger(p, 3)
     local name = menu.find(elements, "name")
     Kit.text("Your name", 12, name.x, name.y - 20, Kit.INK, 0.5 * ra)
-    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", ra)
+    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", ra, menu:editState("name", menu.settings.name))
 
     e = menu:stagger(p, 3.5)
     local ry = l.rated.y + (1 - e) * 20
@@ -286,12 +286,12 @@ function Multiplayer.draw(menu, elements, p)
     local password = menu.find(elements, "password")
     local connect = menu.find(elements, "connect")
     Kit.text("Server address", 12, server.x, server.y - 20 + dy, Kit.INK, 0.5 * e)
-    Kit.field("server", server.x, server.y + dy, server.w, server.h, menu.settings.server, "localhost:6789", menu.editing == "server", menu.focus == "server", e)
+    Kit.field("server", server.x, server.y + dy, server.w, server.h, menu.settings.server, "localhost:6789", menu.editing == "server", menu.focus == "server", e, menu:editState("server", menu.settings.server))
     Kit.text("Game password", 12, password.x, password.y - 20 + dy, menu.notice and Kit.AMBER or Kit.INK, (menu.notice and 1 or 0.5) * e)
     if menu.notice then
         Kit.text(menu.notice, 12, password.x + password.w, password.y - 20 + dy, Kit.AMBER, e, "right")
     end
-    Kit.field("password", password.x, password.y + dy, password.w, password.h, string.rep("*", #menu.settings.password), "Only for locked games", menu.editing == "password", menu.focus == "password", e)
+    Kit.field("password", password.x, password.y + dy, password.w, password.h, string.rep("*", #menu.settings.password), "Only for locked games", menu.editing == "password", menu.focus == "password", e, menu:editState("password", menu.settings.password))
     Kit.button("connect", connect.x, connect.y + dy, connect.w, connect.h, "Connect", { hot = menu.focus == "connect", size = 17, hint = "Enter", alpha = e })
     local watch = menu.find(elements, "watchServer")
     Kit.button("watchServer", watch.x, watch.y + dy, watch.w, watch.h, "Watch", { hot = menu.focus == "watchServer", size = 15, align = "center", alpha = e, arrow = false })

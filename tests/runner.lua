@@ -3,6 +3,7 @@ local ArgParser = require("src.core.args")
 
 local SUITES = {
     "tests.core_test",
+    "tests.textedit_test",
     "tests.net_test",
     "tests.anticheat_test",
     "tests.session_test",
