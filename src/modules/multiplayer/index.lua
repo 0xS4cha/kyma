@@ -5,6 +5,7 @@ local NetConfig = require("src.net.config")
 local LocalServer = require("src.modules.multiplayer.localserver")
 local Lan = require("src.modules.multiplayer.lan")
 local Address = require("src.net.address")
+local Identity = require("src.net.identity")
 
 GM.Multiplayer = {}
 
@@ -29,9 +30,11 @@ function GM.Multiplayer:Initialize()
     self.lanAddress = nil
     self.listening = false
     self.announceAt = 0
+    self.server = nil
 
     self:On("welcome", function(data)
         self.id = data.id
+        self.server = type(data.server) == "table" and data.server or nil
         self.state = "online"
         self.error = nil
         self:Send("queue", self.queueOptions)
@@ -79,6 +82,7 @@ function GM.Multiplayer:Disconnect()
     self.connected = false
     self.state = "offline"
     self.id = nil
+    self.server = nil
 end
 
 function GM.Multiplayer:PlayLocal(name, lan, options)
@@ -216,7 +220,7 @@ function GM.Multiplayer:Poll()
             self.connected = true
             Logger:info("multiplayer", "Connected to " .. tostring(event.peer))
             local settings = GM.Menu and GM.Menu.settings or {}
-            self:Send("hello", { name = self.name, version = NetConfig.version, look = { h = settings.head, a = settings.accent }, kit = settings.kitWeapon and require("src.modules.menu.settings").kit(settings) or nil })
+            self:Send("hello", { name = self.name, version = NetConfig.version, token = Identity.token(), look = { h = settings.head, a = settings.accent }, kit = settings.kitWeapon and require("src.modules.menu.settings").kit(settings) or nil })
         elseif event.type == "receive" then
             local kind, data = Protocol.Decode(event.data)
             if kind then

@@ -4,12 +4,18 @@ local Room = require("src.server.room")
 local Config = require("src.net.config")
 local Profile = require("src.config.profile")
 local GameConfig = require("src.config.game")
+local Identity = require("src.net.identity")
+local Text = require("src.core.text")
 
 local Host = Class()
 
 function Host:init(options)
     options = options or {}
     self.server = Server({ address = options.address, port = options.port, maxPeers = options.maxPeers, channels = Config.channels })
+    self.name = Text.clean(options.name, 40) or ""
+    if self.name == "" then self.name = "Kyma server" end
+    self.motd = Text.clean(options.motd, 160) or ""
+    self.dedicated = options.dedicated == true
     self.rooms = {}
     self.nextRoomId = 1
     self:bind()
@@ -25,6 +31,21 @@ end
 
 function Host:Think(dt)
     self.server:Think(dt)
+end
+
+--- @return table
+function Host:Info()
+    return {
+        name = self.name, motd = self.motd ~= "" and self.motd or nil, dedicated = self.dedicated,
+        players = self.server.count, rooms = self:RoomCount()
+    }
+end
+
+--- @return number
+function Host:RoomCount()
+    local count = 0
+    for _ in pairs(self.rooms) do count = count + 1 end
+    return count
 end
 
 function Host:leaveRoom(client)
@@ -97,7 +118,8 @@ function Host:bind()
         client.name = name ~= "" and name or "Player"
         client.look = Profile.sanitize(data.look)
         client.loadout = require("src.config.loadout").sanitize(data.kit)
-        client:Send("welcome", { id = client.id })
+        client.key = Identity.key(data.token)
+        client:Send("welcome", { id = client.id, server = self:Info() })
     end)
 
     server:On("queue", function(client, data)
