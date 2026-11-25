@@ -15,7 +15,7 @@ local address = lan and Config.address or Config.localAddress
 local ports = lan and Config.lanPorts or Config.localPorts
 local host, port
 for candidate = ports[1], ports[2] do
-    local attempt = Host({ address = address, port = candidate, maxPeers = Config.roomPlayers * 8 })
+    local attempt = Host({ address = address, port = candidate, maxPeers = Config.maxPeers })
     if attempt:Start() then
         host, port = attempt, candidate
         break

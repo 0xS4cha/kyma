@@ -16,7 +16,7 @@ Settings.MAP_OPACITY_LABELS = { "40%", "60%", "80%", "100%" }
 Settings.MAP_VIEWS = { "Full arena", "Follow me" }
 Settings.MAP_SPANS = { 1200, 800, 500 } -- largeur visible (unités monde) en mode "Follow me"
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere" }
 
 --- @return table
 function Settings.defaults()
@@ -60,7 +60,12 @@ function Settings.defaults()
         tournamentName = "",
         tournamentSize = 2,
         tournamentBestOf = 1,
-        tournamentServer = 1
+        tournamentServer = 1,
+        browseSource = 1,
+        hostWhere = 1,
+        -- typed for one game and never written to disk
+        password = "",
+        hostPassword = ""
     }
 end
 
@@ -108,6 +113,8 @@ function Settings.parse(text)
     values.tournamentSize = math.max(1, math.min(#Bracket.SIZES, math.floor(values.tournamentSize)))
     values.tournamentBestOf = math.max(1, math.min(#Bracket.BEST_OF, math.floor(values.tournamentBestOf)))
     values.tournamentServer = math.max(1, math.min(2, math.floor(values.tournamentServer)))
+    values.browseSource = math.max(1, math.min(3, math.floor(values.browseSource)))
+    values.hostWhere = math.max(1, math.min(2, math.floor(values.hostWhere)))
     return values
 end
 

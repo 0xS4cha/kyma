@@ -39,6 +39,7 @@ local SUITES = {
     "tests.matchmaking_test",
     "tests.bracket_test",
     "tests.tournament_test",
+    "tests.hosting_test",
     "tests.pterodactyl_test"
 }
 
