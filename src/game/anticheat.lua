@@ -43,7 +43,10 @@ function AntiCheat.validate(player, previous, world)
         maxSpeed = maxSpeed * (Weapons.def(player.weapon).speed or 1)
     end
     maxSpeed = math.max(maxSpeed, Config.dash.speed, Config.slide.speed)
-    if distance > maxSpeed * dt + EPSILON then
+    -- Arena collision resolution may push a player out of a wall or corner in
+    -- addition to the movement for this tick. Keep that correction bounded by
+    -- the player's collision size while still rejecting large teleports.
+    if distance > maxSpeed * dt + radius * 2 + EPSILON then
         return invalid("displacement", distance)
     end
 
@@ -55,9 +58,10 @@ function AntiCheat.validate(player, previous, world)
             or player.ammo < 0 or player.ammo > magazine then
             return invalid("ammo", player.ammo)
         end
-        -- Ladder modes (gun game) hand out an unlimited reserve.
-        if not world.rules.ladder and (not finite(player.reserve) or player.reserve ~= math.floor(player.reserve)
-            or player.reserve < 0 or player.reserve > reserveCap) then
+        -- Ladder modes (gun game) hand out 999 reserve, but malformed values
+        -- must still be rejected there.
+        if not finite(player.reserve) or player.reserve ~= math.floor(player.reserve)
+            or player.reserve < 0 or (not world.rules.ladder and player.reserve > reserveCap) then
             return invalid("reserve", player.reserve)
         end
         if not finite(player.reload) or player.reload ~= math.floor(player.reload)
