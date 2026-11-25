@@ -111,7 +111,7 @@ end
 function Screen.build(menu)
     local l = layout()
     local x, w, y = l.left.x, l.left.w, l.y
-    local list = { Common.backElement(menu, function() menu:switch("root", -1) end) }
+    local list = { Common.backElement(menu, function() menu:switch("multiplayer", -1) end) }
     list[#list + 1] = {
         id = "tournamentName", x = x, y = y, w = w, h = 44,
         press = function() menu.editing = "tournamentName" end,
@@ -225,7 +225,7 @@ function Screen.keyPressed(menu, key)
 end
 
 function Screen.back(menu)
-    menu:switch("root", -1)
+    menu:switch("multiplayer", -1)
 end
 
 return Screen
