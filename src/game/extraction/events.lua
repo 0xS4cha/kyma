@@ -28,20 +28,18 @@ end
 --- A road crossing in a chunk of at least the given tier.
 --- @return number, number, number x, y, tier
 local function location(w, minTier)
-    local def = w.def
-    for _ = 1, 40 do
-        local cx, cy = w.rng:random(2, def.count - 2), w.rng:random(2, def.count - 2)
-        local chunk = Worldgen.chunkAt(def, cx * def.chunk + 1, cy * def.chunk + 1)
-        if chunk.tier >= minTier then
-            local x, y = cx * def.chunk, cy * def.chunk
+    local points = w.def.roadPoints
+    for _ = 1, 60 do
+        local p = points[w.rng:random(#points)]
+        if p.tier >= minTier then
             local busy = false
             for _, ev in ipairs(w.events) do
-                if (ev.x - x) ^ 2 + (ev.y - y) ^ 2 < 4000 ^ 2 then busy = true end
+                if (ev.x - p.x) ^ 2 + (ev.y - p.y) ^ 2 < 4000 ^ 2 then busy = true end
             end
-            if not busy and w.terrain:clear(x, y, 40) then return x, y, chunk.tier end
+            if not busy and w.terrain:clear(p.x, p.y, 40) then return p.x, p.y, p.tier end
         end
     end
-    return floor(def.width / 2), floor(def.height / 2), 4
+    return floor(w.def.width / 2), floor(w.def.height / 2), 4
 end
 
 --- Starts an event.

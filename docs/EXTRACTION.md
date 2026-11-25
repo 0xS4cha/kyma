@@ -4,7 +4,7 @@
 
 The Wilds is an extraction shooter played on the official server only: one persistent world, 40 000 x 40 000 units (about 200 times the Embassy map), shared by up to 64 players at once. You go in with the gear you choose, loot buildings, fight monsters and other players, and leave through an extraction point. What you carry out goes to your stash. If you die, everything you carried stays on your body for others to take.
 
-Open it from **Online > Enter the wilds**.
+Open it from **Extraction** in the main menu (or **Online > Enter the wilds**).
 
 ## The loop
 
@@ -45,19 +45,20 @@ In the inventory:
 
 ## The world
 
-The map is a 20 x 20 grid of chunks separated by roads. Each chunk has a biome and a danger tier, from 1 at the edges to 4 in the centre:
+The land is shaped by noise rather than a grid. Elevation makes lakes in the hollows (water you can shoot over but not cross) and rocky highlands on the heights; moisture splits forests from open fields. About 130 settlements are scattered over it and joined by winding roads, with bridges where they cross water. Danger goes up from the edges (tier 1) to the centre (tier 4).
 
-| Biome | What is there |
+| Area | What is there |
 | --- | --- |
-| Forest | Trees, rocks, a cabin now and then, hidden stashes |
-| Fields | Fences, hay bales, barns |
-| Lake | Water you can shoot over but not cross, fishing huts |
-| Town | Blocks of houses with rooms, doors and windows, parked cars |
+| Forest | Dense trees, cabins now and then, hidden stashes |
+| Fields | Open ground, fences, hay bales, barns |
+| Highlands | Rocks and boulders, hidden stashes |
+| Lake | Water and sandy shores |
+| Villages and towns | Houses with rooms, doors and windows, parked cars, park trees |
 | Industrial | Warehouses with shelves, rows of shipping containers |
-| Military | Fenced compounds with bunkers, weapon cases and ammo crates (tiers 3 and 4) |
+| Military | Fenced camps with bunkers, weapon cases and ammo crates (tiers 3 and 4) |
 | Citadel | The fortress in the very centre, where the Warden may appear |
 
-The world is generated from a seed. The server sends only the seed, and every client rebuilds the same map.
+Players arrive at the gates on the map edges or on roads near them; extraction points sit at gates and on a few roads further in. The world is generated from a seed: the server sends only the seed, and every client rebuilds the same map.
 
 ## Items and rarities
 
@@ -134,7 +135,7 @@ The world, the characters and the monsters use the game's own drawing style. Mos
 
 - **Official only.** The mode runs only on a dedicated server started with `--official` or `OFFICIAL=1` (set in `docker-compose.yml`). Other servers refuse it.
 - **Everything is server side.** Profiles live in `extraction.json` in the data directory (`--data` / `DATA_DIR`), keyed by the hashed player identity, like the ratings: stash, gear, learned plans and stats, plus a counter so item ids never repeat. While you are in the world, your character's gear *is* your profile gear, saved every 10 seconds, so a crash never duplicates or deletes loot. Clients only send requests (`xhub` in the hub, `xact` in the world); the server checks every one of them: distance to containers, item ownership, grid space, attachment slots, recipes and plan rarity.
-- **Simulation** (`src/game/extraction/`): `worldgen.lua` builds the map; `terrain.lua` buckets its 15 000 walls, 2 500 doors and 2 400 windows in 256-unit cells so collisions, bullets and vision only look nearby; `world.lua` runs players, containers, inventories and extraction; `fight.lua` resolves shots with lag compensation and every round trait, armor, deaths, grenades, mines, fire and gas; `monsters.lua` runs nests and monster AI with a local A* (`pathing.lua`) that tests cells on demand; `events.lua` runs the random events; `loot.lua` rolls container contents by tier; `items.lua` and `inventory.lua` (shared with the client) compute effective weapon stats and handle the grids.
+- **Simulation** (`src/game/extraction/`): `worldgen.lua` builds the map (noise fields, settlements, roads, water); `terrain.lua` buckets its 15 000 walls, 2 500 doors and 2 400 windows in 256-unit cells so collisions, bullets and vision only look nearby; `world.lua` runs players, containers, inventories and extraction; `fight.lua` resolves shots with lag compensation and every round trait, armor, deaths, grenades, mines, fire and gas; `monsters.lua` runs nests and monster AI with a local A* (`pathing.lua`) that tests cells on demand; `events.lua` runs the random events; `loot.lua` rolls container contents by tier; `items.lua` and `inventory.lua` (shared with the client) compute effective weapon stats and handle the grids.
 - **Server** (`src/server/extraction/`): `realm.lua` runs the world at 60 ticks per second, the hub actions, deployments, the 30 second grace after a disconnect, deaths and extractions; `store.lua` keeps the profiles.
 - **Networking.** Snapshots (`xs`, 30 Hz, unreliable) carry only what a player can see or hear within 1 400 units: visible players and monsters (vision cone, flashlight and scope range, thermal radius, marks), ground items, bodies, emptied containers, open doors and broken windows nearby, shots, noises, smokes, fires, gas, projectiles and explosions, plus the events and extraction points. The inventory view (`xinv`) is sent when it changes.
 - **Client** (`src/modules/extraction/`): the same prediction and reconciliation as the duel modes (`Player.step` with the weapon stats from the inventory), interpolated players and monsters, and rendering that only visits the terrain around the camera.

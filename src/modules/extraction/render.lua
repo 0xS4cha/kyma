@@ -37,31 +37,113 @@ local function mix(a, b, t)
     return { a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t }
 end
 
+--- The colour of every corner of the biome grid: the average of the cells around
+--- it, so the ground fades from one biome to the next instead of showing squares.
+local corners = setmetatable({}, { __mode = "k" })
+
+local function cornerColors(def)
+    if corners[def] then return corners[def] end
+    local n = def.count
+    local colors = {}
+    local function cell(cx, cy)
+        cx, cy = max(0, min(n - 1, cx)), max(0, min(n - 1, cy))
+        local info = def.chunks[cy * n + cx + 1]
+        return Worldgen.BIOMES[info.biome].color, info.tier
+    end
+    for gy = 0, n do
+        for gx = 0, n do
+            local r, g, b = 0, 0, 0
+            for _, o in ipairs({ { -1, -1 }, { 0, -1 }, { -1, 0 }, { 0, 0 } }) do
+                local c, tier = cell(gx + o[1], gy + o[2])
+                local dark = (tier - 1) * 0.025
+                r, g, b = r + c[1] - dark, g + c[2] - dark, b + c[3] - dark
+            end
+            local tint = mix(T.floor, { r / 4, g / 4, b / 4 }, 0.42)
+            colors[gy * (n + 1) + gx + 1] = tint
+        end
+    end
+    corners[def] = colors
+    return colors
+end
+
+local groundMesh
+local groundVertices = {}
+
 local function drawFloor(raid, x0, y0, x1, y1)
     local def = raid.def
-    local chunk = def.chunk
-    lg.setColor(T.floor[1] * 0.9, T.floor[2] * 0.9, T.floor[3] * 0.92)
-    lg.rectangle("fill", max(0, x0), max(0, y0), min(def.width, x1) - max(0, x0), min(def.height, y1) - max(0, y0))
-    local inset = Config.road
-    for cy = max(0, floor(y0 / chunk)), min(def.count - 1, floor(y1 / chunk)) do
-        for cx = max(0, floor(x0 / chunk)), min(def.count - 1, floor(x1 / chunk)) do
-            local info = def.chunks[cy * def.count + cx + 1]
-            local tint = mix(T.floor, Worldgen.BIOMES[info.biome].color, 0.35)
-            lg.setColor(tint[1], tint[2], tint[3])
-            lg.rectangle("fill", cx * chunk + inset, cy * chunk + inset, chunk - inset * 2, chunk - inset * 2, 30, 30)
+    local cell, n = def.chunk, def.count
+    local colors = cornerColors(def)
+    local cx0, cy0 = max(0, floor(x0 / cell)), max(0, floor(y0 / cell))
+    local cx1, cy1 = min(n - 1, floor(x1 / cell)), min(n - 1, floor(y1 / cell))
+    local count = 0
+    local verts = groundVertices
+    local function vertex(gx, gy)
+        local c = colors[gy * (n + 1) + gx + 1]
+        count = count + 1
+        local v = verts[count]
+        if not v then
+            v = {}
+            verts[count] = v
         end
+        v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8] = gx * cell, gy * cell, 0, 0, c[1], c[2], c[3], 1
+    end
+    for gy = cy0, cy1 do
+        for gx = cx0, cx1 do
+            vertex(gx, gy) vertex(gx + 1, gy) vertex(gx + 1, gy + 1)
+            vertex(gx, gy) vertex(gx + 1, gy + 1) vertex(gx, gy + 1)
+        end
+    end
+    for k = #verts, count + 1, -1 do verts[k] = nil end
+    if count > 0 then
+        if not groundMesh or groundMesh:getVertexCount() < count then
+            groundMesh = lg.newMesh(math.max(count, 6 * 40 * 40), "triangles", "stream")
+        end
+        groundMesh:setVertices(verts)
+        groundMesh:setDrawRange(1, count)
+        lg.setColor(1, 1, 1, 1)
+        lg.draw(groundMesh)
     end
     lg.setColor(T.grid)
     lg.setLineWidth(1)
     local step = 80
     for x = floor(x0 / step) * step, x1, step do lg.line(x, max(0, y0), x, min(def.height, y1)) end
     for y = floor(y0 / step) * step, y1, step do lg.line(max(0, x0), y, min(def.width, x1), y) end
-    raid.terrain:query("pits", x0, y0, x1, y1, function(pit)
-        lg.setColor(0.36, 0.5, 0.62)
-        lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
-        lg.setColor(0.42, 0.58, 0.72)
-        lg.rectangle("fill", pit.x + 10, pit.y + 10, pit.w - 20, pit.h - 20)
+    -- Lakes: a sandy shore, then the water.
+    raid.terrain:query("pits", x0 - 30, y0 - 30, x1 + 30, y1 + 30, function(pit)
+        lg.setColor(0.84, 0.8, 0.66)
+        lg.rectangle("fill", pit.x - 24, pit.y - 24, pit.w + 48, pit.h + 48, 30, 30)
     end)
+    raid.terrain:query("pits", x0, y0, x1, y1, function(pit)
+        lg.setColor(0.46, 0.62, 0.76)
+        lg.rectangle("fill", pit.x - 6, pit.y - 6, pit.w + 12, pit.h + 12, 18, 18)
+    end)
+    -- Roads: a shoulder, the asphalt, a dashed centre line.
+    local roads = {}
+    Worldgen.roadsNear(def, x0, y0, x1, y1, function(r) roads[#roads + 1] = r end)
+    lg.setColor(0.6, 0.58, 0.52)
+    for _, r in ipairs(roads) do
+        lg.setLineWidth(r[5] + 22)
+        lg.line(r[1], r[2], r[3], r[4])
+        lg.circle("fill", r[1], r[2], (r[5] + 22) / 2)
+    end
+    lg.setColor(0.36, 0.37, 0.4)
+    for _, r in ipairs(roads) do
+        lg.setLineWidth(r[5])
+        lg.line(r[1], r[2], r[3], r[4])
+        lg.circle("fill", r[1], r[2], r[5] / 2)
+        lg.circle("fill", r[3], r[4], r[5] / 2)
+    end
+    lg.setColor(0.95, 0.82, 0.3, 0.75)
+    lg.setLineWidth(5)
+    for _, r in ipairs(roads) do
+        local dx, dy = r[3] - r[1], r[4] - r[2]
+        local len = math.sqrt(dx * dx + dy * dy)
+        for t = 0, len - 50, 130 do
+            local a, b = t / len, math.min(1, (t + 60) / len)
+            lg.line(r[1] + dx * a, r[2] + dy * a, r[1] + dx * b, r[2] + dy * b)
+        end
+    end
+    lg.setLineWidth(1)
 end
 
 local function shadow(rect, ox, oy)
@@ -70,14 +152,135 @@ local function shadow(rect, ox, oy)
         rect.x + rect.w + ox, rect.y + rect.h + oy, rect.x + ox, rect.y + rect.h + oy, rect.x, rect.y + rect.h)
 end
 
---- The rectangles near the view, as a small arena for the session renderer.
+--- The rectangles near the view: plain ones as a small arena for the session
+--- renderer, decorated ones (trees, rocks, cars...) apart, drawn as shapes.
 local function nearby(raid, x0, y0, x1, y1)
-    local proxy = { walls = {}, doors = {}, glass = {}, cover = {} }
+    local proxy = { walls = {}, doors = {}, glass = {}, cover = {}, decor = {} }
     for _, list in ipairs({ "walls", "doors", "glass", "cover" }) do
         local out = proxy[list]
-        raid.terrain:query(list, x0, y0, x1, y1, function(rect) out[#out + 1] = rect end)
+        raid.terrain:query(list, x0, y0, x1, y1, function(rect)
+            if rect.deco then proxy.decor[#proxy.decor + 1] = rect else out[#out + 1] = rect end
+        end)
     end
     return proxy
+end
+
+local function hash(rect)
+    return floor(rect.x * 7 + rect.y * 13) % 997
+end
+
+local TREE_COLORS = { { 0.36, 0.56, 0.34 }, { 0.3, 0.5, 0.32 }, { 0.42, 0.6, 0.3 }, { 0.6, 0.52, 0.26 } }
+local CAR_COLORS = { { 0.85, 0.24, 0.2 }, { 0.2, 0.45, 0.8 }, { 0.92, 0.78, 0.2 }, { 0.3, 0.62, 0.38 }, { 0.85, 0.86, 0.88 }, { 0.25, 0.26, 0.3 } }
+local CONTAINER_TINTS = { { 0.8, 0.36, 0.18 }, { 0.2, 0.46, 0.62 }, { 0.36, 0.52, 0.3 }, { 0.7, 0.18, 0.16 } }
+
+local function blob(cx, cy, r, sides, seed, jitter)
+    local points = {}
+    for k = 0, sides - 1 do
+        local a = k / sides * 2 * pi
+        local rr = r * (1 - jitter + jitter * (((seed * 31 + k * 17) % 13) / 12))
+        points[#points + 1] = cx + cos(a) * rr
+        points[#points + 1] = cy + sin(a) * rr
+    end
+    return points
+end
+
+local function tree(rect)
+    local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
+    local r = math.max(rect.w, rect.h) * 0.95
+    local h = hash(rect)
+    local c = TREE_COLORS[h % #TREE_COLORS + 1]
+    lg.setColor(0, 0, 0, 0.14)
+    lg.circle("fill", cx + 9, cy + 11, r)
+    lg.setColor(c[1] * 0.78, c[2] * 0.78, c[3] * 0.78)
+    lg.polygon("fill", blob(cx, cy, r, 9, h, 0.18))
+    lg.setColor(c)
+    lg.polygon("fill", blob(cx - r * 0.12, cy - r * 0.14, r * 0.72, 8, h + 3, 0.2))
+    lg.setColor(c[1] * 1.15, c[2] * 1.15, c[3] * 1.15)
+    lg.circle("fill", cx - r * 0.28, cy - r * 0.3, r * 0.28)
+end
+
+local function rock(rect, big)
+    local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
+    local r = math.max(rect.w, rect.h) * (big and 0.62 or 0.6)
+    local h = hash(rect)
+    lg.setColor(0, 0, 0, 0.16)
+    lg.polygon("fill", blob(cx + 6, cy + 8, r, 7, h, 0.3))
+    local shade = 0.55 + (h % 5) * 0.03
+    lg.setColor(shade, shade * 0.98, shade * 0.94)
+    lg.polygon("fill", blob(cx, cy, r, 7, h, 0.3))
+    lg.setColor(shade * 1.15, shade * 1.13, shade * 1.1)
+    lg.polygon("fill", blob(cx - r * 0.18, cy - r * 0.2, r * 0.55, 6, h + 1, 0.25))
+end
+
+local function car(rect)
+    local horizontal = rect.w >= rect.h
+    local col = CAR_COLORS[hash(rect) % #CAR_COLORS + 1]
+    lg.push()
+    lg.translate(rect.x + rect.w / 2, rect.y + rect.h / 2)
+    if not horizontal then lg.rotate(pi / 2) end
+    local l, w = math.max(rect.w, rect.h), math.min(rect.w, rect.h)
+    lg.setColor(0, 0, 0, 0.2)
+    lg.rectangle("fill", -l / 2 + 4, -w / 2 + 5, l, w, 10, 10)
+    lg.setColor(col)
+    lg.rectangle("fill", -l / 2, -w / 2, l, w, 10, 10)
+    lg.setColor(0.2, 0.26, 0.32, 0.9)
+    lg.rectangle("fill", -l * 0.18, -w / 2 + 4, l * 0.42, w - 8, 6, 6)
+    lg.setColor(col[1] * 0.85, col[2] * 0.85, col[3] * 0.85)
+    lg.rectangle("fill", -l * 0.08, -w / 2 + 6, l * 0.24, w - 12, 4, 4)
+    lg.pop()
+end
+
+local function container(rect)
+    local col = CONTAINER_TINTS[hash(rect) % #CONTAINER_TINTS + 1]
+    lg.setColor(0, 0, 0, 0.22)
+    lg.rectangle("fill", rect.x + 6, rect.y + 8, rect.w, rect.h)
+    lg.setColor(col)
+    lg.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
+    lg.setColor(col[1] * 0.78, col[2] * 0.78, col[3] * 0.78)
+    if rect.w >= rect.h then
+        for x = rect.x + 10, rect.x + rect.w - 10, 14 do lg.rectangle("fill", x, rect.y + 4, 5, rect.h - 8) end
+    else
+        for y = rect.y + 10, rect.y + rect.h - 10, 14 do lg.rectangle("fill", rect.x + 4, y, rect.w - 8, 5) end
+    end
+end
+
+local function strip(rect, base, line, step)
+    lg.setColor(base)
+    lg.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 6, 6)
+    lg.setColor(line)
+    local horizontal = rect.w >= rect.h
+    local length = horizontal and rect.w or rect.h
+    for k = 1, floor(length / step) do
+        if horizontal then lg.line(rect.x + k * step, rect.y + 3, rect.x + k * step, rect.y + rect.h - 3)
+        else lg.line(rect.x + 3, rect.y + k * step, rect.x + rect.w - 3, rect.y + k * step) end
+    end
+end
+
+--- Trees, rocks and the like, drawn above the fog like walls: you always see the
+--- land, the fog only hides who is there.
+local function drawDecor(proxy)
+    for _, rect in ipairs(proxy.decor) do
+        local deco = rect.deco
+        if deco == "tree" then
+            tree(rect)
+        elseif deco == "rock" then
+            rock(rect, false)
+        elseif deco == "boulder" then
+            rock(rect, true)
+        elseif deco == "car" then
+            car(rect)
+        elseif deco == "container" then
+            container(rect)
+        elseif deco == "bale" then
+            strip(rect, { 0.86, 0.74, 0.36 }, { 0.72, 0.6, 0.26 }, rect.w / 4)
+        elseif deco == "sandbag" then
+            strip(rect, { 0.68, 0.62, 0.46 }, { 0.56, 0.5, 0.34 }, 24)
+        elseif deco == "shelf" then
+            strip(rect, { 0.55, 0.42, 0.3 }, { 0.42, 0.32, 0.22 }, 40)
+        else
+            strip(rect, T.coverTop, T.coverSide, 1e9)
+        end
+    end
 end
 
 local function drawShadows(proxy)
@@ -390,6 +593,7 @@ function Render.draw(ext)
     drawSmokes(raid)
     ext.effects:drawWorld()
     drawBooms(raid)
+    drawDecor(proxy)
     Renderer.drawWalls(proxy, camera)
     ext.effects:drawImpacts()
     if me.dead == 0 then
