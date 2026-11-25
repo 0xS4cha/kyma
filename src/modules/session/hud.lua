@@ -589,6 +589,41 @@ function Hud:drawVitals(session)
     end
 end
 
+--- Emplacements de plaques de bouclier, juste sous la barre de vie (dans la carte "vitals").
+function Hud:drawPlates(session)
+    local options = session.world.options
+    if options and options.shields == false then return end
+    local me = session.world.me
+    local lg = love.graphics
+    local shield = Config.shield
+    local armor = me.armor or 0
+    local W = 300
+    local x, y = MARGIN + 18, lg.getHeight() - MARGIN - 112 + 60
+    local gap = 5
+    local w, h = (W - 36 - gap * (shield.plates - 1)) / shield.plates, 6
+    local blue = require("src.modules.session.shield").COLOR
+    for i = 1, shield.plates do
+        local px = x + (i - 1) * (w + gap)
+        local f = clamp((armor - (i - 1) * shield.plateHp) / shield.plateHp, 0, 1)
+        Kit.color(INK, 0.1)
+        lg.rectangle("fill", px, y, w, h, 3, 3)
+        if f > 0 then
+            Kit.color(blue, 1)
+            lg.rectangle("fill", px, y, w * f, h, 3, 3)
+            if f < 0.5 then
+                -- plaque abîmée : petite fissure
+                lg.setColor(0.04, 0.09, 0.14, 0.9)
+                lg.setLineWidth(1.2)
+                lg.line(px + w * 0.55, y, px + w * 0.5, y + h * 0.5, px + w * 0.58, y + h)
+                lg.setLineWidth(1)
+            end
+        else
+            Kit.color(INK, 0.22)
+            lg.rectangle("line", px + 0.5, y + 0.5, w - 1, h - 1, 3, 3)
+        end
+    end
+end
+
 function Hud:drawBlind(session)
     local blind = session.world.me.blind or 0
     if blind <= 0 or session.world.me.dead > 0 then return end
@@ -1062,6 +1097,7 @@ function Hud:draw(session)
         self:drawRound(session)
         self:drawBanner()
         self:drawVitals(session)
+        self:drawPlates(session)
         self:drawMinimap(session)
         self:drawWeapon(session)
         self:drawGadget(session)

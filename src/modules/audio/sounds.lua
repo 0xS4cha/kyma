@@ -24,6 +24,26 @@ Sounds.rifle = shot(0.45, 180, 6000, 0.12)
 Sounds.lmg = shot(0.48, 140, 5000, 0.13, { { wave = "triangle", from = 70, to = 40, length = 0.1, volume = 0.4 } })
 Sounds.shotgun = shot(0.6, 120, 4500, 0.32, { { wave = "noise", from = 1500, to = 400, length = 0.3, volume = 0.4, cutoff = 1200, cutoffTo = 200 } })
 Sounds.sniper = shot(0.65, 90, 8000, 0.55, { { wave = "triangle", from = 60, to = 30, length = 0.5, volume = 0.5, curve = 1.5 } })
+Sounds.smg = shot(0.38, 200, 6500, 0.08)
+Sounds.revolver = shot(0.62, 110, 7500, 0.4, { { wave = "triangle", from = 80, to = 35, length = 0.3, volume = 0.5, curve = 1.6 } })
+Sounds.dmr = shot(0.55, 130, 7500, 0.3, { { wave = "triangle", from = 70, to = 35, length = 0.25, volume = 0.4 } })
+Sounds.autoshotgun = shot(0.5, 130, 4800, 0.2, { { wave = "noise", from = 1500, to = 500, length = 0.18, volume = 0.35, cutoff = 1300, cutoffTo = 300 } })
+Sounds.breaker = shot(0.65, 100, 4200, 0.36, { { wave = "noise", from = 1200, to = 300, length = 0.32, volume = 0.45, cutoff = 1000, cutoffTo = 200 }, { wave = "square", duty = 0.5, from = 400, to = 120, length = 0.12, volume = 0.3 } })
+Sounds.plate = {
+    volume = 0.5, cooldown = 0.03, jitter = 0.05, voices = 4,
+    layers = {
+        { wave = "triangle", from = 1900, to = 1400, length = 0.12, volume = 0.45, curve = 2 },
+        { wave = "noise", from = 7000, to = 3000, length = 0.05, volume = 0.3, cutoff = 6000 }
+    }
+}
+Sounds.plateBreak = {
+    volume = 0.6, cooldown = 0.05, voices = 3,
+    layers = {
+        { wave = "noise", from = 9000, to = 1500, length = 0.3, volume = 0.6, cutoff = 9000, cutoffTo = 800, curve = 2 },
+        { wave = "triangle", from = 2400, to = 700, length = 0.25, volume = 0.4, curve = 1.8 },
+        { wave = "square", duty = 0.3, from = 300, to = 90, length = 0.12, volume = 0.3 }
+    }
+}
 Sounds.silencer = {
     volume = 0.35, cooldown = 0.02, jitter = 0.06, voices = 4,
     layers = {

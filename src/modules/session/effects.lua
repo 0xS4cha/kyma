@@ -1,4 +1,6 @@
 local T = require("src.ui.theme").colors
+local Kit = require("src.ui.kit")
+local Shield = require("src.modules.session.shield")
 local Shaders = require("src.modules.session.shaders")
 
 local Effects = {}
@@ -17,12 +19,13 @@ local SHARD_LIFE = 1.4
 local HIT_LIFE = 0.25
 local HURT_LIFE = 0.45
 local ECHO_LIFE = 1.1
+local NUMBER_LIFE = 0.9
 local ECHO_SIZE = { shot = 70, dash = 46, step = 30, throw = 40, clank = 40 }
 
 --- @return table
 function Effects.new()
     return setmetatable({
-        tracers = {}, flashes = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, hit = -1, hurt = -1
+        tracers = {}, flashes = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, texts = {}, hit = -1, hurt = -1
     }, Effects)
 end
 
@@ -117,6 +120,21 @@ function Effects:shatter(x, y, color)
     self:glow(x, y, 70, color, 0.3)
 end
 
+--- Chiffre de dégâts flottant à côté de la cible.
+--- @param x number
+--- @param y number
+--- @param text string
+--- @param color table
+--- @param big boolean?
+--- @param scale number? taille relative (réglage "Damage number size")
+function Effects:damageNumber(x, y, text, color, big, scale)
+    self.texts[#self.texts + 1] = {
+        x = x + 15 + random() * 8, y = y - 12 - random() * 6, text = text, color = color,
+        big = big, scale = scale or 1, time = love.timer.getTime(), drift = (random() - 0.3) * 10
+    }
+    if #self.texts > 40 then table.remove(self.texts, 1) end
+end
+
 --- @param x number
 --- @param y number
 --- @param kind string
@@ -172,6 +190,7 @@ function Effects:update(dt)
         if now - self.glows[k].time > self.glows[k].life then table.remove(self.glows, k) end
     end
     prune(self.shards, SHARD_LIFE)
+    prune(self.texts, NUMBER_LIFE)
     prune(self.echoes, ECHO_LIFE)
     local drag = math.exp(-4 * dt)
     for _, shard in ipairs(self.shards) do
@@ -223,6 +242,7 @@ function Effects:drawWorld()
             shard.x - sa * s * 0.6, shard.y + ca * s * 0.6,
             shard.x - ca * s * 0.8, shard.y - sa * s * 0.8)
     end
+    Shield.drawEffects()
     for _, tracer in ipairs(self.tracers) do
         local age = now - tracer.time
         local c = tracer.color
@@ -263,6 +283,25 @@ function Effects:drawWorld()
     for _, flash in ipairs(self.flashes) do
         lg.setColor(1, 0.95, 0.8, 1 - (now - flash.time) / FLASH_LIFE)
         lg.circle("fill", flash.x, flash.y, 7)
+    end
+    for _, n in ipairs(self.texts) do
+        local t = (now - n.time) / NUMBER_LIFE
+        local rise = 1 - (1 - t) ^ 3
+        local pop = 1 + 0.55 * math.max(0, 1 - t * 7)
+        local alpha = t < 0.6 and 1 or 1 - (t - 0.6) / 0.4
+        local font = Kit.font(math.floor((n.big and 26 or 20) * n.scale + 0.5))
+        lg.setFont(font)
+        lg.push()
+        lg.translate(n.x + n.drift * rise, n.y - 26 * rise)
+        lg.scale(0.5 * pop)
+        local w, h = font:getWidth(n.text), font:getHeight()
+        lg.setColor(0.04, 0.05, 0.08, 0.75 * alpha)
+        for _, o in ipairs({ { -1.5, 0 }, { 1.5, 0 }, { 0, -1.5 }, { 0, 1.5 } }) do
+            lg.print(n.text, -w / 2 + o[1], -h / 2 + o[2])
+        end
+        lg.setColor(n.color[1], n.color[2], n.color[3], alpha)
+        lg.print(n.text, -w / 2, -h / 2)
+        lg.pop()
     end
     lg.setLineWidth(1)
 end

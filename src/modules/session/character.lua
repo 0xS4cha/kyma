@@ -1,6 +1,7 @@
 local Config = require("src.config.game")
 local Feel = require("src.config.feel")
 local Loadout = require("src.config.loadout")
+local Shield = require("src.modules.session.shield")
 
 local Character = {}
 
@@ -159,6 +160,48 @@ local GUNS = {
     }
 }
 
+GUNS.smg = {
+    body = { { 18, 0.8 }, { 18, 4.4 }, { 6, 4.8 }, { 3.5, 2.4 }, { 6, 0.4 } },
+    center = 11,
+    barrel = { 17.5, 24, 2, 1.6 },
+    mag = { 11, 4.4, 12.5, 9.5, 2.4, 2.2 },
+    left = { 14.5, 1.4 },
+    right = { 8.5, 4.4 }
+}
+GUNS.revolver = {
+    body = { { 17, 1 }, { 17, 3.6 }, { 9, 4.2 }, { 8, 2.4 }, { 9, 0.6 } },
+    center = 12,
+    barrel = { 16.5, 26, 2.4, 2 },
+    mag = { 10.5, 2.4, 10.5, 4.6, 4.4, 4.4 },
+    left = { 12, 1.2 },
+    right = { 9.8, 3.9 }
+}
+GUNS.dmr = {
+    body = { { 21, 0.6 }, { 21, 4.2 }, { 6, 4.6 }, { 3.5, 2.4 }, { 6, 0.2 } },
+    center = 12,
+    barrel = { 20.5, 32, 2, 1.5 },
+    mag = { 12, 4.2, 12.5, 7, 2.6, 2.4 },
+    scope = { 9, 14 },
+    left = { 17.5, 1.6 },
+    right = { 9, 4.2 }
+}
+GUNS.autoshotgun = {
+    body = { { 17, 0.2 }, { 17, 4.6 }, { 5.5, 5 }, { 3, 2.4 }, { 5.5, -0.2 } },
+    center = 10,
+    barrel = { 16.5, 26, 3.4, 3 },
+    mag = { 12, 4.6, 12.5, 9.8, 6.5, 6.5 },
+    left = { 15, 1.2 },
+    right = { 8.5, 4.4 }
+}
+GUNS.breaker = {
+    body = { { 18, -0.4 }, { 18, 5.2 }, { 5.5, 5.4 }, { 3, 2.4 }, { 5.5, -0.6 } },
+    center = 10,
+    barrel = { 17.5, 27, 4.4, 4 },
+    mag = { 13.5, 4.8, 14.5, 6.8, 4.2, 3.6 },
+    left = { 15.5, 1.2 },
+    right = { 8.5, 4.8 }
+}
+
 local function animate(p)
     local state = states[p.slot]
     if not state then
@@ -271,6 +314,7 @@ end
 
 function Character.reset()
     states = {}
+    Shield.reset()
 end
 
 --- @param slot number
@@ -397,6 +441,7 @@ function Character.draw(p, palette, ghost)
     lg.ellipse("fill", 0.2, 0, 6.6, 6.2)
     drawHead(c, p.look, angle)
     lg.pop()
+    if not ghost and (p.armor or 0) > 0 then Shield.draw(p, opacity) end
     if (p.stun or 0) > 0 and not ghost then
         local now = love.timer.getTime()
         for k = 0, 2 do

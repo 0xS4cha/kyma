@@ -16,7 +16,10 @@ Settings.MAP_OPACITY_LABELS = { "40%", "60%", "80%", "100%" }
 Settings.MAP_VIEWS = { "Full arena", "Follow me" }
 Settings.MAP_SPANS = { 1200, 800, 500 } -- largeur visible (unités monde) en mode "Follow me"
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "postfx", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal" }
+Settings.DMG_SIZES = { "Small", "Normal", "Large", "Huge" }
+Settings.DMG_SCALES = { 0.7, 1, 1.45, 2 }
+
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "dmgNumbers", "dmgSize", "shields", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal" }
 
 --- @return table
 function Settings.defaults()
@@ -50,6 +53,9 @@ function Settings.defaults()
         minimapAllies = true,
         minimapEnemies = true,
         minimapLoot = false,
+        dmgNumbers = true,
+        dmgSize = 2,
+        shields = true,
         kitWeapon = 1,
         kitMods = Settings.cleanMods(""),
         floorWeapons = true,
@@ -102,6 +108,7 @@ function Settings.parse(text)
     values.minimapOpacity = math.max(1, math.min(#Settings.MAP_OPACITY, math.floor(values.minimapOpacity)))
     values.minimapView = math.max(1, math.min(#Settings.MAP_VIEWS, math.floor(values.minimapView)))
     values.minimapZoom = math.max(1, math.min(#Settings.MAP_SPANS, math.floor(values.minimapZoom)))
+    values.dmgSize = math.max(1, math.min(#Settings.DMG_SIZES, math.floor(values.dmgSize)))
     local Loadout = require("src.config.loadout")
     values.kitWeapon = Loadout.sanitize({ w = values.kitWeapon }).w
     values.presetWeapon = Loadout.sanitize({ w = values.presetWeapon }).w
@@ -208,7 +215,9 @@ end
 --- @param values table
 --- @return table
 function Settings.matchRules(values)
-    return { f = values.floorWeapons, s = values.spawnWith, p = Settings.kit(values, "preset"), h = values.killHeal or nil }
+    local rules = { f = values.floorWeapons, s = values.spawnWith, p = Settings.kit(values, "preset"), h = values.killHeal or nil }
+    if values.shields == false then rules.sh = false end
+    return rules
 end
 
 --- @param values table
