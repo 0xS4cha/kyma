@@ -111,6 +111,60 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
+SOURCES.footprint = [[
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    vec2 p = uv * 2.0 - 1.0;
+    float sole = length((p - vec2(0.28, 0.08)) / vec2(0.66, 0.86));
+    float heel = length((p - vec2(-0.6, 0.0)) / vec2(0.34, 0.68));
+    float shape = 1.0 - smoothstep(0.72, 1.0, min(sole, heel));
+    float tread = 0.72 + 0.28 * smoothstep(0.35, 0.65, fract(p.x * 4.5 + abs(p.y) * 0.6));
+    float rim = 0.85 + 0.15 * smoothstep(0.5, 0.95, min(sole, heel));
+    return vec4(color.rgb, color.a * shape * tread * rim);
+}
+]]
+
+SOURCES.shieldBreak = [[
+extern number progress;
+extern number spread;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float hexDist(vec2 p) {
+    p = abs(p);
+    return max(dot(p, vec2(0.5, 0.8660254)), p.x);
+}
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    vec2 p = uv * 2.0 - 1.0;
+    float r = length(p);
+    float ang = abs(atan(p.y, p.x));
+    float t = clamp(progress, 0.0, 1.0);
+    float e = 1.0 - pow(1.0 - t, 3.0);
+
+    vec2 q = p * 7.0;
+    vec2 s = vec2(1.0, 1.7320508);
+    vec2 a = mod(q, s) - s * 0.5;
+    vec2 b = mod(q - s * 0.5, s) - s * 0.5;
+    vec2 gv = dot(a, a) < dot(b, b) ? a : b;
+    vec2 id = q - gv;
+    float n = hash(id);
+    float lines = smoothstep(0.38, 0.5, hexDist(gv));
+
+    float radius = mix(0.4, 0.86, e) + (n - 0.5) * 0.14 * t;
+    float width = mix(0.12, 0.3, t);
+    float band = 1.0 - smoothstep(0.0, width, abs(r - radius));
+    float arc = 1.0 - smoothstep(spread, spread + 0.2 + t * 0.6, ang);
+    float alive = step(t * 1.05, n + 0.12);
+    float shell = band * arc * alive * (0.6 + 0.4 * lines);
+
+    float front = (1.0 - smoothstep(0.0, 0.035, abs(r - mix(0.42, 1.0, e)))) * arc;
+    float bubble = (1.0 - smoothstep(0.0, 0.18, t)) * exp(-pow((r - 0.4) / 0.05, 2.0));
+
+    float alpha = (shell * 1.3 + front * 0.9) * (1.0 - t * t) + bubble;
+    vec3 rgb = mix(color.rgb, vec3(1.0), clamp(lines * 0.5 + bubble + (1.0 - t) * 0.25, 0.0, 1.0));
+    return vec4(rgb, color.a * clamp(alpha, 0.0, 1.0));
+}
+]]
+
 local cache = {}
 local pixel
 

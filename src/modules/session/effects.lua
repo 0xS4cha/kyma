@@ -19,6 +19,10 @@ local SHARD_LIFE = 1.4
 local HIT_LIFE = 0.25
 local HURT_LIFE = 0.45
 local ECHO_LIFE = 1.1
+local PRINT_LIFE = 2.6
+local PRINT_LENGTH = 17
+local PRINT_WIDTH = 8
+local PRINT_GAP = 6
 local NUMBER_LIFE = 0.9
 local ECHO_SIZE = { shot = 70, dash = 46, step = 30, throw = 40, clank = 40 }
 
@@ -138,7 +142,19 @@ end
 --- @param x number
 --- @param y number
 --- @param kind string
-function Effects:echo(x, y, kind)
+--- @param angle number?
+--- @param side number?
+function Effects:echo(x, y, kind, angle, side)
+    if kind == "step" and angle then
+        self.prints = self.prints or {}
+        local lateral = (side == 1 and 1 or -1) * PRINT_GAP
+        self.prints[#self.prints + 1] = {
+            x = x - sin(angle) * lateral, y = y + cos(angle) * lateral,
+            angle = angle, mirror = side == 1 and -1 or 1, time = love.timer.getTime()
+        }
+        if #self.prints > 60 then table.remove(self.prints, 1) end
+        return
+    end
     self.echoes[#self.echoes + 1] = { x = x, y = y, kind = kind, time = love.timer.getTime() }
     if #self.echoes > 40 then table.remove(self.echoes, 1) end
 end
@@ -192,6 +208,7 @@ function Effects:update(dt)
     prune(self.shards, SHARD_LIFE)
     prune(self.texts, NUMBER_LIFE)
     prune(self.echoes, ECHO_LIFE)
+    if self.prints then prune(self.prints, PRINT_LIFE) end
     local drag = math.exp(-4 * dt)
     for _, shard in ipairs(self.shards) do
         shard.x, shard.y = shard.x + shard.vx * dt, shard.y + shard.vy * dt
@@ -216,6 +233,7 @@ function Effects:drawWorld()
             lg.arc("line", "open", swing.x, swing.y, 34 + 10 * t, a - 0.7 + 0.5 * t, a + 0.4 + 0.5 * t, 16)
         end
     end
+    self:drawPrints(now)
     for _, echo in ipairs(self.echoes) do
         local t = (now - echo.time) / ECHO_LIFE
         local size = ECHO_SIZE[echo.kind] or 36
@@ -302,6 +320,40 @@ function Effects:drawWorld()
         lg.setColor(n.color[1], n.color[2], n.color[3], alpha)
         lg.print(n.text, -w / 2, -h / 2)
         lg.pop()
+    end
+    lg.setLineWidth(1)
+end
+
+--- @param now number
+function Effects:drawPrints(now)
+    if not self.prints or #self.prints == 0 then return end
+    local lg = love.graphics
+    local shader = Shaders.get("footprint")
+    local ink = T.ink
+    for _, footprint in ipairs(self.prints) do
+        local age = now - footprint.time
+        local t = age / PRINT_LIFE
+        local pop = 1 + 0.35 * math.max(0, 1 - age / 0.12)
+        local alpha = 0.6 * (1 - t) ^ 1.6
+        local sx, sy = PRINT_LENGTH * pop, PRINT_WIDTH * pop * footprint.mirror
+        if age < 0.25 then
+            lg.setColor(ink[1], ink[2], ink[3], 0.25 * (1 - age / 0.25))
+            lg.setLineWidth(1.2)
+            lg.circle("line", footprint.x, footprint.y, 6 + 14 * age / 0.25)
+        end
+        lg.setColor(ink[1], ink[2], ink[3], alpha)
+        if shader then
+            lg.setShader(shader)
+            lg.draw(Shaders.pixel(), footprint.x, footprint.y, footprint.angle, sx, sy, 0.5, 0.5)
+            lg.setShader()
+        else
+            lg.push()
+            lg.translate(footprint.x, footprint.y)
+            lg.rotate(footprint.angle)
+            lg.ellipse("fill", PRINT_LENGTH * 0.14, 0, PRINT_LENGTH * 0.33, PRINT_WIDTH * 0.43)
+            lg.ellipse("fill", -PRINT_LENGTH * 0.3, 0, PRINT_LENGTH * 0.17, PRINT_WIDTH * 0.34)
+            lg.pop()
+        end
     end
     lg.setLineWidth(1)
 end

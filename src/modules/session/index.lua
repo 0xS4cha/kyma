@@ -397,6 +397,9 @@ function GM.Session:hitFeedback(data)
         Shield.hit(victim, data.ar or 0, data.s, at.x, at.y, at.angle or 0)
         if data.b then
             soundAt("plateBreak", at.x, at.y, 0.9)
+            self.effects:glow(at.x, at.y, 64, Shield.COLOR, 0.3)
+            self.postfx:wave(at.x, at.y, 0.5, 150)
+            if victim == world.slot or data.a == world.slot then self.postfx:kick(3.5) end
         else
             soundAt("plate", at.x, at.y, 0.8)
         end
@@ -684,7 +687,8 @@ function GM.Session:receive(data)
     world.ready = {}
     for _, slot in ipairs(type(data.rd) == "table" and data.rd or {}) do world.ready[slot] = true end
     for _, noise in ipairs(data.n or {}) do
-        self.effects:echo(noise.x, noise.y, noise.k)
+        local heading = type(noise.a) == "number" and Player.unpackAngle(noise.a) or nil
+        self.effects:echo(noise.x, noise.y, noise.k, heading, noise.f)
         self.hud:noise(noise.x, noise.y, noise.k)
         if NOISE_SOUNDS[noise.k] then soundAt(NOISE_SOUNDS[noise.k], noise.x, noise.y, 0.8) end
     end

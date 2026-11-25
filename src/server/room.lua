@@ -295,7 +295,10 @@ function Room:sendState()
         local heard = {}
         for _, noise in ipairs(noises) do
             if self.world:hears(member.slot, noise) then
-                heard[#heard + 1] = { x = noise.x, y = noise.y, k = noise.kind }
+                heard[#heard + 1] = {
+                    x = noise.x, y = noise.y, k = noise.kind,
+                    a = noise.angle and Player.packAngle(noise.angle) or nil, f = noise.side
+                }
             end
         end
         member:Stream("state", {
