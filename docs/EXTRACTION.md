@@ -129,7 +129,7 @@ Command line flags for testing: `--extraction` joins the mode (with `--connect h
 
 ## Art
 
-The world, the characters and the monsters use the game's own drawing style. Most item icons come from Kenney's [Generic Items](https://kenney.nl/assets/generic-items) pack, CC0 (`assets/kenney/items`, license alongside); weapons, attachments, armor and the rest are drawn in the same flat style by `src/modules/extraction/icons.lua`.
+The world, the characters and the monsters use the game's own drawing style. Most item icons come from Kenney's [Generic Items](https://kenney.nl/assets/generic-items) pack, CC0 (`assets/kenney/items`, license alongside); weapons use the gun models of the rest of the game (each of the 36 weapons borrows the model, sound and recoil of the closest of the 11 game guns), and attachments, armor and the rest are drawn in the same flat style by `src/modules/extraction/icons.lua`.
 
 ## How it works
 
