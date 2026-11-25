@@ -1,4 +1,5 @@
 local Config = require("src.config.game")
+local Shaders = require("src.modules.session.shaders")
 
 --- Plaques de bouclier autour du personnage : fissures animées, flash à l'impact,
 --- éclats quand une plaque casse.
@@ -14,6 +15,8 @@ local SEGMENTS = 6           -- segments par fissure
 local FLASH = 0.18
 local FRAGMENT_LIFE = 0.75
 local RING_LIFE = 0.3
+local BREAK_LIFE = 0.55
+local BREAK_SIZE = 56
 
 Shield.COLOR = COLOR
 
@@ -176,13 +179,28 @@ function Shield.drawEffects()
             lg.setColor(1, 1, 1, fade * 0.8)
             lg.setLineWidth(0.8)
             lg.polygon("line", fx + ca * sz, fy + sa * sz, fx - sa * sz * 0.6, fy + ca * sz * 0.6, fx - ca * sz * 0.8, fy - sa * sz * 0.8)
+            if age < 0.35 then
+                lg.setBlendMode(Shaders.lightBlend())
+                Shaders.glow(fx, fy, 6 + sz * 2, COLOR[1], COLOR[2], COLOR[3], 0.7 * (1 - age / 0.35))
+                lg.setBlendMode("alpha")
+            end
         end
     end
+    local shader = Shaders.get("shieldBreak")
     for k = #rings, 1, -1 do
         local ring = rings[k]
-        local t = (now - ring.time) / RING_LIFE
+        local t = (now - ring.time) / (shader and BREAK_LIFE or RING_LIFE)
         if t >= 1 then
             table.remove(rings, k)
+        elseif shader then
+            lg.setBlendMode(Shaders.lightBlend())
+            lg.setColor(COLOR[1], COLOR[2], COLOR[3], 1)
+            lg.setShader(shader)
+            shader:send("progress", t)
+            shader:send("spread", HALF)
+            lg.draw(Shaders.pixel(), ring.x, ring.y, ring.a, BREAK_SIZE * 2, BREAK_SIZE * 2, 0.5, 0.5)
+            lg.setShader()
+            lg.setBlendMode("alpha")
         else
             lg.setColor(0.8, 0.96, 1, 0.9 * (1 - t))
             lg.setLineWidth(3 - 2 * t)

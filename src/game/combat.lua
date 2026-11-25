@@ -34,8 +34,12 @@ end
 --- @param x number
 --- @param y number
 --- @param source number?
-function Combat.noise(world, kind, x, y, source)
-    world.noises[#world.noises + 1] = { kind = kind, x = x, y = y, source = source, radius = Config.noise[kind] }
+--- @param angle number?
+--- @param side number?
+function Combat.noise(world, kind, x, y, source, angle, side)
+    world.noises[#world.noises + 1] = {
+        kind = kind, x = x, y = y, source = source, radius = Config.noise[kind], angle = angle, side = side
+    }
 end
 
 --- @param world table

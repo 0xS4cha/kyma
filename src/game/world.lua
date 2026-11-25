@@ -319,7 +319,8 @@ function World:footsteps(player, command)
         player.stride = 0
     elseif player.stride >= noise.stepTicks then
         player.stride = 0
-        Combat.noise(self, "step", player.x, player.y, player.slot)
+        player.foot = 1 - (player.foot or 0)
+        Combat.noise(self, "step", player.x, player.y, player.slot, math.atan2(player.vy, player.vx), player.foot)
     end
 end
 
