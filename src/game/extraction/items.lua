@@ -127,30 +127,39 @@ function Items.canAttach(weapon, mod)
     return true
 end
 
---- What the trader pays for an item, attachments and contents included.
---- @param inst table
---- @param rate number?
---- @return number
-function Items.value(inst, rate)
-    local def = Items.def(inst)
-    if not def then return 0 end
-    local each = def.price * (def.kind == "ammo" and 1 or Items.rarity(inst).value)
-    local total = each * (inst.n or 1)
-    for _, attached in pairs(inst.m or {}) do total = total + Items.value(attached, 1) end
-    for _, inner in ipairs(inst.c or {}) do total = total + Items.value(inner, 1) end
-    return floor(total * (rate or 1))
-end
+local SALVAGE_RATE = require("src.config.extraction").salvageRate
 
---- What the trader asks for an item of a rarity.
---- @param id string
---- @param rarity number?
---- @return number
-function Items.price(id, rarity)
-    local def = Config.all[id]
-    if not def then return 0 end
-    if def.kind == "ammo" then return def.price * def.stack end
-    local order = Config.rarities.order
-    return floor(def.price * Config.rarities[order[rarity or 1]].value * 1.25)
+--- What recycling an item at the workbench gives back: part of its recipe at its
+--- rarity (so rare items give rare parts), its attachments too; valuables have their
+--- own table, ammo turns back into gunpowder. Materials and plans can't be recycled.
+--- @param inst table
+--- @return table[]? { id, n } materials, nil when it can't be recycled
+function Items.salvage(inst)
+    local def = Items.def(inst)
+    if not def or def.kind == "material" or def.kind == "blueprint" then return nil end
+    local totals, order = {}, {}
+    local function add(id, n)
+        if n <= 0 then return end
+        if not totals[id] then order[#order + 1] = id end
+        totals[id] = (totals[id] or 0) + n
+    end
+    local count = inst.n or 1
+    if def.kind == "ammo" then
+        add(def.caliber == "cell" and "battery" or (def.caliber == "fuel" and "fuelcan" or "powder"), math.max(1, floor(count / 8)))
+    elseif def.kind == "valuable" then
+        for _, part in ipairs(Config.salvage[def.id] or { { id = "scrap", n = 1 } }) do add(part.id, part.n * count) end
+    else
+        local recipe = Items.recipe(def.id, inst.r)
+        for k, part in ipairs(recipe or {}) do
+            add(part.id, math.max(k == 1 and 1 or 0, floor(part.n * SALVAGE_RATE)) * count)
+        end
+    end
+    for _, attached in pairs(inst.m or {}) do
+        for _, part in ipairs(Items.salvage(attached) or {}) do add(part.id, part.n) end
+    end
+    local out = {}
+    for _, id in ipairs(order) do out[#out + 1] = { id = id, n = totals[id] } end
+    return out
 end
 
 --- @param inst table

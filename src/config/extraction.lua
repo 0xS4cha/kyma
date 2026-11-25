@@ -30,9 +30,8 @@ local EXTRACTION = {
     stash = { w = 10, h = 24 },
     pockets = { w = 3, h = 1 },
     quickSlots = 4,
-    startMoney = 4000,
     kitCooldown = 60 * 10,
-    sellRate = 0.55,
+    salvageRate = 0.5,
 
     -- Danger goes up from the edges (1) to the centre (4); it picks the monsters, the
     -- loot tables and the rarity rolls of every chunk.

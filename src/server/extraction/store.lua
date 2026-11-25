@@ -1,5 +1,5 @@
 --- Extraction profiles kept on the official server, keyed by the hashed identity of
---- each player: money, stash, the gear they carry (also while in the world, so a
+--- each player: stash, the gear they carry (also while in the world, so a
 --- crash never duplicates or deletes loot), learned blueprints and stats.
 local Class = require("src.core.class")
 local json = require("libs.json")
@@ -76,7 +76,6 @@ end
 local function sanitize(raw)
     local profile = {
         n = type(raw.n) == "string" and raw.n or "Player",
-        money = math.max(0, math.floor(tonumber(raw.money) or 0)),
         stash = {},
         gear = Inventory.sanitizeGear(raw.gear),
         known = {},
@@ -104,7 +103,7 @@ local function sanitize(raw)
     for id, rarity in pairs(type(raw.known) == "table" and raw.known or {}) do
         if ItemConfig.recipes[id] and tonumber(rarity) then profile.known[id] = math.max(1, math.min(6, math.floor(rarity))) end
     end
-    for _, key in ipairs({ "raids", "extracts", "deaths", "kills", "monsters", "earned", "crafted" }) do
+    for _, key in ipairs({ "raids", "extracts", "deaths", "kills", "monsters", "recycled", "crafted" }) do
         profile.stats[key] = math.max(0, math.floor(tonumber(type(raw.stats) == "table" and raw.stats[key]) or 0))
     end
     return profile
@@ -213,7 +212,7 @@ end
 function Store:Get(key, name)
     local profile = self.players[key]
     if not profile then
-        profile = sanitize({ n = name, money = Config.startMoney })
+        profile = sanitize({ n = name })
         local place = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = profile.stash }
         self:equip(profile.gear, self:starterKit())
         for _, extra in ipairs({ { "cap" }, { "scrap", 10 }, { "screws", 10 }, { "string", 6 }, { "cloth", 6 }, { "powder", 12 }, { "tape", 2 } }) do

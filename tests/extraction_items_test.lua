@@ -30,7 +30,10 @@ return {
                     assert(ItemConfig.calibers[def.ammo], id .. " has a caliber")
                 end
             end
-            for _, entry in ipairs(ItemConfig.shop) do assert(ItemConfig.all[entry.id], entry.id) end
+            for id, parts in pairs(ItemConfig.salvage) do
+                assert(ItemConfig.valuable[id], id)
+                for _, part in ipairs(parts) do assert(ItemConfig.material[part.id], id .. " gives unknown " .. part.id) end
+            end
             for _, id in ipairs(ItemConfig.craftOrder) do
                 assert(#ItemConfig.recipes[id] > 0, id .. " has a recipe")
                 for _, part in ipairs(ItemConfig.recipes[id]) do assert(ItemConfig.material[part.id], id .. " needs unknown " .. part.id) end
@@ -140,10 +143,26 @@ return {
         end
     },
     {
+        name = "recycling gives back part of the recipe, rarer items give rarer parts",
+        run = function()
+            local function count(list, id)
+                for _, part in ipairs(list) do if part.id == id then return part.n end end
+                return 0
+            end
+            local common, legendary = Items.salvage(item("ar", { r = 1 })), Items.salvage(item("ar", { r = 5 }))
+            assert(count(common, "scrap") > 0 and count(common, "alloy") == 0)
+            assert(count(legendary, "alloy") >= 1 and count(legendary, "scrap") > count(common, "scrap"))
+            local modded = Items.salvage(item("ar", { m = { optic = item("scope") } }))
+            assert(count(modded, "lens") > 0, "attachments are recycled with the weapon")
+            assert(count(Items.salvage(item("gpu", { n = 1 })), "circuit") == 3)
+            assert(count(Items.salvage(item("ammo_light", { n = 40 })), "powder") == 5)
+            assert(Items.salvage(item("scrap", { n = 3 })) == nil and Items.salvage(item("plan_ar")) == nil)
+        end
+    },
+    {
         name = "values, copies and sanitizing",
         run = function()
             local weapon = item("ar", { r = 4, a = 12, m = { optic = item("scope") } })
-            assert(Items.value(weapon) > Items.value(item("ar", { r = 1 })))
             local copy = Items.copy(weapon)
             assert(copy ~= weapon and copy.m.optic ~= weapon.m.optic and copy.m.optic.d == "scope")
             assert(Items.sanitize({ i = 1, d = "nope" }) == nil)

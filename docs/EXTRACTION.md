@@ -8,7 +8,7 @@ Open it from **Online > Enter the wilds**.
 
 ## The loop
 
-1. **Hub.** Equip your gear, buy from the trader, sell loot, learn plans and craft at the workbench. If you lose everything, the **Free kit** button gives a P9, ammo, bandages, a sling bag and a frag grenade every 10 minutes.
+1. **Hub.** Equip your gear, learn plans, craft and recycle at the workbench. There is no money and no trader: what you have is what you found, crafted or recycled. If you lose everything, the **Free kit** button gives a P9, ammo, bandages, a sling bag and a frag grenade every 10 minutes.
 2. **Deploy.** You spawn on a road crossing near the edge of the map, away from other players and monster nests. Monsters ignore you for your first 10 seconds.
 3. **Loot.** Every building holds containers (crates, lockers, cabinets, medical boxes, weapon cases...). The closer to the centre, the more dangerous the area and the better the loot.
 4. **Extract.** Stand in an extraction zone (the green circles on the map and the compass at the top of the screen) for 8 seconds. Your gear goes back to your profile.
@@ -32,12 +32,15 @@ Every key below is a regular key binding (Settings > Key bindings), and every hi
 
 The compass at the top points to the nearest extraction, arrows on the screen edges show the three closest ones and the events, and the minimap turns with the camera (the red N marks north). A red arc around you shows where a hit came from.
 
+Opening the inventory takes your hands: you can't move, turn, fire or dash while it is open, so find a safe spot first.
+
 In the inventory:
 
 - **Drag** an item to move it. **R** (or your reload key) rotates it while you drag. Dropping a stack on the same item merges them.
 - **Drop an attachment on a weapon** to fit it. Detach it from the right click menu.
 - **Drop a utility on a quick slot** to bind it. Right click the quick slot to clear it.
 - **Shift click** moves an item between your gear and the open container (or the stash in the hub).
+- In the hub, **drag an item on the recycle zone** of the workbench (or right click it) to take it apart into materials.
 - **Drag an item outside the panels** to drop it on the ground.
 
 ## The world
@@ -75,13 +78,17 @@ On a weapon, rarity raises damage, magazine and range and tightens the spread. O
 - **48 attachments** in 6 slots (muzzle, barrel, magazine, optic, underbarrel, rounds). Examples: suppressor, flash hider, choke, match barrel, drum and belt magazines, scope, thermal sight, flashlight, strobe light, bipod, and rounds that **bounce**, **pierce**, **explode**, set targets **on fire**, **poison**, **freeze**, **arc** to another enemy, **heal you**, **mark** the target through walls, **knock back**, **split** in two, ignore armor or finish off wounded targets.
 - **21 utilities** for the quick slots: bandage, food, medkit, trauma kit, stim, adrenaline, painkillers, antidote, energy drink, armor plate, frag, sticky bomb, smoke, flashbang, molotov, cryo and gas grenades, noisemaker, tripmine, pulse scanner, and an extraction flare that calls your own extraction where you stand.
 - **10 helmets and vests** (gas mask, night vision, fire suit, juggernaut...) and **5 backpacks**, from the 2x3 sling bag to the 6x6 hauler frame. Space is tight on purpose: 3 pocket cells, a 10x24 stash, ammo stacks of 40 at most and material stacks of 12.
-- **20 crafting materials** (scrap metal, screws, springs, string, cloth, duct tape, planks, glue, gunpowder, chemicals, wires, circuit boards, lenses, steel plates, polymer, fuel, batteries, rare alloy, monster fangs, glowing cores) and valuables to sell.
+- **20 crafting materials** (scrap metal, screws, springs, string, cloth, duct tape, planks, glue, gunpowder, chemicals, wires, circuit boards, lenses, steel plates, polymer, fuel, batteries, rare alloy, monster fangs, glowing cores), and valuables (phones, watches, graphics cards, relics...) that are only worth what they recycle into.
 
 ## Plans and crafting
 
-Every weapon, attachment, utility, armor and backpack has a **plan**. Plans drop in containers (more in cabinets, drawers, hidden stashes and supply drops) and the trader sells a few. Right click a plan in your stash and choose **Learn** to know the recipe at the plan's rarity. A better plan of the same item replaces a weaker one.
+Every weapon, attachment, utility, armor and backpack has a **plan**. Plans drop in containers (more in cabinets, drawers, hidden stashes and supply drops). Right click a plan in your stash and choose **Learn** to know the recipe at the plan's rarity. A better plan of the same item replaces a weaker one.
 
 At the **workbench** (hub, Workbench tab), choose a known recipe and a rarity up to your plan. Materials come from your stash. Higher rarities cost more materials, plus rare alloy from epic and glowing cores from legendary. Ammunition, bandages, food, the P9, the sawed-off, the cap, the sling bag, the red dot, the oil can suppressor, frags and smokes are known from the start.
+
+## Recycling
+
+At the workbench, any item but materials and plans can be taken apart: you get back about half of its recipe **at its rarity** (an epic rifle gives rare alloy, a legendary one glowing cores too), plus what its attachments are made of. Ammunition turns back into gunpowder, and valuables have their own parts: a graphics card gives circuit boards, a gold chain rare alloy, a relic alloy and a glowing core. Recycling is refused when the stash has no room for the materials, so nothing is ever lost.
 
 ## Monsters
 
@@ -126,7 +133,7 @@ The world, the characters and the monsters use the game's own drawing style. Mos
 ## How it works
 
 - **Official only.** The mode runs only on a dedicated server started with `--official` or `OFFICIAL=1` (set in `docker-compose.yml`). Other servers refuse it.
-- **Everything is server side.** Profiles live in `extraction.json` in the data directory (`--data` / `DATA_DIR`), keyed by the hashed player identity, like the ratings: money, stash, gear, learned plans and stats, plus a counter so item ids never repeat. While you are in the world, your character's gear *is* your profile gear, saved every 10 seconds, so a crash never duplicates or deletes loot. Clients only send requests (`xhub` in the hub, `xact` in the world); the server checks every one of them: distance to containers, item ownership, grid space, attachment slots, money, recipes and plan rarity.
+- **Everything is server side.** Profiles live in `extraction.json` in the data directory (`--data` / `DATA_DIR`), keyed by the hashed player identity, like the ratings: stash, gear, learned plans and stats, plus a counter so item ids never repeat. While you are in the world, your character's gear *is* your profile gear, saved every 10 seconds, so a crash never duplicates or deletes loot. Clients only send requests (`xhub` in the hub, `xact` in the world); the server checks every one of them: distance to containers, item ownership, grid space, attachment slots, recipes and plan rarity.
 - **Simulation** (`src/game/extraction/`): `worldgen.lua` builds the map; `terrain.lua` buckets its 15 000 walls, 2 500 doors and 2 400 windows in 256-unit cells so collisions, bullets and vision only look nearby; `world.lua` runs players, containers, inventories and extraction; `fight.lua` resolves shots with lag compensation and every round trait, armor, deaths, grenades, mines, fire and gas; `monsters.lua` runs nests and monster AI with a local A* (`pathing.lua`) that tests cells on demand; `events.lua` runs the random events; `loot.lua` rolls container contents by tier; `items.lua` and `inventory.lua` (shared with the client) compute effective weapon stats and handle the grids.
 - **Server** (`src/server/extraction/`): `realm.lua` runs the world at 60 ticks per second, the hub actions, deployments, the 30 second grace after a disconnect, deaths and extractions; `store.lua` keeps the profiles.
 - **Networking.** Snapshots (`xs`, 30 Hz, unreliable) carry only what a player can see or hear within 1 400 units: visible players and monsters (vision cone, flashlight and scope range, thermal radius, marks), ground items, bodies, emptied containers, open doors and broken windows nearby, shots, noises, smokes, fires, gas, projectiles and explosions, plus the events and extraction points. The inventory view (`xinv`) is sent when it changes.

@@ -290,7 +290,8 @@ end
 function GM.Extraction:input()
     local raid = self.raid
     local forward, strafe, fire, quiet = 0, 0, false, false
-    if not self.paused then
+    -- The inventory takes your hands: no moving, turning, firing or dashing while it is open.
+    if not self.paused and not self.showInventory then
         local down = Keys.down
         if down("forward") then forward = forward + 1 end
         if down("back") then forward = forward - 1 end
@@ -386,7 +387,8 @@ function GM.Extraction:drawRaidInventory()
     local ui = self.raidUI
     local places = raid.places
     ui:begin(places)
-    local cell = math.max(28, math.min(40, math.floor((H - 60 - 330) / 9)))
+    local bagRows = places.bp and places.bp.h or 0
+    local cell = math.max(34, math.min(64, math.floor((H - 70 - 150) / (10 + bagRows + (places.bp and 0.75 or 0)))))
     local lw = cell * 7 + 16 + 32
     local lh = UI.loadoutHeight(places, cell) + 60
     local loot = view.ct and places.ct
@@ -396,9 +398,7 @@ function GM.Extraction:drawRaidInventory()
     local gap = 16
     local x0 = math.floor((W - (lw + gap + rw)) / 2)
     local y0 = math.max(12, math.floor((H - math.max(lh, rh)) / 2))
-    local value = 0
-    for _, inst in ipairs(Inventory.all(view.g)) do value = value + Items.value(inst, Config.sellRate) end
-    UI.panel("Inventory", x0, y0, lw, lh, value .. " cr")
+    UI.panel("Inventory", x0, y0, lw, lh, #Inventory.all(view.g) .. " items")
     ui:loadout(view.g, places, x0 + 16, y0 + 44, cell)
     local rx = x0 + lw + gap
     if loot then
@@ -448,7 +448,7 @@ function GM.Extraction:drawSummary()
     Kit.text(titles[e.r] or "Raid over", 34, 0, H / 2 - 150, colors[e.r] or Kit.INK, 1, "center", W)
     local lines = {}
     if e.r == "died" then lines[#lines + 1] = "Killed by " .. tostring(e.k or "the wilds") .. ". Everything you carried is lost." end
-    if e.r == "extracted" then lines[#lines + 1] = "You made it out with gear worth " .. Hub.money(e.v or 0) .. "." end
+    if e.r == "extracted" then lines[#lines + 1] = "You made it out with " .. (e.v or 0) .. " items. They are in your loadout." end
     if e.r == "left" then lines[#lines + 1] = "Your character survived your absence and came back." end
     lines[#lines + 1] = string.format("Time in the world: %d:%02d", math.floor((e.time or 0) / 60), (e.time or 0) % 60)
     lines[#lines + 1] = string.format("Players killed: %d   Monsters killed: %d", e.kills or 0, e.monsters or 0)
@@ -512,6 +512,7 @@ function GM.Extraction:KeyPressed(key, scancode)
     end
     local raid = self.raid
     if self.showInventory and self.raidUI:keypressed(key, scancode) then return end
+    if self.showInventory and key ~= "escape" and not Keys.is("inventory", scancode) and not Keys.is("pickup", scancode) then return end
     if key == "escape" then
         if self.showInventory or self.showMap then
             self:closeOverlays()
