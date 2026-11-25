@@ -179,41 +179,60 @@ function GM.Menu:updateWipe()
     end
 end
 
-function GM.Menu:drawWipe()
+--- Where the wipe edge is: the x of the edge at the top (y = -10) and at the
+--- bottom (y = H + 10), the side the paper covers (1 for the left while
+--- covering, -1 for the right while revealing) and the progress.
+--- @return number, number, number, number
+function GM.Menu:wipeShape()
     local wipe = self.wipe
+    local W, H = love.graphics.getDimensions()
+    local t = Kit.clamp((love.timer.getTime() - wipe.start) / WIPE, 0, 1)
+    local slant = H * 0.35
+    if wipe.phase == "cover" then
+        local edge = -slant + (W + slant * 2) * Kit.easeOutCubic(t)
+        return edge + slant, edge, 1, t
+    end
+    local left = W + 10 - (W + slant * 2 + 20) * Kit.easeOutCubic(t)
+    return left + slant, left, -1, t
+end
+
+--- The label and the spinner shown once the screen is covered.
+function GM.Menu:drawWipeLabel()
+    local wipe = self.wipe
+    local _, _, _, t = self:wipeShape()
+    if wipe.phase ~= "cover" or t < 1 then return end
     local lg = love.graphics
     local W, H = lg.getDimensions()
-    local t = Kit.clamp((love.timer.getTime() - wipe.start) / WIPE, 0, 1)
-    local e = wipe.phase == "cover" and Kit.easeOutCubic(t) or 1 - Kit.easeOutCubic(t)
-    local slant = H * 0.35
-    local edge = -slant + (W + slant * 2) * e
-    if wipe.phase == "reveal" then
-        edge = W + slant - (W + slant * 2) * (1 - e)
-    end
+    lg.push("all")
+    lg.origin()
+    Kit.text(wipe.label or "", 26, 0, H / 2 - 30, Kit.INK, 1, "center", W)
+    local start = love.timer.getTime() * 5
+    lg.setLineWidth(3)
+    Kit.color(Kit.RED, 1)
+    lg.arc("line", "open", W / 2, H / 2 + 30, 10, start, start + math.pi * 1.3, 24)
+    lg.pop()
+end
+
+--- The flat wipe, drawn when the shader transition is not available.
+function GM.Menu:drawWipe()
+    local lg = love.graphics
+    local W, H = lg.getDimensions()
+    local top, bottom, side = self:wipeShape()
     lg.push("all")
     lg.origin()
     local paper = Kit.PAPER
-    if wipe.phase == "cover" then
-        lg.setColor(paper[1], paper[2], paper[3], 1)
-        lg.polygon("fill", -10, -10, edge + slant, -10, edge, H + 10, -10, H + 10)
+    lg.setColor(paper[1], paper[2], paper[3], 1)
+    if side == 1 then
+        lg.polygon("fill", -10, -10, top, -10, bottom, H + 10, -10, H + 10)
         Kit.color(Kit.RED, 1)
-        lg.polygon("fill", edge + slant, -10, edge + slant + 14, -10, edge + 14, H + 10, edge, H + 10)
+        lg.polygon("fill", top, -10, top + 14, -10, bottom + 14, H + 10, bottom, H + 10)
     else
-        local left = W + 10 - (W + slant * 2 + 20) * (1 - e)
-        lg.setColor(paper[1], paper[2], paper[3], 1)
-        lg.polygon("fill", left + slant, -10, W + 10, -10, W + 10, H + 10, left, H + 10)
+        lg.polygon("fill", top, -10, W + 10, -10, W + 10, H + 10, bottom, H + 10)
         Kit.color(Kit.RED, 1)
-        lg.polygon("fill", left + slant - 14, -10, left + slant, -10, left, H + 10, left - 14, H + 10)
-    end
-    if wipe.phase == "cover" and t >= 1 then
-        local text = wipe.label or ""
-        Kit.text(text, 26, 0, H / 2 - 30, Kit.INK, 1, "center", W)
-        local start = love.timer.getTime() * 5
-        lg.setLineWidth(3)
-        Kit.color(Kit.RED, 1)
-        lg.arc("line", "open", W / 2, H / 2 + 30, 10, start, start + math.pi * 1.3, 24)
+        lg.polygon("fill", top - 14, -10, top, -10, bottom, H + 10, bottom - 14, H + 10)
     end
     lg.pop()
+    self:drawWipeLabel()
 end
 
 --- @param name string?
@@ -416,7 +435,7 @@ function GM.Menu:Draw()
         self:drawScreen(self.screen, p, self.direction)
         lg.pop()
     end
-    if self.wipe then
+    if self.wipe and not self.shaderWipe then
         self:drawWipe()
     end
 end
