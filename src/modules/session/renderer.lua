@@ -6,6 +6,7 @@ local Camera = require("src.core.camera")
 local Weapons = require("src.game.weapons")
 local Player = require("src.game.player")
 local Vision = require("src.game.vision")
+local Shaders = require("src.modules.session.shaders")
 
 local Renderer = {}
 
@@ -270,8 +271,17 @@ local GADGET_COLORS = { { 0.62, 0.65, 0.7 }, { 0.98, 0.95, 0.75 }, { 0.88, 0.14,
 local function drawGadgets(world)
     local lg = love.graphics
     local now = love.timer.getTime()
+    local smokeShader = Shaders.get("smoke")
     for k, smoke in ipairs(world.arena.smokes or {}) do
-        if smoke.r > 1 then
+        if smoke.r > 1 and smokeShader then
+            local size = smoke.r * 2.2
+            lg.setColor(T.cloud[1], T.cloud[2], T.cloud[3], 1)
+            lg.setShader(smokeShader)
+            smokeShader:send("time", now)
+            smokeShader:send("seed", (smoke.x * 0.013 + smoke.y * 0.007) % 17)
+            lg.draw(Shaders.pixel(), smoke.x, smoke.y, 0, size, size, 0.5, 0.5)
+            lg.setShader()
+        elseif smoke.r > 1 then
             for n = 0, 6 do
                 local a = n / 7 * 2 * math.pi + now * 0.15 + k
                 local ox, oy = cos(a) * smoke.r * 0.45, sin(a) * smoke.r * 0.45
@@ -525,9 +535,10 @@ end
 --- @param session table
 function Renderer.draw(session)
     local lg = love.graphics
-    lg.clear(COLORS.background)
     local world = session.world
     local cam = world and session:killcam()
+    local post = world and not cam and session.postfx and session.postfx:begin()
+    lg.clear(COLORS.background)
     if cam then
         drawKillcam(session, cam)
     elseif world then
@@ -555,12 +566,13 @@ function Renderer.draw(session)
             drawPlayer(me, world.arena, Renderer.selfPalette(), true)
         end
         camera:clear()
+        if post then session.postfx:finish(camera) end
         for _, p in ipairs(opponents) do
             label(camera, p, p.ally and Character.PALETTES.ally.body or COLORS.opponent)
         end
         if world.round then drawObjectiveLabels(world, camera) end
     end
-    session.effects:drawScreen()
+    session.effects:drawScreen(post and session.postfx:drawsHurt())
     session.hud:draw(session)
     lg.setColor(1, 1, 1, 1)
     lg.setLineWidth(1)

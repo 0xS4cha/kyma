@@ -16,7 +16,7 @@ Settings.MAP_OPACITY_LABELS = { "40%", "60%", "80%", "100%" }
 Settings.MAP_VIEWS = { "Full arena", "Follow me" }
 Settings.MAP_SPANS = { 1200, 800, 500 } -- largeur visible (unités monde) en mode "Follow me"
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "postfx", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal" }
 
 --- @return table
 function Settings.defaults()
@@ -37,6 +37,7 @@ function Settings.defaults()
         accent = 1,
         head = 1,
         shake = 3,
+        postfx = true,
         theme = 1,
         minimap = true,
         minimapPos = 1,
