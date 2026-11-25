@@ -68,6 +68,8 @@ function NetKit.pump(server, clients, seconds, step)
                     elseif kind == "joined" then
                         client.slot = data.slot
                         client.room = data.room
+                    elseif kind == "left" then
+                        client.slot, client.room = nil, nil
                     end
                 end
                 event = client.host:service(0)

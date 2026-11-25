@@ -9,6 +9,7 @@ local Text = require("src.core.text")
 local Maps = require("src.maps.index")
 local Ratings = require("src.server.ratings")
 local Matchmaker = require("src.server.matchmaker")
+local Tournaments = require("src.server.tournaments")
 
 local Host = Class()
 
@@ -23,6 +24,7 @@ function Host:init(options)
     self.nextRoomId = 1
     self.ratings = Ratings(Host.ratingsPath(options))
     self.matchmaker = Matchmaker(self)
+    self.tournaments = Tournaments(self)
     self:bind()
 end
 
@@ -127,6 +129,7 @@ function Host:leaveRoom(client)
     room:Remove(client)
     if room:Empty() then
         self.rooms[room.id] = nil
+        if room.tournament then room.closing = 0 end
         Logger:info("server", "Room closed", room.id)
     end
 end
@@ -159,7 +162,7 @@ function Host:matchmake(client, options)
     local best
     for _, room in pairs(self.rooms) do
         local fits = (not mode or room.mode == mode) and (not map or room.map == map)
-        if not practice and not room.practice and not room.matched and fits and not room:Full() and (not best or room.id < best.id) then
+        if not practice and not room.practice and not room.matched and not room.tournament and fits and not room:Full() and (not best or room.id < best.id) then
             best = room
         end
     end
@@ -194,12 +197,22 @@ function Host:bind()
 
     server:On("queue", function(client, data)
         if not client.name or client.room then return end
+        if type(data) == "table" and type(data.tournament) == "table" then
+            self.matchmaker:Remove(client)
+            self.tournaments:Handle(client, data.tournament)
+            return
+        end
+        if client.tournament then return end
         if type(data) == "table" and data.matchmaking == true then
             self.matchmaker:Enqueue(client, type(data.mode) == "string" and data.mode or nil)
             return
         end
         self.matchmaker:Remove(client)
         self:matchmake(client, data)
+    end)
+
+    server:On("tournament", function(client, data)
+        self.tournaments:Handle(client, data)
     end)
 
     server:On("leaderboard", function(client)
@@ -227,6 +240,7 @@ function Host:bind()
 
     server:On("leave", function(client)
         self:leaveRoom(client)
+        self.tournaments:Leave(client)
     end)
 
     server:On("input", function(client, data)
@@ -237,6 +251,7 @@ function Host:bind()
 
     server:On("update", function(_, dt)
         self.matchmaker:Update(dt)
+        self.tournaments:Update(dt)
         for _, room in pairs(self.rooms) do
             room:Update(dt)
         end
@@ -245,6 +260,7 @@ function Host:bind()
 
     server:On("disconnect", function(client)
         self:leaveRoom(client)
+        self.tournaments:Leave(client)
     end)
 end
 

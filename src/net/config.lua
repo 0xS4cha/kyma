@@ -1,7 +1,7 @@
 local GameConfig = require("src.config.game")
 
 local CONFIG = {
-    version = 2,
+    version = 3,
     address = "*",
     port = 6789,
     official = "localhost:6789",
@@ -32,6 +32,13 @@ local CONFIG = {
         window = 100,
         widen = 15,
         statusInterval = 1
+    },
+    tournament = {
+        maxOpen = 32,
+        nameLength = 32,
+        resultDelay = 6,
+        forfeitDelay = 2,
+        readyTimeout = 30
     }
 }
 
