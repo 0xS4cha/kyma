@@ -31,14 +31,28 @@ function GM.Multiplayer:Initialize()
     self.listening = false
     self.announceAt = 0
     self.server = nil
+    self.search = nil
+    self.rating = nil
+    self.leaderboard = nil
 
     self:On("welcome", function(data)
         self.id = data.id
         self.server = type(data.server) == "table" and data.server or nil
+        self.rating = type(data.rating) == "table" and data.rating or nil
         self.state = "online"
         self.error = nil
         self:Send("queue", self.queueOptions)
+        if type(self.queueOptions) == "table" and self.queueOptions.matchmaking then
+            self:Send("leaderboard")
+        end
     end)
+    self:On("searching", function(data) self.search = data end)
+    self:On("joined", function() self.search = nil end)
+    self:On("leaderboard", function(data)
+        self.leaderboard = type(data.top) == "table" and data.top or {}
+        if type(data.me) == "table" then self.rating = data.me end
+    end)
+    self:On("rating", function(data) self.rating = data end)
     self:On("error", function(data)
         self.error = tostring(data.message)
         Logger:warn("multiplayer", self.error)
@@ -83,6 +97,27 @@ function GM.Multiplayer:Disconnect()
     self.state = "offline"
     self.id = nil
     self.server = nil
+    self.search = nil
+    self.leaderboard = nil
+end
+
+--- The official server address, which a OFFICIAL_SERVER line in .env overrides.
+--- @return string
+function GM.Multiplayer:OfficialAddress()
+    local env = require("src.core.env")
+    local value = rawget(env, "OFFICIAL_SERVER")
+    if type(value) == "string" and value ~= "" then return value end
+    return NetConfig.official
+end
+
+--- Joins the matchmaking queue of a server for a mode.
+--- @param address string
+--- @param name string
+--- @param mode string
+function GM.Multiplayer:FindMatch(address, name, mode)
+    self.queueOptions = { matchmaking = true, mode = mode }
+    self.lanHost = false
+    return self:Connect(address, name)
 end
 
 function GM.Multiplayer:PlayLocal(name, lan, options)

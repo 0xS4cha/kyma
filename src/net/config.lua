@@ -4,6 +4,7 @@ local CONFIG = {
     version = 2,
     address = "*",
     port = 6789,
+    official = "localhost:6789",
     localAddress = "127.0.0.1",
     localPorts = { 6790, 6809 },
     lanPorts = { 6789, 6799 },
