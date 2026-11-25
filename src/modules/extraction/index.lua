@@ -100,9 +100,10 @@ function GM.Extraction:Initialize()
                 self.postfx:wave(data.x, data.y, 0.75, 300)
             end
             self.postfx:kick(4)
+            self.effects:hitMarker("kill", data.x, data.y)
         else
             sound("hit", 0.6)
-            self.effects:hitMarker()
+            self.effects:hitMarker("hit", data.x, data.y)
             self.postfx:kick(1.5)
         end
     end)
@@ -507,7 +508,7 @@ function GM.Extraction:Draw()
         local post = self.postfx:begin()
         Render.draw(self)
         if post then self.postfx:finish(self.camera) end
-        self.effects:drawScreen(post and self.postfx:drawsHurt())
+        self.effects:drawScreen(post and self.postfx:drawsHurt(), self.camera)
         Hud.draw(self)
         if self.showMap then Hud.map(self) end
         if self.showInventory then self:drawRaidInventory() end

@@ -592,7 +592,7 @@ function Renderer.draw(session)
         end
         if world.round then drawObjectiveLabels(world, camera) end
     end
-    session.effects:drawScreen(post and session.postfx:drawsHurt())
+    session.effects:drawScreen(post and session.postfx:drawsHurt(), world and not cam and session.camera or nil)
     session.hud:draw(session)
     lg.setColor(1, 1, 1, 1)
     lg.setLineWidth(1)
