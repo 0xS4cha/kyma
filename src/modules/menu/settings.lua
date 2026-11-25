@@ -40,6 +40,7 @@ function Settings.defaults()
         accent = 1,
         head = 1,
         shake = 3,
+        postfx = true,
         theme = 1,
         minimap = true,
         minimapPos = 1,

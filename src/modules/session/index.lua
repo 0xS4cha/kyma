@@ -8,6 +8,7 @@ local Vision = require("src.game.vision")
 local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
+local PostFX = require("src.modules.session.postfx")
 local Feel = require("src.config.feel")
 local Loadout = require("src.config.loadout")
 local GadgetConfig = require("src.config.gadgets")
@@ -60,6 +61,7 @@ function GM.Session:Initialize()
     self.captured = false
     self.autoplay = GM.Flags and GM.Flags.autoplay or false
     self.effects = Effects.new()
+    self.postfx = PostFX.new()
     self.hitstop = Hitstop.new()
     self.hud = Hud.new()
     self.chat = { open = false, text = "", team = false, log = {} }
@@ -135,6 +137,7 @@ function GM.Session:Start(options)
     self.status = "connecting"
     self.room = nil
     self.effects = Effects.new()
+    self.postfx = PostFX.new()
     self.hitstop = Hitstop.new()
     self.hud = Hud.new()
     self.chat = { open = false, text = "", team = false, log = {} }
@@ -327,7 +330,10 @@ function GM.Session:tick()
         if me.weapon then
             self:shoot(me, command.s, TRACER_SELF)
             sound(me.weapon)
-            self:shake(Feel.shake[me.weapon] or 0.1)
+            local punch = Feel.shake[me.weapon] or 0.1
+            self:shake(punch)
+            self.postfx:kick(punch * 7)
+            if punch >= 0.4 then self.postfx:wave(me.x, me.y, punch * 0.6, 150) end
             local recoil = Feel.recoil[me.weapon]
             if recoil then
                 Character.fire(world.slot, recoil.gun)
@@ -416,7 +422,10 @@ function GM.Session:onHit(data)
     if data.t == world.slot then
         sound("hurt")
         self.effects:hurtFlash()
-        self:shake(Feel.shake.hurt + (tonumber(data.d) or 0) * Feel.shake.hurtPerDamage)
+        local damage = tonumber(data.d) or 0
+        self.postfx:hit(0.55 + damage * 0.008)
+        self.postfx:kick(3 + damage * 0.06)
+        self:shake(Feel.shake.hurt + damage * Feel.shake.hurtPerDamage)
         if (tonumber(data.d) or 0) >= Feel.hitstop.heavyDamage then self:freeze(Feel.hitstop.heavyHit) end
         if data.x and data.y then
             self.hud:damageFrom(world.me.x, world.me.y, data.x, data.y)
@@ -424,6 +433,7 @@ function GM.Session:onHit(data)
     elseif data.a == world.slot then
         sound("hit")
         self.effects:hitMarker()
+        self.postfx:kick(1.5)
         self:shake(Feel.shake.hitGiven)
         if (tonumber(data.d) or 0) >= Feel.hitstop.heavyDamage then self:freeze(Feel.hitstop.heavyHit) end
     end
@@ -437,13 +447,17 @@ function GM.Session:onKill(data)
     if victim == world.slot then
         sound("death")
         self.effects:shatter(world.me.x, world.me.y, Theme.lifted(SELF_COLOR))
+        self.postfx:wave(world.me.x, world.me.y, 1, 420)
+        self.postfx:kick(10)
         self:shake(Feel.shake.death)
         self:freeze(Feel.hitstop.death)
     else
         local seen = world.lastSeen[victim]
         if seen then
             self.effects:shatter(seen.x, seen.y, OPPONENT_COLOR)
+            self.postfx:wave(seen.x, seen.y, data.k == world.slot and 0.75 or 0.35, 300)
             if data.k == world.slot then
+                self.postfx:kick(4)
                 sound("kill")
                 self:shake(Feel.shake.killGiven)
                 self:freeze(Feel.hitstop.killGiven)
@@ -546,9 +560,13 @@ function GM.Session:onFlash(data)
     local world = self.world
     if not world or type(data.x) ~= "number" or type(data.y) ~= "number" then return end
     self.effects:burst(data.x, data.y)
+    self.postfx:wave(data.x, data.y, 1, 700)
     soundAt("bang", data.x, data.y)
     local d = math.sqrt((data.x - world.me.x) ^ 2 + (data.y - world.me.y) ^ 2)
-    if d < GadgetConfig.flash.radius then self:shake(0.5 * (1 - d / GadgetConfig.flash.radius)) end
+    if d < GadgetConfig.flash.radius then
+        self:shake(0.5 * (1 - d / GadgetConfig.flash.radius))
+        self.postfx:kick(10 * (1 - d / GadgetConfig.flash.radius))
+    end
 end
 
 --- @param data table
@@ -565,6 +583,7 @@ function GM.Session:onMelee(data)
     elseif data.t then
         sound("punch")
         self.effects:hitMarker()
+        self.postfx:kick(3)
         self:shake(Feel.shake.punchLanded)
         self:freeze(Feel.hitstop.punchLanded)
     end
@@ -936,7 +955,12 @@ function GM.Session:Think(dt)
     end
     GM.Multiplayer:Flush()
 
-    self.effects:update(self.hitstop:frozen(love.timer.getTime()) and dt * 0.1 or dt)
+    local fxDt = self.hitstop:frozen(love.timer.getTime()) and dt * 0.1 or dt
+    self.effects:update(fxDt)
+    local me = world.me
+    local alive = world.spectator or not me or me.dead == 0
+    self.postfx:setMotion(self:shakeStrength())
+    self.postfx:update(fxDt, (not world.spectator and me and me.hp or Config.health) / Config.health, not alive)
     if world.phase == "countdown" then
         local second = math.ceil(world.countdown / Config.tickRate)
         if second ~= world.beeped then

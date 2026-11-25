@@ -78,10 +78,7 @@ function GM.Multiplayer:Connect(address, name, isLocal)
     self:Disconnect()
     self.name = name or self.name
     self.isLocal = isLocal == true
-    self.address = address and address ~= "" and address or ("localhost:" .. NetConfig.port)
-    if not self.address:find(":", 1, true) then
-        self.address = self.address .. ":" .. NetConfig.port
-    end
+    self.address = Address.normalize(address) or ("localhost:" .. NetConfig.port)
     self.error = nil
     self.host = enet.host_create()
     local ok, peer = pcall(self.host.connect, self.host, self.address, NetConfig.channels)

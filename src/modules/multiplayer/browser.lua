@@ -2,6 +2,7 @@ local enet = require("enet")
 local Class = require("src.core.class")
 local Protocol = require("src.net.protocol")
 local NetConfig = require("src.net.config")
+local Address = require("src.net.address")
 
 --- Keeps a small connection to one server open and asks it for the games it
 --- runs every few seconds, for the server browser of the Multiplayer menu.
@@ -20,18 +21,10 @@ function Browser:init()
     self.retryAt = nil
 end
 
---- @param address string?
---- @return string?
-local function normalize(address)
-    if type(address) ~= "string" or address == "" then return nil end
-    if not address:find(":", 1, true) then address = address .. ":" .. NetConfig.port end
-    return address
-end
-
 --- Starts browsing a server, or stops with nil. Browsing the same address again keeps the list.
 --- @param address string?
 function Browser:Watch(address)
-    address = normalize(address)
+    address = Address.normalize(address)
     if address == self.address then return end
     self:Close()
     self.address = address
