@@ -17,14 +17,15 @@ Leaving the game does not save you: your character stays in the world for 30 sec
 
 ## Controls
 
-| Action | Keys |
+Every key below is a regular key binding (Settings > Key bindings), and every hint in the mode shows your own keys.
+
+| Action | Default keys |
 | --- | --- |
 | Move, turn, dash, walk quietly, reload | As in the duel modes |
 | Fire | Left click |
 | Primary / secondary weapon | `1` / `2` |
 | Quick slots (utilities) | `3` `4` `5` `6` |
-| Open a container or a body | `F` |
-| Pick up an item from the ground | `E` |
+| Pick up an item, open a container or a body (again to close it) | `E` |
 | Inventory | `Tab` |
 | Map (wheel to zoom) | `M` |
 | Pause (the world keeps running) | `Escape` |
@@ -33,7 +34,7 @@ The compass at the top points to the nearest extraction, arrows on the screen ed
 
 In the inventory:
 
-- **Drag** an item to move it. **R** rotates it while you drag. Dropping a stack on the same item merges them.
+- **Drag** an item to move it. **R** (or your reload key) rotates it while you drag. Dropping a stack on the same item merges them.
 - **Drop an attachment on a weapon** to fit it. Detach it from the right click menu.
 - **Drop a utility on a quick slot** to bind it. Right click the quick slot to clear it.
 - **Shift click** moves an item between your gear and the open container (or the stash in the hub).

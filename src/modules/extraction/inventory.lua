@@ -9,6 +9,7 @@ local Items = require("src.game.extraction.items")
 local Inventory = require("src.game.extraction.inventory")
 local ItemConfig = require("src.config.items")
 local Config = require("src.config.extraction")
+local Keys = require("src.input.keybinds")
 
 local UI = {}
 UI.__index = UI
@@ -164,8 +165,8 @@ function UI:loadout(gear, places, x, y, cell)
     self:slot("vest", gear.vest, px + pw + pad, y, C * 2, C * 3)
     local wy = y + ph + pad + 4
     local ww = C * 7 + pad * 2
-    self:slot("primary", gear.primary, x, wy, ww, C * 2, "Primary  ·  1")
-    self:slot("secondary", gear.secondary, x, wy + C * 2 + pad, ww, C * 2, "Secondary  ·  2")
+    self:slot("primary", gear.primary, x, wy, ww, C * 2, "Primary  ·  " .. Keys.label("weapon1"))
+    self:slot("secondary", gear.secondary, x, wy + C * 2 + pad, ww, C * 2, "Secondary  ·  " .. Keys.label("weapon2"))
     local qy = wy + C * 4 + pad * 2 + 22
     Kit.text("Quick slots", 12, x, qy - 18, Kit.INK, 0.55)
     self:quick(gear, x, qy, C)
@@ -180,7 +181,16 @@ function UI:loadout(gear, places, x, y, cell)
     return ww, height
 end
 
---- The quick slots bar (3 to 6 on the keyboard).
+--- Height of what UI:loadout draws.
+--- @return number
+function UI.loadoutHeight(places, C)
+    local pad = 8
+    local height = C * 4 + pad + 4 + pad + C * 4 + pad * 2 + 22 + C + 30 + C
+    if places.bp then height = height + 30 + places.bp.h * C end
+    return height
+end
+
+--- The quick slots bar.
 function UI:quick(gear, x, y, size)
     for k = 1, Config.quickSlots do
         local bx = x + (k - 1) * (size + 6)
@@ -191,7 +201,7 @@ function UI:quick(gear, x, y, size)
         if loc then
             Icons.draw(loc.inst, bx, y, size, size)
         end
-        Kit.keycap(tostring(k + 2), bx + 3, y + size - 20, 0.8, 11)
+        Kit.keycap(Keys.label("quick" .. k), bx + 3, y + size - 20, 0.8, 11)
         self.next[#self.next + 1] = { kind = "quick", k = k, x = bx, y = y, w = size, h = size, inst = loc and loc.inst }
     end
 end
@@ -299,8 +309,8 @@ function UI:mousereleased(mx, my, button)
     return true
 end
 
-function UI:keypressed(key)
-    if self.drag and key == "r" then
+function UI:keypressed(key, scancode)
+    if self.drag and (key == "r" or (scancode and Keys.is("reload", scancode))) then
         local def = Items.def(self.drag.inst)
         if def.w ~= def.h then self.drag.rot = 1 - self.drag.rot end
         return true
@@ -330,7 +340,7 @@ function UI:openMenu(inst, ref, mx, my)
     local function add(label, run) entries[#entries + 1] = { label = label, run = run } end
     if def.kind == "utility" then
         for k = 1, Config.quickSlots do
-            add("Bind to " .. (k + 2), function() self.send({ o = "quick", k = k, i = inst.i }) end)
+            add("Bind to " .. Keys.label("quick" .. k), function() self.send({ o = "quick", k = k, i = inst.i }) end)
         end
     end
     local equip = def.kind == "weapon" and { "primary", "secondary" } or (def.kind == "armor" and { def.slot }) or (def.kind == "backpack" and { "backpack" }) or {}

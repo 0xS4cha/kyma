@@ -2,6 +2,7 @@
 --- extraction progress, event banners, the kill feed, the minimap and the full map.
 local GM = require("src.core.index")
 local Kit = require("src.ui.kit")
+local Keys = require("src.input.keybinds")
 local Icons = require("src.modules.extraction.icons")
 local Items = require("src.game.extraction.items")
 local Inventory = require("src.game.extraction.inventory")
@@ -214,7 +215,7 @@ function Hud.map(ext)
     local px, py = toMap(me.x, me.y)
     arrow(px, py, me.angle, 12)
     lg.setScissor()
-    Kit.text("Map   ·   wheel to zoom   ·   M to close", 14, 0, my0 - 26, Kit.INK, 0.7, "center", W)
+    Kit.text("Map   ·   wheel to zoom   ·   " .. Keys.label("map") .. " to close", 14, 0, my0 - 26, Kit.INK, 0.7, "center", W)
     local legend = {}
     for _, id in ipairs({ "forest", "field", "lake", "town", "industrial", "military", "citadel" }) do legend[#legend + 1] = id end
     local lx = mx0 + size + 16
@@ -291,7 +292,7 @@ function Hud.draw(ext)
             lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], active and 0.1 or 0.04)
             lg.rectangle("fill", hx, by, 168, 50, 8, 8)
             if inst then Icons.draw(inst, hx + 4, by + 4, 120, 42, active and 1 or 0.55) end
-            Kit.keycap(tostring(k), hx + 140, by + 14, active and 1 or 0.5, 12)
+            Kit.keycap(Keys.label("weapon" .. k), hx + 140, by + 14, active and 1 or 0.5, 12)
         end
         if me.def then
             local text = me.reload > 0 and "Reloading" or (me.ammo .. " / " .. me.reserve)
@@ -307,7 +308,7 @@ function Hud.draw(ext)
             local uid = view.g.quick[k]
             local loc = places and uid and uid ~= 0 and Inventory.locate(places, uid)
             if loc then Icons.draw(loc.inst, qx, by + 56, 42, 42) end
-            Kit.keycap(tostring(k + 2), qx + 2, by + 80, 0.8, 10)
+            Kit.keycap(Keys.label("quick" .. k), qx + 2, by + 80, 0.8, 10)
         end
     end
 
@@ -332,19 +333,20 @@ function Hud.draw(ext)
     local prompt
     local target = raid:interactable()
     if raid.inventory and raid.inventory.ct then
-        prompt = { "Tab", "Loot " .. raid.inventory.ct.n }
+        prompt = { Keys.label("inventory"), "Loot " .. raid.inventory.ct.n }
     elseif target then
         local name = target.name or (Loot.containers[target.kind] and Loot.containers[target.kind].name) or "Container"
         if target.kind == "corpse" then name = "Body of " .. (target.name or "?") end
-        prompt = { "F", "Open " .. name }
+        prompt = { Keys.label("pickup"), "Open " .. name }
     end
     local item = raid:nearbyItem()
     if item and ItemConfig.all[item.d] then
         local r = Items.rarity({ r = item.r })
         local label = ItemConfig.all[item.d].name
-        Kit.hint("E", "Pick up " .. label, W / 2 - 100, H * 0.68, 1, 14, r.color)
+        Kit.hint(Keys.label("pickup"), "Pick up " .. label, W / 2 - 100, H * 0.68 + 40, 1, 14, r.color)
+    elseif prompt then
+        Kit.hint(prompt[1], prompt[2], W / 2 - 100, H * 0.68 + 40, 1, 14)
     end
-    if prompt then Kit.hint(prompt[1], prompt[2], W / 2 - 100, H * 0.68 + 30, 1, 14) end
 
     -- Nearest extraction, with a compass arrow pointing at it on screen.
     local best, bestD
@@ -436,8 +438,8 @@ function Hud.draw(ext)
         Kit.text("Your gear stays on your body for others to loot.", 14, 0, H / 2 + 30, { 1, 1, 1 }, 0.7, "center", W)
     end
 
-    Kit.hint("Tab", "Inventory", 24, 24, 0.7, 12)
-    Kit.hint("M", "Map", 24, 50, 0.7, 12)
+    Kit.hint(Keys.label("inventory"), "Inventory", 24, 24, 0.7, 12)
+    Kit.hint(Keys.label("map"), "Map", 24, 50, 0.7, 12)
     local ping = GM.Multiplayer and GM.Multiplayer:Ping()
     if ping then Kit.text(string.format("%d ms", floor(ping)), 11, 24, 76, Kit.INK, 0.4) end
 end
