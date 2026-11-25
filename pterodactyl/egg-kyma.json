@@ -1,0 +1,92 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-11-25T12:00:00+00:00",
+    "name": "Kyma",
+    "author": "88593319+0xS4cha@users.noreply.github.com",
+    "description": "Dedicated server for Kyma, a top-down shooter made with LOVE. Runs casual rooms, rated matchmaking and tournaments. Players connect over UDP on the allocated port.",
+    "features": null,
+    "docker_images": {
+        "Debian": "ghcr.io/parkervcp/yolks:debian"
+    },
+    "file_denylist": [],
+    "startup": "./love/AppRun ./game --port {{SERVER_PORT}} --data /home/container/data",
+    "config": {
+        "files": "{}",
+        "startup": "{\"done\": \"Dedicated server\"}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# Pterodactyl install script for the Kyma dedicated server.\n# Runs as root in the installer container, with the server files in /mnt/server.\nset -euo pipefail\n\nLOVE_VERSION=\"${LOVE_VERSION:-11.5}\"\nREPO_URL=\"${REPO_URL:-https://github.com/0xS4cha/kyma.git}\"\nREPO_BRANCH=\"${REPO_BRANCH:-main}\"\n\napt-get update\napt-get install -y --no-install-recommends git curl ca-certificates\n\nmkdir -p /mnt/server\ncd /mnt/server\n\necho \"Downloading LOVE ${LOVE_VERSION}\"\nrm -rf love squashfs-root love.AppImage\ncurl -fsSL -o love.AppImage \"https://github.com/love2d/love/releases/download/${LOVE_VERSION}/love-${LOVE_VERSION}-x86_64.AppImage\"\nchmod +x love.AppImage\n./love.AppImage --appimage-extract > /dev/null\nmv squashfs-root love\nrm -f love.AppImage\n\necho \"Fetching Kyma from ${REPO_URL} (${REPO_BRANCH})\"\nrm -rf /tmp/kyma game\ngit clone --depth 1 --branch \"${REPO_BRANCH}\" \"${REPO_URL}\" /tmp/kyma\nmkdir -p game data\ncp -r /tmp/kyma/server/. game/\ncp -r /tmp/kyma/src game/\ncp -r /tmp/kyma/libs game/\ngit -C /tmp/kyma rev-parse --short HEAD > game/REVISION\nrm -rf /tmp/kyma\n\necho \"Kyma installed at revision $(cat game/REVISION)\"\n",
+            "container": "ghcr.io/parkervcp/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Server name",
+            "description": "Name shown to players while they queue.",
+            "env_variable": "SERVER_NAME",
+            "default_value": "Kyma server",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:40",
+            "field_type": "text"
+        },
+        {
+            "name": "Message of the day",
+            "description": "Shown to players while they queue. Leave empty for none.",
+            "env_variable": "SERVER_MOTD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:160",
+            "field_type": "text"
+        },
+        {
+            "name": "Max players",
+            "description": "Most players connected at once.",
+            "env_variable": "MAX_PEERS",
+            "default_value": "64",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:2,512",
+            "field_type": "text"
+        },
+        {
+            "name": "Branch",
+            "description": "Branch of the Kyma repository to install. Reinstall the server to update it.",
+            "env_variable": "REPO_BRANCH",
+            "default_value": "main",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|string|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "Repository",
+            "description": "Git repository the server files come from.",
+            "env_variable": "REPO_URL",
+            "default_value": "https://github.com/0xS4cha/kyma.git",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|string|max:200",
+            "field_type": "text"
+        },
+        {
+            "name": "LOVE version",
+            "description": "LOVE release that runs the server. It must match the version the game is built with.",
+            "env_variable": "LOVE_VERSION",
+            "default_value": "11.5",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        }
+    ]
+}
