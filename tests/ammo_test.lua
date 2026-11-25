@@ -54,13 +54,14 @@ return {
         end
     },
     {
-        name = "unarmed players don't take ammo and E never swaps for ammo",
+        name = "an empty-handed player gets a pistol, and E never swaps for ammo",
         run = function()
             local world, p = solo()
             Weapons.give(p, nil)
-            Combat.spawnItem(world, "ammo", nil, nil, p.x, p.y)
             idle(world)
-            assert(not p.weapon and count(world, "ammo") == 1)
+            assert(p.weapon == "pistol", "the fallback pistol")
+            world.items = {}
+            Combat.spawnItem(world, "ammo", nil, nil, p.x, p.y)
             Weapons.give(p, "pistol", 8, Weapons.reserveCap(WeaponConfig.pistol))
             idle(world, { e = 1 })
             assert(p.weapon == "pistol" and count(world, "ammo") == 1)

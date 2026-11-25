@@ -17,7 +17,8 @@ local function rows()
         { id = "minimapVision", label = "Vision cone", hint = "Show what you can currently see", kind = "toggle" },
         { id = "minimapAllies", label = "Show allies", hint = "Teammates, with their direction", kind = "toggle" },
         { id = "minimapEnemies", label = "Show spotted enemies", hint = "Enemies you can see right now", kind = "toggle" },
-        { id = "minimapLoot", label = "Show loot", hint = "Weapons, ammo and health on the floor", kind = "toggle" }
+        { id = "minimapLoot", label = "Show loot", hint = "Weapons, ammo and health on the floor", kind = "toggle" },
+        { id = "minimapPings", label = "Show pings", hint = "Your pings and your team's, named after the weapon", kind = "toggle" }
     }
 end
 

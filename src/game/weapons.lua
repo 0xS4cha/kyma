@@ -27,6 +27,14 @@ function Weapons.held(p)
     return p.def or Weapons.def(p.weapon)
 end
 
+--- Les armes de poing (petits flingues) ne se lâchent pas, ne se jettent pas et ne se volent pas.
+--- @param kind string?
+--- @return boolean
+function Weapons.sidearm(kind)
+    local def = kind and Config[kind]
+    return def ~= nil and def.sidearm == true
+end
+
 --- @param kind string?
 --- @return number
 function Weapons.pack(kind)

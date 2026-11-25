@@ -17,6 +17,7 @@ Keybinds.actions = {
     { id = "pickup", label = "Pick up / open", keys = { "e" } },
     { id = "ready", label = "Ready up", keys = { "f" } },
     { id = "scoreboard", label = "Scoreboard", keys = { "tab" } },
+    { id = "ping", label = "Ping (or middle click)", keys = { "v" } },
     { id = "chat", label = "Chat", keys = { "return" } },
     { id = "help", label = "Controls panel", keys = { "h" } },
     { id = "inventory", label = "Inventory (extraction)", keys = { "tab" } },

@@ -10,6 +10,7 @@ local CONFIG = {
     },
 
     health = 100,
+    pingCooldown = 0.35,
     shield = { plates = 3, plateHp = 25 },
     respawnTicks = 120,
     rewindTicks = 20,

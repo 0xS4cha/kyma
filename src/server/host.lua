@@ -312,6 +312,12 @@ function Host:bind()
         end
     end)
 
+    server:On("ping", function(client, data)
+        if client.room then
+            client.room:Ping(client, data)
+        end
+    end)
+
     server:On("hold", function(client, data)
         if client.room then
             client.room:Hold(client, data)
