@@ -51,7 +51,8 @@ local function parse(data, ip)
         room = room,
         players = tonumber(fields[5]) or 0,
         max = tonumber(fields[6]) or 0,
-        name = fields[7] ~= "" and fields[7] or "LAN duel"
+        name = fields[7] ~= "" and fields[7] or "LAN game",
+        locked = fields[9] == "1"
     }
 end
 
@@ -97,7 +98,7 @@ function Lan:Announce(info)
     end
     local message = table.concat({
         PREFIX, NetConfig.version, info.port, info.room, info.players, info.max,
-        (info.name or ""):gsub("|", ""), info.address or ""
+        (info.name or ""):gsub("|", ""), info.address or "", info.locked and "1" or ""
     }, "|")
     local targets = { LIMITED, LOOPBACK }
     if info.address then

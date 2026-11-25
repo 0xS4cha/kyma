@@ -1,5 +1,5 @@
 local WEAPONS = {
-    order = { "pistol", "rifle", "shotgun", "sniper", "silencer", "lmg" },
+    order = { "pistol", "rifle", "shotgun", "sniper", "silencer", "lmg", "smg", "revolver", "dmr", "autoshotgun", "breaker" },
 
     pistol = {
         name = "PISTOL",
@@ -89,6 +89,82 @@ local WEAPONS = {
         reloadTicks = 210,
         muzzle = 32,
         speed = 0.72
+    },
+
+    smg = {
+        name = "SMG",
+        tag = "Very fast fire, wide spread",
+        damage = 11,
+        pellets = 1,
+        spread = 0.07,
+        range = 1000,
+        fireTicks = 3,
+        auto = true,
+        magazine = 30,
+        reserve = 60,
+        reloadTicks = 95,
+        muzzle = 24
+    },
+
+    revolver = {
+        name = "REVOLVER",
+        tag = "Slow and heavy. Three hits kill",
+        damage = 58,
+        pellets = 1,
+        spread = 0.008,
+        range = 1500,
+        fireTicks = 40,
+        auto = false,
+        magazine = 6,
+        reserve = 18,
+        reloadTicks = 130,
+        muzzle = 22
+    },
+
+    dmr = {
+        name = "DMR",
+        tag = "Precise semi-auto, long range",
+        damage = 46,
+        pellets = 1,
+        spread = 0.006,
+        range = 2200,
+        fireTicks = 20,
+        auto = false,
+        magazine = 10,
+        reserve = 30,
+        reloadTicks = 125,
+        muzzle = 34
+    },
+
+    autoshotgun = {
+        name = "AUTO SHOTGUN",
+        tag = "Fast pump, weaker pellets",
+        damage = 9,
+        pellets = 6,
+        spread = 0.2,
+        range = 480,
+        fireTicks = 18,
+        auto = true,
+        magazine = 8,
+        reserve = 24,
+        reloadTicks = 150,
+        muzzle = 26
+    },
+
+    breaker = {
+        name = "BREAKER",
+        tag = "Shreds shield plates",
+        damage = 16,
+        pellets = 5,
+        spread = 0.18,
+        range = 560,
+        fireTicks = 40,
+        auto = false,
+        magazine = 5,
+        reserve = 15,
+        reloadTicks = 125,
+        muzzle = 25,
+        shieldMult = 2.5
     },
 
     melee = {

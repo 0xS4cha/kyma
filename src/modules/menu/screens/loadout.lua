@@ -8,7 +8,8 @@ local Settings = require("src.modules.menu.settings")
 
 local Screen = {}
 
-local COLS, TILE_H, MOD_H = 3, 92, 44
+local COLS, TILE_H, MOD_H = 4, 84, 44
+local ROWS = math.ceil(#WeaponConfig.order / COLS)
 
 local STATS = {
     { label = "Damage", value = function(p, def) return def.damage * def.pellets end, max = 100, text = function(v) return tostring(v) end },
@@ -50,7 +51,7 @@ function Screen.build(menu)
             press = function() menu:setOption(weaponKey, k) end
         }
     end
-    local my = l.y + 50 + 2 * (TILE_H + 10) + 44
+    local my = l.y + 50 + ROWS * (TILE_H + 10) + 44
     for k, mod in ipairs(Loadout.mods) do
         list[#list + 1] = {
             id = "mod:" .. mod.id, mod = mod, value = k,
@@ -97,10 +98,10 @@ function Screen.draw(menu, elements, p)
     local current = Settings.modAt(s[modKey], s[weaponKey])
     local e = menu:stagger(p, 2)
     local mods = #Loadout.mods
-    local panelH = 50 + 2 * (TILE_H + 10) + 44 + mods * (MOD_H + 6) + 12 + 80
+    local panelH = 50 + ROWS * (TILE_H + 10) + 44 + mods * (MOD_H + 6) + 12 + 80
     Kit.card(l.x, l.y + (1 - e) * 20, l.w, panelH, e, 18)
     Kit.text("Weapon", 12, l.x + 22, l.y + 22, Kit.INK, 0.5 * e)
-    Kit.text("Mod", 12, l.x + 22, l.y + 50 + 2 * (TILE_H + 10) + 18, Kit.INK, 0.5 * e)
+    Kit.text("Mod", 12, l.x + 22, l.y + 50 + ROWS * (TILE_H + 10) + 18, Kit.INK, 0.5 * e)
     local lg = love.graphics
     for k, element in ipairs(elements) do
         local a = menu:stagger(p, 2 + k * 0.2)

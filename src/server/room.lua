@@ -15,7 +15,7 @@ local WeaponConfig = require("src.config.weapons")
 
 local Room = Class()
 
-local BOT_NAMES = { "Nova", "Echo", "Vega", "Orion", "Lyra", "Atlas", "Iris", "Juno" }
+local BOT_NAMES = { "Nova", "Echo", "Vega", "Orion", "Lyra", "SkibidiBananoo", "Atlas", "Iris", "Juno" }
 
 function Room:init(id, options)
     options = type(options) == "table" and options or {}
@@ -28,6 +28,9 @@ function Room:init(id, options)
     self.bots = {}
     self.practice = type(options.bot) == "string"
     self.matched = options.matched == true
+    self.hosted = options.hosted == true
+    self.title = options.title
+    self.password = options.password
     if self.practice then
         local count = self.rules.players - (options.watch and 0 or 1)
         for k = 1, count do
@@ -46,8 +49,11 @@ function Room:init(id, options)
     self.state = "waiting"
 end
 
+--- Practice rooms are filled with bots and duel is one on one; every other
+--- mode takes as many players as the server holds.
 function Room:Max()
-    return self.rules.players
+    if self.practice then return self.rules.players end
+    return self.rules.max or Config.maxPeers
 end
 
 function Room:Count()
@@ -88,6 +94,32 @@ function Room:Full()
     return self:Count() >= self:Max()
 end
 
+--- @return boolean
+function Room:Locked()
+    return self.password ~= nil
+end
+
+--- @param password any
+--- @return boolean
+function Room:Opens(password)
+    return not self.password or password == self.password
+end
+
+--- Rooms other players can find in the server browser and join on their own.
+--- @return boolean
+function Room:Public()
+    return not self.practice and not self.matched and not self.tournament
+end
+
+--- @return table
+function Room:Listing()
+    local phase = self.world.phase
+    return {
+        id = self.id, t = self.title, m = self.mode, map = self.map, p = self:Count(), x = self:Max(),
+        w = self:Watchers(), lk = self:Locked() or nil, ph = self.world.over and "over" or phase
+    }
+end
+
 function Room:Empty()
     return #self.members == 0
 end
@@ -124,8 +156,9 @@ function Room:Info()
     end
     table.sort(players, function(a, b) return a.slot < b.slot end)
     return {
-        id = self.id, state = self.state, players = players, practice = self.practice, matched = self.matched or nil, tl = self.label,
-        mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers(), ru = Loadout.pack(self.world.options)
+        id = self.id, state = self.state, players = players, practice = self.practice, matched = self.matched or nil, tl = self.label or (self.hosted and self.title) or nil,
+        mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers(), ru = Loadout.pack(self.world.options),
+        lk = self:Locked() or nil
     }
 end
 
@@ -262,7 +295,10 @@ function Room:sendState()
         local heard = {}
         for _, noise in ipairs(noises) do
             if self.world:hears(member.slot, noise) then
-                heard[#heard + 1] = { x = noise.x, y = noise.y, k = noise.kind }
+                heard[#heard + 1] = {
+                    x = noise.x, y = noise.y, k = noise.kind,
+                    a = noise.angle and Player.packAngle(noise.angle) or nil, f = noise.side
+                }
             end
         end
         member:Stream("state", {
@@ -307,7 +343,23 @@ function Room:Update(dt)
         for _, bot in ipairs(self.bots) do
             self.world:queue(bot.slot, { bot:command(self.world) })
         end
-        self.world:step()
+        local violation = self.world:step()
+        if violation then
+            local offender
+            for _, member in ipairs(self.members) do
+                if member.slot == violation.slot then offender = member break end
+            end
+            if offender then
+                Logger:warn("anticheat", string.format(
+                    "Disconnecting %s in room %d: invalid %s (%s)",
+                    offender.name, self.id, violation.field, tostring(violation.value)))
+                offender:Disconnect()
+            else
+                Logger:warn("anticheat", string.format(
+                    "Slot %d in room %d: invalid %s (%s)",
+                    violation.slot, self.id, violation.field, tostring(violation.value)))
+            end
+        end
         self:flushEvents()
         if self.world.tick % Config.snapshotTicks == 0 then
             self:sendState()

@@ -1,3 +1,4 @@
+local GM = require("src.core.index")
 local Kit = require("src.ui.kit")
 local Common = require("src.modules.menu.screens.common")
 local Settings = require("src.modules.menu.settings")
@@ -20,12 +21,9 @@ function Root.build(menu)
     local map = require("src.maps.index").get(menu.settings.map).name
     local list = {
         { id = "play", label = "Play", sublabel = mode .. " on " .. map .. ", " .. level:lower() .. " bots, or host a game", primary = true, h = 78, press = function() menu:switch("play", 1) end },
-        { id = "extraction", label = "Extraction", sublabel = "A huge persistent world on the official server", h = 62, press = function()
-            require("src.modules.menu.screens.online").extraction(menu)
-        end },
-        { id = "online", label = "Online", sublabel = "Rated matchmaking on the official server", h = 62, press = function() menu:switch("online", 1) end },
+        { id = "extraction", label = "Extraction", sublabel = "A huge persistent world on the official server", h = 62, press = function() Root.extraction(menu) end },
+        { id = "multiplayer", label = "Multiplayer", sublabel = "Rated matches, server games and your network", h = 62, press = function() menu:switch("multiplayer", 1) end },
         { id = "tournament", label = "Tournaments", sublabel = "Create or join a bracket, in any mode", h = 62, press = function() menu:switch("tournament", 1) end },
-        { id = "multiplayer", label = "Multiplayer", sublabel = "Join a duel on your network or a server", h = 62, press = function() menu:switch("multiplayer", 1) end },
         { id = "profile", label = "Profile", sublabel = "Name, colors and head", h = 54, press = function() menu:switch("profile", 1) end },
         { id = "loadout", label = "Loadout", sublabel = "Your weapon and its mod", h = 54, press = function() menu.loadoutTarget = nil; menu:switch("loadout", 1) end },
         { id = "howto", label = "How to play", h = 46, press = function() menu:switch("howto", 1) end },
@@ -117,6 +115,15 @@ function Root.keyPressed(menu, key)
         return true
     end
     return false
+end
+
+--- Opens the extraction mode on the official server.
+function Root.extraction(menu)
+    menu:saveSettings()
+    menu:Launch("Entering the wilds", function()
+        menu.background:stop()
+        GM.Extraction:Start(GM.Multiplayer:OfficialAddress(), menu.settings.name)
+    end)
 end
 
 function Root.back() end

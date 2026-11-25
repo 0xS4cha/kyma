@@ -1,4 +1,6 @@
 local Theme = require("src.ui.theme")
+local Text = require("src.core.text")
+local TextEdit = require("src.ui.textedit")
 
 local Kit = {}
 
@@ -19,6 +21,7 @@ local INK, CARD, SURFACE, SHADOW = Kit.INK, Kit.CARD, Kit.SURFACE, Kit.SHADOW
 
 local fonts = {}
 local eased = {}
+local scrolls = {}
 
 --- @param size number
 --- @return love.Font
@@ -248,7 +251,102 @@ function Kit.segments(id, x, y, w, h, options, selected, alpha)
     end
 end
 
-function Kit.field(id, x, y, w, h, value, placeholder, editing, hot, alpha)
+--- @param str string
+--- @return string[]
+local function glyphs(str)
+    local list = Text.chars(str)
+    if list then return list end
+    list = {}
+    for i = 1, #str do list[i] = str:sub(i, i) end
+    return list
+end
+
+--- @param f love.Font
+--- @param list string[]
+--- @param n integer
+--- @return number
+local function prefixWidth(f, list, n)
+    return f:getWidth(table.concat(list, "", 1, n))
+end
+
+--- Draws the text of a field being edited, clipped to its width: the
+--- selection, the text, and the caret, scrolled so the caret stays in view.
+--- @param id string
+--- @param str string what is shown (stars for a password)
+--- @param state table a TextEdit state with the same number of characters
+--- @param x number
+--- @param y number top of the text
+--- @param w number visible width
+--- @param size number font size
+--- @param c table text color
+--- @param alpha number
+--- @param caret table? { top, height } of the caret, relative to y
+function Kit.editable(id, str, state, x, y, w, size, c, alpha, caret)
+    local lg = love.graphics
+    local f = Kit.font(size)
+    local list = glyphs(str)
+    local cursor = min(state.cursor, #list)
+    local cx = prefixWidth(f, list, cursor)
+    local total = f:getWidth(str)
+    local scroll = scrolls[id] or 0
+    if cx - scroll > w - 3 then scroll = cx - w + 3 end
+    if cx < scroll then scroll = cx end
+    scroll = max(0, min(scroll, total - w + 3))
+    scrolls[id] = scroll
+    local left = floor(x - scroll + 0.5)
+    caret = caret or { top = -2, height = size + 6 }
+
+    lg.push("all")
+    local sx, sy = lg.transformPoint(x - 2, y + caret.top - 2)
+    local ex, ey = lg.transformPoint(x + w + 2, y + caret.top + caret.height + 2)
+    lg.intersectScissor(min(sx, ex), min(sy, ey), max(1, math.abs(ex - sx)), max(1, math.abs(ey - sy)))
+    local a, b = TextEdit.range(state)
+    if a then
+        local ax, bx = prefixWidth(f, list, min(a, #list)), prefixWidth(f, list, min(b, #list))
+        Kit.color(Kit.RED, 0.2 * alpha)
+        lg.rectangle("fill", left + ax, y + caret.top, bx - ax, caret.height, 3, 3)
+    end
+    lg.setFont(f)
+    Kit.color(c, alpha)
+    lg.print(str, left, floor(y + 0.5))
+    local now = love.timer.getTime()
+    if (now - (state.moved or 0)) % 1 < 0.55 then
+        Kit.color(Kit.RED, alpha)
+        lg.rectangle("fill", left + cx, y + caret.top, 2, caret.height)
+    end
+    lg.pop()
+end
+
+--- The caret position closest to a point inside a field drawn by Kit.editable.
+--- @param id string
+--- @param str string what is shown
+--- @param size number font size
+--- @param dx number distance from the start of the text box
+--- @return integer
+function Kit.caretAt(id, str, size, dx)
+    local f = Kit.font(size)
+    local list = glyphs(str)
+    local target = dx + (scrolls[id] or 0)
+    local best, gap = 0, math.huge
+    for n = 0, #list do
+        local d = math.abs(prefixWidth(f, list, n) - target)
+        if d < gap then best, gap = n, d end
+    end
+    return best
+end
+
+--- @param id string
+--- @param x number
+--- @param y number
+--- @param w number
+--- @param h number
+--- @param value string what is shown
+--- @param placeholder string
+--- @param editing boolean
+--- @param hot boolean
+--- @param alpha number
+--- @param state table? the TextEdit state while editing
+function Kit.field(id, x, y, w, h, value, placeholder, editing, hot, alpha, state)
     local lg = love.graphics
     local focus = Kit.ease("field:" .. id, editing == true or hot == true)
     lg.setColor(INK[1], INK[2], INK[3], (0.05 + 0.03 * focus) * alpha)
@@ -258,11 +356,23 @@ function Kit.field(id, x, y, w, h, value, placeholder, editing, hot, alpha)
     lg.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 10, 10)
     lg.setLineWidth(1)
     local empty = value == ""
-    local tw = Kit.text(empty and placeholder or value, 16, x + 14, y + (h - 19) / 2, INK, (empty and 0.35 or 1) * alpha)
-    if editing and love.timer.getTime() % 1 < 0.55 then
+    local ty = y + (h - 19) / 2
+    if editing and state and not empty then
+        Kit.editable("field:" .. id, value, state, x + 14, ty, w - 28, 16, INK, alpha, { top = y + 10 - ty, height = h - 20 })
+        return
+    end
+    scrolls["field:" .. id] = nil
+    local f = Kit.font(16)
+    local shown = empty and placeholder or value
+    while #shown > 0 and f:getWidth(shown) > w - 28 do shown = Text.dropLast(shown) end
+    Kit.text(shown, 16, x + 14, ty, INK, (empty and 0.35 or 1) * alpha)
+    if editing and (love.timer.getTime() - (state and state.moved or 0)) % 1 < 0.55 then
         Kit.color(Kit.RED, alpha)
-        lg.rectangle("fill", x + 15 + (empty and 0 or tw), y + 10, 2, h - 20)
+        lg.rectangle("fill", x + 15, y + 10, 2, h - 20)
     end
 end
+
+--- Where the text of Kit.field starts, from the left edge of the field.
+Kit.FIELD_PADDING = 14
 
 return Kit

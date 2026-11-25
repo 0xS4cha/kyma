@@ -27,19 +27,24 @@ function LOADOUT.sanitize(kit)
     return { w = w, m = m, g = g }
 end
 
+--- Health a player gets back for each kill when the rule is on.
+LOADOUT.killHeal = 50
+
 --- @param rules any
 --- @return table
 function LOADOUT.rules(rules)
     rules = type(rules) == "table" and rules or {}
     local spawn = math.floor(tonumber(rules.s) or 1)
     if spawn < 1 or spawn > #LOADOUT.spawn then spawn = 1 end
-    return { loot = rules.f ~= false, spawn = LOADOUT.spawn[spawn], s = spawn, f = rules.f ~= false, preset = LOADOUT.sanitize(rules.p) }
+    return { loot = rules.f ~= false, spawn = LOADOUT.spawn[spawn], s = spawn, f = rules.f ~= false, preset = LOADOUT.sanitize(rules.p), heal = rules.h == true, shields = rules.sh ~= false }
 end
 
 --- @param rules table
 --- @return table
 function LOADOUT.pack(rules)
-    return { f = rules.loot, s = rules.s, p = rules.preset }
+    local packed = { f = rules.loot, s = rules.s, p = rules.preset, h = rules.heal or nil }
+    if rules.shields == false then packed.sh = false end -- (x and false or nil) vaut toujours nil en Lua
+    return packed
 end
 
 return LOADOUT

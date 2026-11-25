@@ -29,22 +29,21 @@ function Common.header(menu, elements, p, title, subtitle)
     Kit.text(subtitle, 14, back.x + back.w + 30, 72, Kit.INK, 0.55 * a)
 end
 
+--- Describes a text field bound to a setting, for the `text` of an element.
 --- @param menu table
---- @param key string
---- @param limit number
---- @param pattern string
---- @return function
-function Common.textHandler(menu, key, limit, pattern)
-    return function(_, text)
-        local value = menu.settings[key]
-        if text then
-            if #value < limit and text:match(pattern) then
-                menu.settings[key] = value .. text
-            end
-        else
-            menu.settings[key] = value:sub(1, -2)
-        end
-    end
+--- @param key string the setting the field edits
+--- @param limit number most characters
+--- @param pattern string what one character must match
+--- @param secret boolean? hide it from copy and cut
+--- @return table { get, set, limit, pattern, secret }
+function Common.textHandler(menu, key, limit, pattern, secret)
+    return {
+        limit = limit,
+        pattern = pattern,
+        secret = secret,
+        get = function() return menu.settings[key] end,
+        set = function(value) menu.settings[key] = value end
+    }
 end
 
 --- @param str string
@@ -65,6 +64,7 @@ function Common.paragraph(str, size, x, y, width, color, alpha)
 end
 
 Common.NAME_PATTERN = "^[%w%s%-_%.']$"
+Common.PASSWORD_PATTERN = "^[%w%p ]$"
 Common.SERVER_PATTERN = "^[%w%.%-:]$"
 
 return Common

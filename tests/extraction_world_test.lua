@@ -60,6 +60,9 @@ return {
             end
             for _, extract in ipairs(def.extracts) do
                 assert(terrain:clear(extract.x, extract.y, 40), "extract blocked: " .. extract.name)
+                for _, spawn in ipairs(def.spawns) do
+                    assert((spawn.x - extract.x) ^ 2 + (spawn.y - extract.y) ^ 2 > 2000 ^ 2, "a spawn sits on " .. extract.name)
+                end
             end
             local blocked = 0
             for _, c in ipairs(def.containers) do

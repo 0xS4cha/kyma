@@ -6,10 +6,12 @@ local Config = require("src.config.game")
 local Maps = require("src.maps.index")
 local Address = require("src.net.address")
 local Rules = require("src.modules.menu.screens.rules")
+local GM = require("src.core.index")
 
 local Play = {}
 
 local COLS = math.ceil(#Maps.order / 2)
+local WHERE = { "Your network", "Official server" }
 
 local function layout()
     local W, H = love.graphics.getDimensions()
@@ -117,13 +119,41 @@ function Play.build(menu)
         end
     }
     list[#list + 1] = {
-        id = "host", x = rx + 20, y = l.gridY + 300, w = rw - 40, h = 48,
+        id = "where", x = rx + 20, y = l.gridY + 266, w = rw - 40, h = 32,
+        press = function(_, mx)
+            if mx then
+                menu:setOption("hostWhere", Kit.clamp(math.floor((mx - rx - 20) / ((rw - 40) / #WHERE)) + 1, 1, #WHERE))
+            else
+                menu:setOption("hostWhere", menu.settings.hostWhere % #WHERE + 1)
+            end
+        end,
+        left = function() menu:setOption("hostWhere", 1) end,
+        right = function() menu:setOption("hostWhere", #WHERE) end
+    }
+    list[#list + 1] = {
+        id = "hostPassword", x = rx + 20, y = l.gridY + 330, w = rw - 40, h = 40,
+        press = function() menu.editing = "hostPassword" end,
+        text = Common.textHandler(menu, "hostPassword", 24, Common.PASSWORD_PATTERN, true)
+    }
+    list[#list + 1] = {
+        id = "host", x = rx + 20, y = l.gridY + 382, w = rw - 40, h = 46,
         press = function()
-            menu:Play({ mode = "host", game = Settings.gameMode(menu.settings), map = menu.settings.map, rules = Settings.matchRules(menu.settings), label = "Opening your game" })
+            local password = menu.settings.hostPassword ~= "" and menu.settings.hostPassword or nil
+            local options = {
+                mode = "host", game = Settings.gameMode(menu.settings), map = menu.settings.map,
+                rules = Settings.matchRules(menu.settings), password = password, label = "Opening your game"
+            }
+            if menu.settings.hostWhere == 2 then
+                options.mode = "hostServer"
+                options.address = GM.Multiplayer:OfficialAddress()
+                options.label = "Opening your game on the official server"
+            end
+            menu:saveSettings()
+            menu:Play(options)
         end
     }
     list[#list + 1] = {
-        id = "join", x = rx, y = l.gridY + 376, w = rw, h = 50,
+        id = "join", x = rx, y = l.gridY + 452, w = rw, h = 50,
         press = function() menu:switch("multiplayer", 1) end
     }
     return list
@@ -207,7 +237,7 @@ function Play.draw(menu, elements, p)
     local ra = menu:stagger(p, 3)
     local name = find(elements, "name")
     Kit.text("Your name", 12, name.x, name.y - 20, Kit.INK, 0.5 * ra)
-    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", ra)
+    Kit.field("name", name.x, name.y, name.w, name.h, menu.settings.name, "Player", menu.editing == "name", menu.focus == "name", ra, menu:editState("name", menu.settings.name))
 
     local cy = l.gridY + (1 - ra) * 20
     local practiceHot = Kit.ease("card:practice", menu.focus == "practice" or menu.focus == "level")
@@ -228,13 +258,23 @@ function Play.draw(menu, elements, p)
     })
 
     local hy = cy + 222
-    local hostHot = Kit.ease("card:host", menu.focus == "host")
-    Kit.card(r.x, hy - hostHot * 3, r.w, 140, ra, 16, hostHot)
-    Kit.text("Host on your network", 18, r.x + 20, hy + 14 - hostHot * 3, Kit.INK, ra)
-    local address = menu.lanAddress and (menu.lanAddress .. ":6789") or "No network found"
-    Kit.text("Friends join " .. address, 12, r.x + 20, hy + 42 - hostHot * 3, Kit.INK, 0.55 * ra)
+    local hostFocus = menu.focus == "host" or menu.focus == "where" or menu.focus == "hostPassword"
+    local hostHot = Kit.ease("card:host", hostFocus)
+    local lift = hostHot * 3
+    local official = menu.settings.hostWhere == 2
+    Kit.card(r.x, hy - lift, r.w, 216, ra, 16, hostHot)
+    Kit.text("Host a game", 18, r.x + 20, hy + 14 - lift, Kit.INK, ra)
+    local reach = official and "Listed in Multiplayer, anyone can join"
+        or ("Friends join " .. (menu.lanAddress and (menu.lanAddress .. ":6789") or "- no network found"))
+    Kit.text(reach, 12, r.x + r.w - 20, hy + 19 - lift, Kit.INK, 0.5 * ra, "right")
+    local where = find(elements, "where")
+    Kit.segments("play:where", where.x, where.y + (cy - l.gridY) - lift, where.w, where.h, WHERE, menu.settings.hostWhere, ra)
+    local pass = find(elements, "hostPassword")
+    Kit.text("Password, empty for an open game", 11, pass.x, pass.y - 17 + (cy - l.gridY) - lift, Kit.INK, 0.45 * ra)
+    Kit.field("hostPassword", pass.x, pass.y + (cy - l.gridY) - lift, pass.w, pass.h, string.rep("*", #menu.settings.hostPassword), "No password",
+        menu.editing == "hostPassword", menu.focus == "hostPassword", ra, menu:editState("hostPassword", menu.settings.hostPassword))
     local host = find(elements, "host")
-    Kit.button("host", host.x, host.y + (cy - l.gridY), host.w, host.h, "Host " .. rules.name:lower(), {
+    Kit.button("host", host.x, host.y + (cy - l.gridY) - lift, host.w, host.h, "Host " .. rules.name:lower() .. (official and " online" or ""), {
         hot = menu.focus == "host", size = 16, align = "center", alpha = ra, arrow = false
     })
     local join = find(elements, "join")

@@ -1,5 +1,6 @@
 local GM = require("src.core.index")
 local Kit = require("src.ui.kit")
+local TextEdit = require("src.ui.textedit")
 local Settings = require("src.modules.menu.settings")
 local Background = require("src.modules.menu.background")
 
@@ -15,7 +16,6 @@ local Screens = {
     root = require("src.modules.menu.screens.root"),
     play = require("src.modules.menu.screens.play"),
     multiplayer = require("src.modules.menu.screens.multiplayer"),
-    online = require("src.modules.menu.screens.online"),
     tournament = require("src.modules.menu.screens.tournament"),
     settings = require("src.modules.menu.screens.settings"),
     minimap = require("src.modules.menu.screens.minimap"),
@@ -294,7 +294,15 @@ function GM.Menu:Think(dt)
     if self.wipe then
         self:updateWipe()
     end
-    GM.Multiplayer:Browse(GM.State == "menu" and self.screen == "multiplayer")
+    local browsing = GM.State == "menu" and self.screen == "multiplayer"
+    GM.Multiplayer:Browse(browsing and self.settings.browseSource == 3)
+    GM.Multiplayer:BrowseServer(browsing and Screens.multiplayer.browsing(self) or nil)
+    if not self.editing then self.edit = nil end
+    local typing = self:active() and self.editing ~= nil
+    if typing ~= (self.typing == true) then
+        self.typing = typing
+        love.keyboard.setKeyRepeat(typing)
+    end
     if not self:active() then return end
     local now = love.timer.getTime()
     if self.previous and now - self.switchTime > SWITCH_OUT then
@@ -321,6 +329,29 @@ function GM.Menu:Think(dt)
     end
 end
 
+--- The editing state of a text field while it is being edited, following its
+--- value; nil for any other field.
+--- @param id string
+--- @param value string
+--- @return table?
+function GM.Menu:editState(id, value)
+    if self.editing ~= id then return nil end
+    if not self.edit or self.edit.id ~= id then
+        self.edit = TextEdit.new(value)
+        self.edit.id = id
+    else
+        TextEdit.sync(self.edit, value)
+    end
+    return self.edit
+end
+
+--- @param element table
+--- @return table? the edited field's state, kept in step with its value
+function GM.Menu:fieldState(element)
+    if not element or not element.text or self.editing ~= element.id then return nil end
+    return self:editState(element.id, element.text.get())
+end
+
 function GM.Menu:MousePressed(x, y, button)
     if not self:active() or self.wipe then return end
     if button == 4 then
@@ -333,6 +364,13 @@ function GM.Menu:MousePressed(x, y, button)
             self.focus = element.id
             self.editing = element.text and element.id or nil
             element.press(self, x, y)
+            local state = self:fieldState(element)
+            if state then
+                local value = element.text.get()
+                local shown = element.text.secret and string.rep("*", #value) or value
+                local caret = Kit.caretAt("field:" .. element.id, shown, 16, x - element.x - Kit.FIELD_PADDING)
+                TextEdit.moveTo(state, caret, love.keyboard.isDown("lshift", "rshift"))
+            end
             if GM.Audio then GM.Audio:Play("click") end
             return
         end
@@ -343,13 +381,14 @@ end
 function GM.Menu:TextInput(text)
     if not self:active() or self.wipe or not self.editing then return end
     local element = find(self:elements(), self.editing)
-    if element and element.text then
-        element.text(self, text)
+    local state = self:fieldState(element)
+    if state and TextEdit.insert(state, text, element.text) then
+        element.text.set(state.text)
         self:saveSettings()
     end
 end
 
-function GM.Menu:KeyPressed(key, scancode)
+function GM.Menu:KeyPressed(key, scancode, isrepeat)
     if self.consumed == key then
         self.consumed = nil
         return
@@ -358,14 +397,17 @@ function GM.Menu:KeyPressed(key, scancode)
     local capture = Screens[self.screen].capture
     if capture and capture(self, key, scancode) then return end
     local elements = self:elements()
-    if self.editing and key == "backspace" then
-        local element = find(elements, self.editing)
-        if element and element.text then
-            element.text(self, nil)
+    local field = self.editing and find(elements, self.editing)
+    local state = self:fieldState(field)
+    if state then
+        local handled, changed = TextEdit.key(state, key, TextEdit.mods(), field.text)
+        if changed then
+            field.text.set(state.text)
             self:saveSettings()
         end
-        return
+        if handled then return end
     end
+    if isrepeat then return end
     if key == "escape" then
         if self.editing then
             self.editing = nil

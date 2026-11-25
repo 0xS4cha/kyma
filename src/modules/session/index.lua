@@ -8,16 +8,19 @@ local Vision = require("src.game.vision")
 local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Effects = require("src.modules.session.effects")
+local PostFX = require("src.modules.session.postfx")
 local Feel = require("src.config.feel")
 local Loadout = require("src.config.loadout")
 local GadgetConfig = require("src.config.gadgets")
 local Hitstop = require("src.modules.session.hitstop")
 local Character = require("src.modules.session.character")
+local Shield = require("src.modules.session.shield")
 local Hud = require("src.modules.session.hud")
-local Text = require("src.core.text")
+local TextEdit = require("src.ui.textedit")
 local Keys = require("src.input.keybinds")
 local TournamentView = require("src.modules.session.tournament")
 local CHAT_LOG = 40
+local CHAT_INPUT = { limit = 200 }
 
 local function sound(name, gain, pan)
     if GM.Audio then GM.Audio:Play(name, gain, pan) end
@@ -59,6 +62,7 @@ function GM.Session:Initialize()
     self.captured = false
     self.autoplay = GM.Flags and GM.Flags.autoplay or false
     self.effects = Effects.new()
+    self.postfx = PostFX.new()
     self.hitstop = Hitstop.new()
     self.hud = Hud.new()
     self.chat = { open = false, text = "", team = false, log = {} }
@@ -134,6 +138,7 @@ function GM.Session:Start(options)
     self.status = "connecting"
     self.room = nil
     self.effects = Effects.new()
+    self.postfx = PostFX.new()
     self.hitstop = Hitstop.new()
     self.hud = Hud.new()
     self.chat = { open = false, text = "", team = false, log = {} }
@@ -144,10 +149,19 @@ function GM.Session:Start(options)
     elseif options.mode == "matchmaking" then
         mp:FindMatch(options.address or mp:OfficialAddress(), name, options.game or "duel")
     elseif options.mode == "connect" then
-        mp:Join(options.address, name, options.spectate and { spectate = true } or nil)
+        local queue = (options.spectate or options.room) and { spectate = options.spectate or nil, room = options.room, password = options.password } or nil
+        mp:Join(options.address, name, queue)
+    elseif options.mode == "hostServer" then
+        mp:HostOn(options.address or mp:OfficialAddress(), name, {
+            mode = options.game or "duel", map = options.map, rules = options.rules, title = options.title, password = options.password
+        })
     else
         local queue = { mode = options.game or "duel", map = options.map, spectate = options.spectate or nil, rules = options.rules }
         if options.mode == "practice" then queue.bot = options.bot or "medium" end
+        if options.mode == "host" then
+            queue.host = true
+            queue.password = options.password
+        end
         mp:PlayLocal(name, options.mode == "host", queue)
     end
 end
@@ -317,7 +331,10 @@ function GM.Session:tick()
         if me.weapon then
             self:shoot(me, command.s, TRACER_SELF)
             sound(me.weapon)
-            self:shake(Feel.shake[me.weapon] or 0.1)
+            local punch = Feel.shake[me.weapon] or 0.1
+            self:shake(punch)
+            self.postfx:kick(punch * 7)
+            if punch >= 0.4 then self.postfx:wave(me.x, me.y, punch * 0.6, 150) end
             local recoil = Feel.recoil[me.weapon]
             if recoil then
                 Character.fire(world.slot, recoil.gun)
@@ -359,14 +376,60 @@ function GM.Session:shoot(p, sequence, color)
     end
 end
 
+local ARMOR_COLOR = { 0.35, 0.78, 1 }
+local DAMAGE_COLOR = { 1, 0.96, 0.9 }
+
+--- Plaques (flash, fissures, éclats, son) et chiffres de dégâts à côté de la cible.
+--- @param data table
+function GM.Session:hitFeedback(data)
+    local world = self.world
+    local victim = data.t
+    local at
+    if victim == world.slot then
+        at = self:localView()
+    else
+        for _, p in ipairs(self:opponents()) do
+            if p.slot == victim then at = p break end
+        end
+    end
+    if not at then return end
+    if data.s then
+        Shield.hit(victim, data.ar or 0, data.s, at.x, at.y, at.angle or 0)
+        if data.b then
+            soundAt("plateBreak", at.x, at.y, 0.9)
+            self.effects:glow(at.x, at.y, 64, Shield.COLOR, 0.3)
+            self.postfx:wave(at.x, at.y, 0.5, 150)
+            if victim == world.slot or data.a == world.slot then self.postfx:kick(3.5) end
+        else
+            soundAt("plate", at.x, at.y, 0.8)
+        end
+    end
+    local settings = GM.Menu and GM.Menu.settings
+    local enabled = not settings or settings.dmgNumbers ~= false
+    local scale = settings and require("src.modules.menu.settings").DMG_SCALES[settings.dmgSize or 2] or 1
+    if enabled and data.a == world.slot and victim ~= world.slot then
+        local health = tonumber(data.h) or 0
+        if data.s then
+            self.effects:damageNumber(at.x, at.y + 8, tostring(data.s), ARMOR_COLOR, false, scale)
+        end
+        if health > 0 then
+            self.effects:damageNumber(at.x, at.y - 4, tostring(health), DAMAGE_COLOR, health >= 40, scale)
+        end
+    end
+end
+
 --- @param data table
 function GM.Session:onHit(data)
     local world = self.world
     if not world then return end
+    self:hitFeedback(data)
     if data.t == world.slot then
         sound("hurt")
         self.effects:hurtFlash()
-        self:shake(Feel.shake.hurt + (tonumber(data.d) or 0) * Feel.shake.hurtPerDamage)
+        local damage = tonumber(data.d) or 0
+        self.postfx:hit(0.55 + damage * 0.008)
+        self.postfx:kick(3 + damage * 0.06)
+        self:shake(Feel.shake.hurt + damage * Feel.shake.hurtPerDamage)
         if (tonumber(data.d) or 0) >= Feel.hitstop.heavyDamage then self:freeze(Feel.hitstop.heavyHit) end
         if data.x and data.y then
             self.hud:damageFrom(world.me.x, world.me.y, data.x, data.y)
@@ -374,6 +437,7 @@ function GM.Session:onHit(data)
     elseif data.a == world.slot then
         sound("hit")
         self.effects:hitMarker()
+        self.postfx:kick(1.5)
         self:shake(Feel.shake.hitGiven)
         if (tonumber(data.d) or 0) >= Feel.hitstop.heavyDamage then self:freeze(Feel.hitstop.heavyHit) end
     end
@@ -387,13 +451,17 @@ function GM.Session:onKill(data)
     if victim == world.slot then
         sound("death")
         self.effects:shatter(world.me.x, world.me.y, Theme.lifted(SELF_COLOR))
+        self.postfx:wave(world.me.x, world.me.y, 1, 420)
+        self.postfx:kick(10)
         self:shake(Feel.shake.death)
         self:freeze(Feel.hitstop.death)
     else
         local seen = world.lastSeen[victim]
         if seen then
             self.effects:shatter(seen.x, seen.y, OPPONENT_COLOR)
+            self.postfx:wave(seen.x, seen.y, data.k == world.slot and 0.75 or 0.35, 300)
             if data.k == world.slot then
+                self.postfx:kick(4)
                 sound("kill")
                 self:shake(Feel.shake.killGiven)
                 self:freeze(Feel.hitstop.killGiven)
@@ -456,6 +524,7 @@ end
 
 function GM.Session:openChat()
     self.chat.open, self.chat.text = true, ""
+    self.chat.edit = TextEdit.new("")
     self.hud.helpUntil, self.hud.helpOpen = 0, false
     self.chat.team = false
     love.keyboard.setKeyRepeat(true)
@@ -472,7 +541,9 @@ end
 
 function GM.Session:TextInput(text)
     if not self.active or not self.chat.open then return end
-    if #self.chat.text < 200 then self.chat.text = self.chat.text .. text end
+    local chat = self.chat
+    chat.edit = chat.edit or TextEdit.new(chat.text)
+    if TextEdit.insert(chat.edit, text, CHAT_INPUT) then chat.text = chat.edit.text end
 end
 
 function GM.Session:toggleReady()
@@ -496,9 +567,13 @@ function GM.Session:onFlash(data)
     local world = self.world
     if not world or type(data.x) ~= "number" or type(data.y) ~= "number" then return end
     self.effects:burst(data.x, data.y)
+    self.postfx:wave(data.x, data.y, 1, 700)
     soundAt("bang", data.x, data.y)
     local d = math.sqrt((data.x - world.me.x) ^ 2 + (data.y - world.me.y) ^ 2)
-    if d < GadgetConfig.flash.radius then self:shake(0.5 * (1 - d / GadgetConfig.flash.radius)) end
+    if d < GadgetConfig.flash.radius then
+        self:shake(0.5 * (1 - d / GadgetConfig.flash.radius))
+        self.postfx:kick(10 * (1 - d / GadgetConfig.flash.radius))
+    end
 end
 
 --- @param data table
@@ -515,6 +590,7 @@ function GM.Session:onMelee(data)
     elseif data.t then
         sound("punch")
         self.effects:hitMarker()
+        self.postfx:kick(3)
         self:shake(Feel.shake.punchLanded)
         self:freeze(Feel.hitstop.punchLanded)
     end
@@ -611,7 +687,8 @@ function GM.Session:receive(data)
     world.ready = {}
     for _, slot in ipairs(type(data.rd) == "table" and data.rd or {}) do world.ready[slot] = true end
     for _, noise in ipairs(data.n or {}) do
-        self.effects:echo(noise.x, noise.y, noise.k)
+        local heading = type(noise.a) == "number" and Player.unpackAngle(noise.a) or nil
+        self.effects:echo(noise.x, noise.y, noise.k, heading, noise.f)
         self.hud:noise(noise.x, noise.y, noise.k)
         if NOISE_SOUNDS[noise.k] then soundAt(NOISE_SOUNDS[noise.k], noise.x, noise.y, 0.8) end
     end
@@ -657,6 +734,7 @@ function GM.Session:receive(data)
     me.dash, me.cooldown, me.dashX, me.dashY = own.e or 0, own.w or 0, own.m or 0, own.n or 0
     me.slide, me.slideX, me.slideY = own.j or 0, own.sx or 0, own.sy or 0
     me.hp, me.dead = own.h or me.hp, own.o or 0
+    me.armor = own.ar or 0
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.mod, me.modWeapon = own.md, Weapons.unpack(own.mw)
@@ -714,6 +792,7 @@ function GM.Session:opponents()
                 sliding = (b.j or 0) > 0,
                 team = b.t,
                 hp = b.h,
+                armor = b.ar or 0,
                 mod = b.md,
                 look = self:lookOf(slot),
                 spotted = b.sp == 1,
@@ -804,6 +883,7 @@ function GM.Session:liveView()
         mod = b.mod and b.modWeapon == b.weapon and b.mod or nil,
         dead = b.dead,
         hp = b.hp,
+        armor = b.armor or 0,
         name = GM.Multiplayer.name
     }
 end
@@ -883,7 +963,12 @@ function GM.Session:Think(dt)
     end
     GM.Multiplayer:Flush()
 
-    self.effects:update(self.hitstop:frozen(love.timer.getTime()) and dt * 0.1 or dt)
+    local fxDt = self.hitstop:frozen(love.timer.getTime()) and dt * 0.1 or dt
+    self.effects:update(fxDt)
+    local me = world.me
+    local alive = world.spectator or not me or me.dead == 0
+    self.postfx:setMotion(self:shakeStrength())
+    self.postfx:update(fxDt, (not world.spectator and me and me.hp or Config.health) / Config.health, not alive)
     if world.phase == "countdown" then
         local second = math.ceil(world.countdown / Config.tickRate)
         if second ~= world.beeped then
@@ -972,12 +1057,15 @@ function GM.Session:KeyPressed(key, scancode)
         return
     end
     if self.chat.open then
+        local chat = self.chat
+        chat.edit = chat.edit or TextEdit.new(chat.text)
+        local handled, changed = TextEdit.key(chat.edit, key, TextEdit.mods(), CHAT_INPUT)
+        if changed then chat.text = chat.edit.text end
+        if handled then return end
         if key == "escape" then
             self:closeChat(false)
         elseif key == "return" or key == "kpenter" then
             self:closeChat(true)
-        elseif key == "backspace" then
-            self.chat.text = Text.dropLast(self.chat.text)
         elseif key == "tab" and self.world and self.world.rules.teams then
             self.chat.team = not self.chat.team
         end

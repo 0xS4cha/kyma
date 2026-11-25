@@ -10,6 +10,7 @@ local Loadout = require("src.config.loadout")
 local Gadgets = require("src.game.gadgets")
 local GadgetConfig = require("src.config.gadgets")
 local Rounds = require("src.game.rounds")
+local AntiCheat = require("src.game.anticheat")
 
 local World = {}
 World.__index = World
@@ -215,10 +216,15 @@ function World:remove(slot)
     self.ready[slot] = nil
 end
 
+--- Run one client command and check the state it produced.
 --- @param player table
 --- @param command table
+--- @return table? violation
 function World:apply(player, command)
+    local previous = { x = player.x, y = player.y }
     if Player.step(player, command, self.arena, self.dt) then
+        local violation = AntiCheat.validate(player, previous, self)
+        if violation then return violation end
         if player.weapon then
             Combat.fire(self, player, command)
         else
@@ -234,6 +240,7 @@ function World:apply(player, command)
     elseif command.e == 1 then
         Combat.pickup(self, player)
     end
+    return AntiCheat.validate(player, previous, self)
 end
 
 --- @param slot number
@@ -253,8 +260,11 @@ function World:queue(slot, commands)
     end
 end
 
+--- Advance the simulation by one tick.
+--- @return table? violation the first anticheat violation of this tick, if any
 function World:step()
     self.tick = self.tick + 1
+    self.violation = nil
     local slots = {}
     for slot in pairs(self.players) do slots[#slots + 1] = slot end
     table.sort(slots)
@@ -264,9 +274,14 @@ function World:step()
         state.credit = math.min(state.credit + 1, NetConfig.inputCredit)
         while state.credit >= 1 and #state.queue > 0 and self.players[slot] do
             local command = table.remove(state.queue, 1)
-            self:apply(player, command)
+            local violation = self:apply(player, command)
             state.acked = command.s
             state.credit = state.credit - 1
+            if violation then
+                -- Drop the rest of this player's commands but keep the world running.
+                self.violation = self.violation or { slot = slot, field = violation.field, value = violation.value }
+                state.queue = {}
+            end
         end
     end
     Gadgets.update(self)
@@ -280,6 +295,7 @@ function World:step()
         end
     end
     self:lobby()
+    return self.violation
 end
 
 --- @param player table
@@ -303,7 +319,8 @@ function World:footsteps(player, command)
         player.stride = 0
     elseif player.stride >= noise.stepTicks then
         player.stride = 0
-        Combat.noise(self, "step", player.x, player.y, player.slot)
+        player.foot = 1 - (player.foot or 0)
+        Combat.noise(self, "step", player.x, player.y, player.slot, math.atan2(player.vy, player.vx), player.foot)
     end
 end
 
@@ -381,6 +398,7 @@ function World:snapshot(viewer)
             local entry = {
                 i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), u = p.vx, v = p.vy,
                 e = p.dash, j = p.slide, o = p.dead, g = Weapons.pack(p.weapon), h = p.hp, t = p.team, st = p.stun,
+                ar = (p.armor or 0) > 0 and math.floor(p.armor + 0.5) or nil,
                 sp = shared and 1 or nil,
                 md = p.mod and p.modWeapon == p.weapon and p.mod or nil
             }

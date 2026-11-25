@@ -427,13 +427,15 @@ function Hud:drawChat(session)
         love.graphics.setColor((chat.team and Kit.ALLY or INK)[1], (chat.team and Kit.ALLY or INK)[2], (chat.team and Kit.ALLY or INK)[3], 0.12)
         love.graphics.rectangle("fill", x + 10, bottom - 31, tw, 22, 6, 6)
         text(tag, 12, x + 18, bottom - 27, chat.team and Kit.ALLY or INK, 0.9)
-        local shown = chat.text
-        local f = font(15)
-        while #shown > 0 and f:getWidth(shown) > w - tw - 44 do shown = shown:sub(2) end
-        local cw = text(shown == "" and "Say something" or shown, 15, x + 20 + tw, bottom - 30, INK, shown == "" and 0.35 or 1)
-        if now % 1 < 0.55 then
-            color(RED, 1)
-            love.graphics.rectangle("fill", x + 21 + tw + (shown == "" and 0 or cw), bottom - 30, 2, 19)
+        local tx, tw2 = x + 20 + tw, w - tw - 44
+        if chat.text == "" then
+            text("Say something", 15, tx, bottom - 30, INK, 0.35)
+            if now % 1 < 0.55 then
+                color(RED, 1)
+                love.graphics.rectangle("fill", tx + 1, bottom - 30, 2, 19)
+            end
+        else
+            Kit.editable("chat", chat.text, chat.edit or { cursor = #chat.text }, tx, bottom - 30, tw2, 15, INK, 1, { top = 0, height = 19 })
         end
         if session.world and session.world.rules.teams then
             text("Tab: " .. (chat.team and "all" or "team"), 11, x + w - 12, bottom - 26, INK, 0.4, "right")
@@ -586,6 +588,41 @@ function Hud:drawVitals(session)
         keycap(dashKey, x + w - 18 - (font(12):getWidth(dashKey) + 14), y + 70, 1, 12)
     else
         text(string.format("%.1fs", (1 - self.charge) * Config.dash.cooldown / Config.tickRate), 13, x + w - 18, y + 70, INK, 0.45, "right")
+    end
+end
+
+--- Emplacements de plaques de bouclier, juste sous la barre de vie (dans la carte "vitals").
+function Hud:drawPlates(session)
+    local options = session.world.options
+    if options and options.shields == false then return end
+    local me = session.world.me
+    local lg = love.graphics
+    local shield = Config.shield
+    local armor = me.armor or 0
+    local W = 300
+    local x, y = MARGIN + 18, lg.getHeight() - MARGIN - 112 + 60
+    local gap = 5
+    local w, h = (W - 36 - gap * (shield.plates - 1)) / shield.plates, 6
+    local blue = require("src.modules.session.shield").COLOR
+    for i = 1, shield.plates do
+        local px = x + (i - 1) * (w + gap)
+        local f = clamp((armor - (i - 1) * shield.plateHp) / shield.plateHp, 0, 1)
+        Kit.color(INK, 0.1)
+        lg.rectangle("fill", px, y, w, h, 3, 3)
+        if f > 0 then
+            Kit.color(blue, 1)
+            lg.rectangle("fill", px, y, w * f, h, 3, 3)
+            if f < 0.5 then
+                -- plaque abîmée : petite fissure
+                lg.setColor(0.04, 0.09, 0.14, 0.9)
+                lg.setLineWidth(1.2)
+                lg.line(px + w * 0.55, y, px + w * 0.5, y + h * 0.5, px + w * 0.58, y + h)
+                lg.setLineWidth(1)
+            end
+        else
+            Kit.color(INK, 0.22)
+            lg.rectangle("line", px + 0.5, y + 0.5, w - 1, h - 1, 3, 3)
+        end
     end
 end
 
@@ -1062,6 +1099,7 @@ function Hud:draw(session)
         self:drawRound(session)
         self:drawBanner()
         self:drawVitals(session)
+        self:drawPlates(session)
         self:drawMinimap(session)
         self:drawWeapon(session)
         self:drawGadget(session)

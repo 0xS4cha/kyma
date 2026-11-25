@@ -5,6 +5,7 @@ local Camera = require("src.core.camera")
 local Keys = require("src.input.keybinds")
 local Kit = require("src.ui.kit")
 local Effects = require("src.modules.session.effects")
+local PostFX = require("src.modules.session.postfx")
 local Character = require("src.modules.session.character")
 local Feel = require("src.config.feel")
 local GameConfig = require("src.config.game")
@@ -42,6 +43,7 @@ function GM.Extraction:Initialize()
     self.state = "idle"
     self.camera = Camera(GameConfig.camera)
     self.effects = Effects.new()
+    self.postfx = PostFX.new()
     self.toasts, self.feed, self.hurts = {}, {}, {}
     local mp = GM.Multiplayer
     mp:On("xhub", function(data)
@@ -66,6 +68,7 @@ function GM.Extraction:Initialize()
         self.showInventory, self.showMap, self.paused = false, false, false
         self.killer, self.banner = nil, nil
         self.effects = Effects.new()
+        self.postfx = PostFX.new()
         self.camera.scale = GameConfig.camera.scale
         self.camera:follow(data.x, data.y, self.raid.aim)
         self:capture(true)
@@ -79,24 +82,48 @@ function GM.Extraction:Initialize()
         if self.raid then self.raid:setInventory(data) end
     end)
     mp:On("xtoast", function(data) self:toast(tostring(data.t)) end)
+    -- Hits feel like in the duel modes: damage numbers, a kick of the screen, a
+    -- shatter and a shock wave on kills.
     mp:On("xhit", function(data)
         self.hitAt = love.timer.getTime()
+        local damage = tonumber(data.d) or 0
+        local settings = GM.Menu and GM.Menu.settings
+        if data.x and data.y and (not settings or settings.dmgNumbers ~= false) then
+            local scale = settings and require("src.modules.menu.settings").DMG_SCALES[settings.dmgSize or 2] or 1
+            self.effects:damageNumber(data.x, data.y - 4, tostring(damage), { 0.88, 0.14, 0.12 }, damage >= 40, scale)
+        end
         if data.k == 1 then
             self.killAt = self.hitAt
             sound("kill")
+            if data.x then
+                self.effects:shatter(data.x, data.y, data.m == 1 and { 0.45, 0.5, 0.36 } or { 0.88, 0.14, 0.12 })
+                self.postfx:wave(data.x, data.y, 0.75, 300)
+            end
+            self.postfx:kick(4)
         else
             sound("hit", 0.6)
+            self.effects:hitMarker()
+            self.postfx:kick(1.5)
         end
     end)
     mp:On("xhurt", function(data)
+        local damage = tonumber(data.d) or 10
         self.hurts[#self.hurts + 1] = { x = data.x, y = data.y, time = love.timer.getTime() }
         self.effects:hurtFlash()
-        self.camera:shake(math.min(0.6, (data.d or 10) / 60))
+        self.postfx:hit(0.55 + damage * 0.008)
+        self.postfx:kick(3 + damage * 0.06)
+        self.camera:shake(math.min(0.6, damage / 60))
         sound("hurt", 0.7)
     end)
     mp:On("xdied", function(data)
         self.killer = data.k
-        sound("lose")
+        sound("death")
+        if self.raid then
+            local me = self.raid.me
+            self.effects:shatter(me.x, me.y, { 0.24, 0.25, 0.28 })
+            self.postfx:wave(me.x, me.y, 1, 420)
+            self.postfx:kick(10)
+        end
     end)
     mp:On("xfeed", function(data)
         self.feed[#self.feed + 1] = { k = tostring(data.k), v = tostring(data.v), m = data.m == 1, time = love.timer.getTime() }
@@ -158,7 +185,7 @@ function GM.Extraction:Stop()
     self.raid, self.hub = nil, nil
     self:capture(false)
     GM.State = "menu"
-    if GM.Menu then GM.Menu:Open("online") end
+    if GM.Menu then GM.Menu:Open("root") end
 end
 
 --- @param on boolean
@@ -276,9 +303,12 @@ function GM.Extraction:receive(data)
         if not seen[b.i] then
             seen[b.i] = true
             raid.booms[#raid.booms + 1] = { k = b.k, x = b.x, y = b.y, r = b.r, time = love.timer.getTime() }
-            if b.k == "blast" then
+            if b.k == "blast" or b.k == "flash" or b.k == "cryo" then
                 local d = math.sqrt((b.x - me.x) ^ 2 + (b.y - me.y) ^ 2)
                 self.camera:shake(math.max(0, 0.8 - d / 900))
+                self.postfx:wave(b.x, b.y, math.max(0.2, 1 - d / 1200), math.max(200, (b.r or 100) * 2.5))
+                self.postfx:kick(math.max(0, 6 * (1 - d / 900)))
+                self.effects:glow(b.x, b.y, math.max(40, (b.r or 60) * 0.8), b.k == "cryo" and { 0.6, 0.85, 1 } or { 1, 0.7, 0.35 }, 0.35)
                 soundAt("bang", b.x, b.y)
             end
         end
@@ -358,7 +388,11 @@ function GM.Extraction:Think(dt)
     raid.correctionX, raid.correctionY = raid.correctionX * decay, raid.correctionY * decay
     local view = raid:view()
     self.camera:follow(view.x, view.y, view.angle)
-    self.camera:update(dt, 1)
+    local settings = GM.Menu and GM.Menu.settings
+    local strength = Feel.strength[settings and settings.shake or #Feel.strength] or 1
+    self.camera:update(dt, strength)
+    self.postfx:setMotion(strength)
+    self.postfx:update(dt, math.max(0, raid.me.hp) / GameConfig.health, raid.me.dead > 0)
     if raid.inventory and raid.inventory.ct and self.showInventory == false and self.autoOpen then
         self.showInventory = true
         self.autoOpen = nil
@@ -470,8 +504,10 @@ function GM.Extraction:Draw()
     elseif state == "hub" and self.hub then
         Hub.draw(self)
     elseif state == "raid" and self.raid then
+        local post = self.postfx:begin()
         Render.draw(self)
-        self.effects:drawScreen()
+        if post then self.postfx:finish(self.camera) end
+        self.effects:drawScreen(post and self.postfx:drawsHurt())
         Hud.draw(self)
         if self.showMap then Hud.map(self) end
         if self.showInventory then self:drawRaidInventory() end

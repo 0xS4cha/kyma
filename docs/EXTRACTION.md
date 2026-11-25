@@ -4,7 +4,7 @@
 
 The Wilds is an extraction shooter played on the official server only: one persistent world, 40 000 x 40 000 units (about 200 times the Embassy map), shared by up to 64 players at once. You go in with the gear you choose, loot buildings, fight monsters and other players, and leave through an extraction point. What you carry out goes to your stash. If you die, everything you carried stays on your body for others to take.
 
-Open it from **Extraction** in the main menu (or **Online > Enter the wilds**).
+Open it from **Extraction** in the main menu.
 
 ## The loop
 
