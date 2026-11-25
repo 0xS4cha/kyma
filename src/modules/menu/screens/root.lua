@@ -87,23 +87,33 @@ local function drawLive(menu, x, y, w, alpha)
     end
 end
 
+--- The title and the buttons scroll together, above the footer line.
+--- @param menu table
+--- @return table
+function Root.viewport(menu)
+    local H = love.graphics.getHeight()
+    return { top = 0, bottom = H - 48, bar = Common.margin() + 380 + 14 }
+end
+
 function Root.draw(menu, elements, p)
     local W, H = love.graphics.getDimensions()
     local M = Common.margin()
     local alpha = Kit.easeOutCubic(p)
-    drawTitle(menu, M, titleY(), alpha)
-    for k, element in ipairs(elements) do
-        local e = menu:stagger(p, k + 1)
-        Kit.button(element.id, element.x - (1 - e) * 40, element.y, element.w, element.h, element.label, {
-            hot = menu.focus == element.id,
-            primary = element.primary,
-            sublabel = element.sublabel,
-            size = element.primary and 24 or 18,
-            hint = element.primary and "Enter" or nil,
-            alpha = e
-        })
-    end
-    Kit.text("v0.1   -   Up / Down to move, Enter to select", 12, M, H - 36, Kit.INK, 0.45 * alpha)
+    menu:scrolled(function()
+        drawTitle(menu, M, titleY(), alpha)
+        for k, element in ipairs(elements) do
+            local e = menu:stagger(p, k + 1)
+            Kit.button(element.id, element.x - (1 - e) * 40, element.y, element.w, element.h, element.label, {
+                hot = menu.focus == element.id,
+                primary = element.primary,
+                sublabel = element.sublabel,
+                size = element.primary and 24 or 18,
+                hint = element.primary and "Enter" or nil,
+                alpha = e
+            })
+        end
+    end)
+    Kit.text("v0.1   -   Up / Down to move, Enter to select" .. (menu:scrollMax("root") > 0 and ", wheel to scroll" or ""), 12, M, H - 36, Kit.INK, 0.45 * alpha)
     local liveW = math.min(380, math.floor(W * 0.3))
     local e = menu:stagger(p, 7)
     drawLive(menu, W - M - liveW + (1 - e) * 60, H - M, liveW, e)

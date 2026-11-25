@@ -19,6 +19,7 @@ local Screens = {
     tournament = require("src.modules.menu.screens.tournament"),
     settings = require("src.modules.menu.screens.settings"),
     minimap = require("src.modules.menu.screens.minimap"),
+    stats = require("src.modules.menu.screens.stats"),
     howto = require("src.modules.menu.screens.howto"),
     profile = require("src.modules.menu.screens.profile"),
     keybinds = require("src.modules.menu.screens.keybinds"),
@@ -45,6 +46,7 @@ function GM.Menu:Initialize()
     self.paused = false
     self.wipe = nil
     self.mouseX, self.mouseY = nil, nil
+    self.scrolls = {}
 end
 
 --- @return boolean
@@ -214,9 +216,97 @@ function GM.Menu:drawWipe()
     lg.pop()
 end
 
+--- @param name string?
+--- @return table { value, target }
+function GM.Menu:scrollState(name)
+    name = name or self.screen
+    local state = self.scrolls[name]
+    if not state then
+        state = { value = 0, target = 0 }
+        self.scrolls[name] = state
+    end
+    return state
+end
+
+--- The part of the screen a scrollable screen scrolls its content in, nil
+--- for a screen that doesn't scroll.
+--- @param name string?
+--- @return table? { top, bottom, bar }
+function GM.Menu:viewport(name)
+    local screen = Screens[name or self.screen]
+    return screen and screen.viewport and screen.viewport(self) or nil
+end
+
+--- How far the content of a screen can scroll: the lowest element that
+--- scrolls, plus some room, below the bottom of its viewport.
+--- @param name string?
+--- @param raw table[]? the elements as built, before scrolling
+--- @return number
+function GM.Menu:scrollMax(name, raw)
+    name = name or self.screen
+    local view = self:viewport(name)
+    if not view then return 0 end
+    raw = raw or Screens[name].build(self)
+    local bottom = view.top
+    for _, element in ipairs(raw) do
+        if not element.fixed then bottom = math.max(bottom, element.y + element.h) end
+    end
+    if view.content then bottom = math.max(bottom, view.content) end
+    return math.max(0, bottom + (view.padding or 24) - view.bottom)
+end
+
+--- @param name string?
+--- @return number how far the content of the screen is scrolled now
+function GM.Menu:scrollOffset(name)
+    return self.scrolls[name or self.screen] and self.scrolls[name or self.screen].value or 0
+end
+
+--- @param amount number
+function GM.Menu:scrollBy(amount)
+    local state = self:scrollState()
+    state.target = Kit.clamp(state.target + amount, 0, self:scrollMax())
+end
+
+--- Scrolls just enough to show an element of the current screen.
+--- @param id string?
+function GM.Menu:reveal(id)
+    local view = self:viewport()
+    if not view or not id then return end
+    local raw = Screens[self.screen].build(self)
+    local element
+    for _, e in ipairs(raw) do
+        if e.id == id then element = e end
+    end
+    if not element or element.fixed then return end
+    local state = self:scrollState()
+    local top, bottom = element.y - 12, element.y + element.h + 12
+    if top - state.target < view.top then
+        state.target = top - view.top
+    elseif bottom - state.target > view.bottom then
+        state.target = bottom - view.bottom
+    end
+    local max = self:scrollMax(nil, raw)
+    -- close to an end, go all the way so the card edge isn't cut off
+    if state.target < 48 then state.target = 0 end
+    if state.target > max - 48 then state.target = max end
+    state.target = Kit.clamp(state.target, 0, max)
+end
+
+--- Elements of the current screen where they are on screen: moved by the
+--- scroll, and marked hidden where the viewport cuts them off.
 --- @return table[]
 function GM.Menu:elements()
-    return Screens[self.screen].build(self)
+    local list = Screens[self.screen].build(self)
+    local view = self:viewport()
+    if not view then return list end
+    local offset = self:scrollOffset()
+    for _, element in ipairs(list) do
+        if not element.fixed then
+            element.y = element.y - offset
+            element.view = view
+        end
+    end
+    return list
 end
 
 local function find(elements, id)
@@ -226,7 +316,45 @@ local function find(elements, id)
 end
 
 local function inside(element, x, y)
+    local view = element.view
+    if view and (y < view.top or y > view.bottom) then return false end
     return x >= element.x and x <= element.x + element.w and y >= element.y and y <= element.y + element.h
+end
+
+--- Draws the scrolling part of the screen being drawn: clipped to its
+--- viewport, moved by the scroll, with a scroll bar when it doesn't fit.
+--- @param draw function
+function GM.Menu:scrolled(draw)
+    local view = self:viewport(self.drawing)
+    if not view then
+        draw()
+        return
+    end
+    local lg = love.graphics
+    local offset = self:scrollOffset(self.drawing)
+    lg.push("all")
+    local _, top = lg.transformPoint(0, view.top)
+    local _, bottom = lg.transformPoint(0, view.bottom)
+    lg.intersectScissor(0, math.floor(top), lg.getWidth(), math.max(1, math.ceil(bottom - top)))
+    lg.translate(0, -math.floor(offset + 0.5))
+    draw()
+    lg.pop()
+    local max = self:scrollMax(self.drawing)
+    if max <= 0 or not view.bar then return end
+    local track = view.bottom - view.top - 16
+    local size = math.max(36, track * (view.bottom - view.top) / (view.bottom - view.top + max))
+    local y = view.top + 8 + (track - size) * Kit.clamp(offset / max, 0, 1)
+    local hot = Kit.ease("scrollbar:" .. tostring(self.drawing), love.timer.getTime() - (self.scrolledAt or -10) < 1, 6)
+    lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.06)
+    lg.rectangle("fill", view.bar, view.top + 8, 4, track, 2, 2)
+    lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.22 + 0.25 * hot)
+    lg.rectangle("fill", view.bar, y, 4, size, 2, 2)
+end
+
+function GM.Menu:WheelMoved(_, y)
+    if not self:active() or self.wipe or not self:viewport() or y == 0 then return end
+    self:scrollBy(-y * 70)
+    self.scrolledAt = love.timer.getTime()
 end
 
 function GM.Menu:drawVeil()
@@ -257,7 +385,9 @@ function GM.Menu:drawScreen(name, p, direction)
     local lg = love.graphics
     lg.push()
     lg.translate(math.floor((1 - Kit.easeOutCubic(p)) * 40 * direction), 0)
+    self.drawing = name
     Screens[name].draw(self, Screens[name].build(self), p)
+    self.drawing = nil
     lg.pop()
 end
 
@@ -306,6 +436,12 @@ function GM.Menu:Think(dt)
         love.keyboard.setKeyRepeat(typing)
     end
     if not self:active() then return end
+    if self:viewport() then
+        local state = self:scrollState()
+        state.target = Kit.clamp(state.target, 0, self:scrollMax())
+        state.value = Kit.approach(state.value, state.target, 16, dt)
+        if math.abs(state.value - state.target) < 0.5 then state.value = state.target end
+    end
     local now = love.timer.getTime()
     if self.previous and now - self.switchTime > SWITCH_OUT then
         self.previous = nil
@@ -437,11 +573,16 @@ function GM.Menu:KeyPressed(key, scancode, isrepeat)
         position = position and (position - 1 + step) % #nav + 1 or 1
         self.focus = nav[position].id
         self.editing = nav[position].text and nav[position].id or nil
+        self:reveal(self.focus)
     elseif (key == "left" or key == "right") and focused and focused[key] then
         focused[key](self)
         self:saveSettings()
     elseif (key == "return" or key == "kpenter") and focused and focused.press then
         focused.press(self)
+    elseif (key == "pageup" or key == "pagedown") and self:viewport() then
+        local view = self:viewport()
+        self:scrollBy((key == "pageup" and -1 or 1) * (view.bottom - view.top) * 0.8)
+        self.scrolledAt = love.timer.getTime()
     end
 end
 

@@ -19,7 +19,20 @@ Settings.MAP_SPANS = { 1200, 800, 500 } -- largeur visible (unités monde) en mo
 Settings.DMG_SIZES = { "Small", "Normal", "Large", "Huge" }
 Settings.DMG_SCALES = { 0.7, 1, 1.45, 2 }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "minimapPings", "dmgNumbers", "dmgSize", "shields", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal" }
+-- Performance stats (HUD), like Valorant: each one hidden, as text, as a graph or both
+Settings.STAT_MODES = { "Hide", "Text", "Graph", "Both" }
+Settings.STATS = {
+    { key = "statFps", stat = "fps", label = "Client FPS", hint = "Frames drawn per second" },
+    { key = "statFrame", stat = "frame", label = "Frame time", hint = "The slowest frame of the last half second, in ms" },
+    { key = "statTick", stat = "tick", label = "Server tick rate", hint = "Measured from the server updates, 60 at full speed" },
+    { key = "statRtt", stat = "rtt", label = "Network round trip", hint = "Time to reach the server and back, in ms" },
+    { key = "statJitter", stat = "jitter", label = "Jitter", hint = "How irregularly the server updates arrive, in ms" },
+    { key = "statLoss", stat = "loss", label = "Packet loss", hint = "Share of the server updates that never arrived" },
+    { key = "statDown", stat = "down", label = "Bandwidth in", hint = "Data received from the server, in KB/s" },
+    { key = "statUp", stat = "up", label = "Bandwidth out", hint = "Data sent to the server, in KB/s" }
+}
+
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "minimapPings", "dmgNumbers", "dmgSize", "shields", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal", "statFps", "statFrame", "statTick", "statRtt", "statJitter", "statLoss", "statDown", "statUp" }
 
 --- @return table
 function Settings.defaults()
@@ -72,6 +85,14 @@ function Settings.defaults()
         browseSource = 1,
         hostWhere = 1,
         killHeal = false,
+        statFps = 1,
+        statFrame = 1,
+        statTick = 1,
+        statRtt = 1,
+        statJitter = 1,
+        statLoss = 1,
+        statDown = 1,
+        statUp = 1,
         -- typed for one game and never written to disk
         password = "",
         hostPassword = ""
@@ -125,6 +146,9 @@ function Settings.parse(text)
     values.tournamentServer = math.max(1, math.min(2, math.floor(values.tournamentServer)))
     values.browseSource = math.max(1, math.min(3, math.floor(values.browseSource)))
     values.hostWhere = math.max(1, math.min(2, math.floor(values.hostWhere)))
+    for _, stat in ipairs(Settings.STATS) do
+        values[stat.key] = math.max(1, math.min(#Settings.STAT_MODES, math.floor(values[stat.key])))
+    end
     return values
 end
 

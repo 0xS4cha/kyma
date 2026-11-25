@@ -129,6 +129,7 @@ Every shot kicks the gun back into the shooter's body, then it settles: the snip
 - Bottom right: your weapon, the ammo left in the magazine and in reserve, one mark per bullet, a ring while reloading, and the key to press when it matters (`R` when the magazine runs low, `G` when the weapon is empty).
 - A red arc around you points to where the last shots came from, and the screen edges flash red when you are hit.
 - Standing on a weapon shows the `E` prompt to swap it.
+- **Performance stats** (Settings > Performance stats): client FPS, frame time, server tick rate, network round trip, jitter, packet loss and bandwidth in and out. Each one can be hidden or shown as text, as a graph or both, in a card at the top right; values turn amber or red when they get bad. Packet loss and jitter are measured on the server updates you receive.
 
 ## Loadout and match rules
 

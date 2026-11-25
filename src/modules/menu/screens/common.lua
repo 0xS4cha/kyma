@@ -13,7 +13,7 @@ end
 --- @return table
 function Common.backElement(menu, back)
     local M = Common.margin()
-    return { id = "back", x = M, y = 36, w = 140, h = 48, nav = false, press = back or function() menu:back() end }
+    return { id = "back", x = M, y = 36, w = 140, h = 48, nav = false, fixed = true, press = back or function() menu:back() end }
 end
 
 --- @param menu table

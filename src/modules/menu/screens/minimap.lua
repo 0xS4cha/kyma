@@ -30,6 +30,8 @@ function Screen.draw(menu, elements, p)
     Base.drawRows(menu, elements, p, "Mini-map", "Saved automatically.", MIN_ROW)
 end
 
+Screen.viewport = Base.viewport
+
 function Screen.back(menu)
     menu:switch("settings", -1)
 end

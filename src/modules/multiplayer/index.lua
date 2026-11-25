@@ -7,6 +7,7 @@ local Lan = require("src.modules.multiplayer.lan")
 local Browser = require("src.modules.multiplayer.browser")
 local Address = require("src.net.address")
 local Identity = require("src.net.identity")
+local NetStats = require("src.net.netstats")
 
 GM.Multiplayer = {}
 
@@ -36,6 +37,7 @@ function GM.Multiplayer:Initialize()
     self.search = nil
     self.rating = nil
     self.leaderboard = nil
+    self.stats = NetStats.new(NetConfig.tickRate, NetConfig.snapshotTicks)
 
     self:On("welcome", function(data)
         self.id = data.id
@@ -80,6 +82,7 @@ function GM.Multiplayer:Connect(address, name, isLocal)
     self.isLocal = isLocal == true
     self.address = Address.normalize(address) or ("localhost:" .. NetConfig.port)
     self.error = nil
+    self.stats:reset()
     self.host = enet.host_create()
     local ok, peer = pcall(self.host.connect, self.host, self.address, NetConfig.channels)
     if not ok or not peer then
@@ -243,12 +246,15 @@ function GM.Multiplayer:Send(kind, data)
         return false
     end
     self.peer:send(raw, NetConfig.reliable, "reliable")
+    self.stats:sent(#raw)
     return true
 end
 
 function GM.Multiplayer:Stream(kind, data)
     if not self.connected then return false end
-    self.peer:send(Protocol.Encode(kind, data), NetConfig.unreliable, "unreliable")
+    local raw = Protocol.Encode(kind, data)
+    self.peer:send(raw, NetConfig.unreliable, "unreliable")
+    self.stats:sent(#raw)
     return true
 end
 
@@ -285,7 +291,9 @@ function GM.Multiplayer:onConnectionLost()
     self:dispatch("disconnected", { message = self.error })
 end
 
-function GM.Multiplayer:Think()
+function GM.Multiplayer:Think(dt)
+    self.stats:frame(dt or 0)
+    self.stats:sample(love.timer.getTime(), self:Ping())
     self.localServer:Update()
     self.lan:Listen(self.listening)
     self.lan:Poll()
@@ -308,7 +316,11 @@ function GM.Multiplayer:Poll()
             local settings = GM.Menu and GM.Menu.settings or {}
             self:Send("hello", { name = self.name, version = NetConfig.version, token = Identity.token(), look = { h = settings.head, a = settings.accent }, kit = settings.kitWeapon and require("src.modules.menu.settings").kit(settings) or nil })
         elseif event.type == "receive" then
+            self.stats:received(#event.data)
             local kind, data = Protocol.Decode(event.data)
+            if kind == "state" and type(data) == "table" then
+                self.stats:snapshot(data.t, love.timer.getTime())
+            end
             if kind then
                 self:dispatch(kind, data)
             end

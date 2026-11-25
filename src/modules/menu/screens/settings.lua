@@ -19,6 +19,7 @@ local function rows()
         { id = "dmgNumbers", label = "Damage numbers", hint = "Show the damage you deal next to the enemy you hit", kind = "toggle" },
         { id = "dmgSize", label = "Damage number size", hint = "How big the damage numbers are", kind = "segments", options = Settings.DMG_SIZES },
         { id = "minimapMenu", label = "Mini-map", hint = "Position, size, rotation, vision cone and more", kind = "action", target = "minimap" },
+        { id = "statsMenu", label = "Performance stats", hint = "FPS, server tick rate, ping, jitter, packet loss and bandwidth", kind = "action", target = "stats" },
         { id = "keybinds", label = "Key bindings", hint = "Change the keys for every action", kind = "action" }
     }
 end
@@ -70,9 +71,21 @@ function Screen.build(menu)
     return Screen.buildRows(menu, rows(), function() Screen.back(menu) end)
 end
 
+--- Where the rows scroll: below the header, down to the bottom of the window.
+--- @param menu table
+--- @return table
+function Screen.viewport(menu)
+    local l = layout(1)
+    return { top = l.y - 16, bottom = love.graphics.getHeight() - 12, bar = l.x + l.w + 12 }
+end
+
 function Screen.drawRows(menu, elements, p, title, subtitle, minRow)
-    local l = layout(#elements - 1, minRow)
     Common.header(menu, elements, p, title, subtitle)
+    menu:scrolled(function() Screen.drawList(menu, elements, p, minRow) end)
+end
+
+function Screen.drawList(menu, elements, p, minRow)
+    local l = layout(#elements - 1, minRow)
     local count = #elements - 1
     local e = menu:stagger(p, 2)
     Kit.card(l.x, l.y + (1 - e) * 20, l.w, count * l.rowH + 36, e, 18)
