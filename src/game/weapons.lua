@@ -140,6 +140,10 @@ function Weapons.update(p, input)
         p.reload = Weapons.stat(p, "reloadTicks")
     end
 
+    local fresh = held and not p.trigger
+    if fresh and p.reload > 0 and p.ammo > 0 then
+        p.reload = 0
+    end
     local pull = held and (def.auto or not p.trigger)
     p.trigger = held
     if not pull or p.dash > 0 or p.stun > 0 or p.dead > 0 or p.fireCooldown > 0 or p.reload > 0 then
