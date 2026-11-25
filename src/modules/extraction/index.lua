@@ -518,19 +518,19 @@ function GM.Extraction:KeyPressed(key, scancode)
         return
     end
     if self.paused then return end
-    if key == "tab" then
+    if scancode == "tab" then
         self.showInventory = not self.showInventory
         self.showMap = false
         if self.showInventory then self:capture(false) else self:closeOverlays() end
         return
     end
-    if key == "m" then
+    if scancode == "m" or (scancode == ";" and key == "m") then
         self.showMap = not self.showMap
         self.showInventory = false
         self:capture(not self.showMap)
         return
     end
-    if key == "f" then
+    if scancode == "f" then
         if raid.inventory and raid.inventory.ct then
             self:send("xact", { o = "close" })
         else
@@ -543,15 +543,15 @@ function GM.Extraction:KeyPressed(key, scancode)
         end
         return
     end
-    if key == "1" or key == "2" then
-        local hand = key == "1" and "primary" or "secondary"
+    if scancode == "1" or scancode == "2" then
+        local hand = scancode == "1" and "primary" or "secondary"
         if raid.inventory and raid.inventory.hd ~= hand and raid.inventory.g[hand] then
             self:send("xact", { o = "hand", h = hand })
             sound("pickup")
         end
         return
     end
-    local quick = tonumber(key)
+    local quick = tonumber(scancode)
     if quick and quick >= 3 and quick <= 2 + Config.quickSlots then
         self:send("xact", { o = "use", k = quick - 2 })
         return

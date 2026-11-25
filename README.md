@@ -11,6 +11,7 @@ make host             # host a duel on your network (UDP 6789)
 love . --connect 127.0.0.1:6789 --name Bob   # join it
 make server           # headless dedicated server
 make test             # love . --test
+make dev              # local official server + the extraction mode (DEV_CLIENTS=2 for two players)
 ```
 
 ## Layout
@@ -30,6 +31,7 @@ make test             # love . --test
 - [Gameplay guide](docs/GAMEPLAY.md)
 - [Technical guide](docs/TECHNICAL.md)
 - [Hosting](docs/HOSTING.md)
+- [Extraction mode](docs/EXTRACTION.md)
 
 ## Credits
 
