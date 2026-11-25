@@ -2,6 +2,7 @@ local Config = require("src.config.game")
 local WeaponConfig = require("src.config.weapons")
 local Weapons = require("src.game.weapons")
 local Player = require("src.game.player")
+local Loadout = require("src.config.loadout")
 
 local Combat = {}
 
@@ -133,6 +134,10 @@ function Combat.kill(world, victim, killer)
     end
     if world.round and world.phase == "playing" then
         victim.out = true
+    end
+    local winner = killer and killer ~= victim.slot and world:enemies(killer, victim.slot) and world.players[killer]
+    if winner and world.options and world.options.heal and winner.hp > 0 then
+        winner.hp = math.min(Config.health, winner.hp + Loadout.killHeal)
     end
     if killer and killer ~= victim.slot and world:enemies(killer, victim.slot) and world.phase == "playing" then
         world.score[killer] = (world.score[killer] or 0) + 1
