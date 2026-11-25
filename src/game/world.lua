@@ -106,7 +106,6 @@ function World:add(slot, name, team, kit)
     self.score[slot] = 0
     Player.respawn(player, self:spawnPoint(player))
     self:loadout(player)
-    AntiCheat.sync(player)
     self.inputs[slot] = { queue = {}, last = 0, acked = 0, credit = 0 }
     return player
 end
@@ -201,7 +200,6 @@ function World:restart(phase)
     for _, p in pairs(self.players) do
         Player.respawn(p, self:spawnPoint(p))
         self:loadout(p)
-        AntiCheat.sync(p)
     end
     self.events[#self.events + 1] = { kind = "restart" }
 end
@@ -218,12 +216,14 @@ function World:remove(slot)
     self.ready[slot] = nil
 end
 
+--- Run one client command and check the state it produced.
 --- @param player table
 --- @param command table
+--- @return table? violation
 function World:apply(player, command)
-    local previous = { x = player._antiCheatX or player.x, y = player._antiCheatY or player.y }
+    local previous = { x = player.x, y = player.y }
     if Player.step(player, command, self.arena, self.dt) then
-        local violation = AntiCheat.validate(player, previous, self.arena, self.dt)
+        local violation = AntiCheat.validate(player, previous, self)
         if violation then return violation end
         if player.weapon then
             Combat.fire(self, player, command)
@@ -240,9 +240,7 @@ function World:apply(player, command)
     elseif command.e == 1 then
         Combat.pickup(self, player)
     end
-    local violation = AntiCheat.validate(player, previous, self.arena, self.dt)
-    if not violation then AntiCheat.sync(player) end
-    return violation
+    return AntiCheat.validate(player, previous, self)
 end
 
 --- @param slot number
@@ -262,8 +260,11 @@ function World:queue(slot, commands)
     end
 end
 
+--- Advance the simulation by one tick.
+--- @return table? violation the first anticheat violation of this tick, if any
 function World:step()
     self.tick = self.tick + 1
+    self.violation = nil
     local slots = {}
     for slot in pairs(self.players) do slots[#slots + 1] = slot end
     table.sort(slots)
@@ -274,19 +275,19 @@ function World:step()
         while state.credit >= 1 and #state.queue > 0 and self.players[slot] do
             local command = table.remove(state.queue, 1)
             local violation = self:apply(player, command)
-            if violation then
-                self.violation = { slot = slot, field = violation.field, value = violation.value }
-                return self.violation
-            end
             state.acked = command.s
             state.credit = state.credit - 1
+            if violation then
+                -- Drop the rest of this player's commands but keep the world running.
+                self.violation = self.violation or { slot = slot, field = violation.field, value = violation.value }
+                state.queue = {}
+            end
         end
     end
     Gadgets.update(self)
     Rounds.update(self)
     Combat.update(self)
     Combat.record(self)
-    for _, player in pairs(self.players) do AntiCheat.sync(player) end
     if self.over then
         self.over.timer = self.over.timer - 1
         if self.over.timer <= 0 then
@@ -294,7 +295,7 @@ function World:step()
         end
     end
     self:lobby()
-    return nil
+    return self.violation
 end
 
 --- @param player table
