@@ -1,3 +1,4 @@
+io.stdout:setvbuf("line")
 require("src.core.logger")
 local ArgParser = require("src.core.args")
 local Host = require("src.server.host")
