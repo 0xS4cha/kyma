@@ -46,6 +46,8 @@ function Items.strength(inst)
 end
 
 local INTEGER = { magazine = true, reloadTicks = true, fireTicks = true, pellets = true }
+-- Counts that a mythic attachment raises by one instead of scaling.
+local INTEGER_TRAIT = { bounce = true, pierce = true }
 local BASE = { "damage", "pellets", "spread", "range", "fireTicks", "auto", "magazine", "reloadTicks", "muzzle", "silent", "exposed", "speed" }
 
 --- The stats a weapon shoots with: the base definition, scaled by rarity, then by
@@ -63,11 +65,16 @@ function Items.weaponStats(inst)
     stats.reloadTicks = stats.reloadTicks / (1 + (power - 1) * 0.6)
     stats.magazine = stats.magazine * (1 + (power - 1) * 0.5)
     stats.range = stats.range * (1 + (power - 1) * 0.3)
+    local sources = {}
+    if def.set then sources[1] = { mod = { set = def.set }, s = 1 } end
     for _, slot in ipairs(Config.slots.order) do
         local attached = inst.m and inst.m[slot]
         local mod = Items.def(attached)
-        if mod and mod.kind == "mod" then
-            local s = Items.strength(attached)
+        if mod and mod.kind == "mod" then sources[#sources + 1] = { mod = mod, s = Items.strength(attached) } end
+    end
+    for _, source in ipairs(sources) do
+        local mod, s = source.mod, source.s
+        do
             for key, factor in pairs(mod.mul or {}) do
                 if stats[key] then
                     local scaled = factor >= 1 and 1 + (factor - 1) * s or factor ^ s
@@ -75,9 +82,11 @@ function Items.weaponStats(inst)
                 end
             end
             for key, value in pairs(mod.set or {}) do
-                if type(value) == "number" and key ~= "bounce" and key ~= "pierce" then
+                if type(value) == "number" and INTEGER_TRAIT[key] then
+                    stats[key] = math.max(stats[key] or 0, value + (s >= 2 and 1 or 0))
+                elseif type(value) == "number" then
                     if key == "haste" or key == "flesh" then
-                        stats[key] = 1 + (value - 1) * s
+                        stats[key] = (stats[key] or 1) * (1 + (value - 1) * s)
                     elseif key == "armorPierce" and value < 0 then
                         stats[key] = value
                     else
@@ -156,6 +165,31 @@ function Items.armorStats(inst)
         flash = def.flash,
         haste = def.haste
     }
+end
+
+--- What crafting an item of a rarity costs: the base recipe scaled by rarity, plus
+--- rare alloy from epic and glowing cores from legendary.
+--- @param id string
+--- @param rarity number
+--- @return table[] { id, n }
+function Items.recipe(id, rarity)
+    local base = Config.recipes[id]
+    if not base then return nil end
+    local def = Config.all[id]
+    rarity = def.kind == "ammo" and 1 or max(1, min(#Config.rarities.order, rarity or 1))
+    local out = {}
+    for _, part in ipairs(base) do
+        out[#out + 1] = { id = part.id, n = math.ceil(part.n * (1 + (rarity - 1) * 0.75)) }
+    end
+    local function add(material, n)
+        for _, part in ipairs(out) do
+            if part.id == material then part.n = part.n + n return end
+        end
+        out[#out + 1] = { id = material, n = n }
+    end
+    if rarity >= 4 then add("alloy", rarity - 3) end
+    if rarity >= 5 then add("core", rarity - 4) end
+    return out
 end
 
 --- A deep copy of an instance, safe to send or store.
