@@ -293,5 +293,34 @@ return {
             c = Inputs.sanitize({ s = 1, a = 0, b = 2, v = -3 })
             assert(c.b == 0 and c.v == nil)
         end
+    },
+    {
+        name = "with heal on kill, each kill gives back 50 HP up to full health",
+        run = function()
+            local Combat = require("src.game.combat")
+            local function arena(rules)
+                local world = World.new(Arena.new({
+                    width = 4000, height = 4000, walls = {},
+                    spawns = { { x = 1000, y = 1000, angle = 0 }, { x = 1300, y = 1000, angle = math.pi } }
+                }), "duel", false, rules)
+                world:add(1, "a")
+                world:add(2, "b")
+                return world
+            end
+            local world = arena({ h = true })
+            local a, b = world.players[1], world.players[2]
+            a.hp = 30
+            Combat.kill(world, b, 1)
+            assert(a.hp == 80, "healed to " .. a.hp)
+            Player.respawn(b, world:spawnPoint(b))
+            a.hp = 90
+            Combat.kill(world, b, 1)
+            assert(a.hp == Config.health, "capped at full health")
+            local plain = arena(nil)
+            plain.players[1].hp = 30
+            Combat.kill(plain, plain.players[2], 1)
+            assert(plain.players[1].hp == 30, "off by default")
+            assert(require("src.config.loadout").pack(world.options).h == true, "the rule travels to clients")
+        end
     }
 }
