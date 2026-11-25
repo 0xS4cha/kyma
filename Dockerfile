@@ -4,7 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     SDL_VIDEODRIVER=dummy \
     SDL_AUDIODRIVER=dummy
 
-RUN apt-get update \
+RUN rm -f /etc/dpkg/dpkg.cfg.d/excludes \
+    && apt-get update \
     && apt-get install -y --no-install-recommends love \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /usr/sbin/nologin kyma
