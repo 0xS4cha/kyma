@@ -20,7 +20,7 @@ end
 --- @return number
 function Matchmaker.size(mode)
     local rules = GameConfig.modes[mode]
-    return math.min(rules.players, Config.matchmaking.sizes[mode] or 2)
+    return math.min(rules.max or math.huge, Config.matchmaking.sizes[mode] or 2)
 end
 
 --- @param mode string?

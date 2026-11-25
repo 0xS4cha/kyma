@@ -65,6 +65,7 @@ function Common.paragraph(str, size, x, y, width, color, alpha)
 end
 
 Common.NAME_PATTERN = "^[%w%s%-_%.']$"
+Common.PASSWORD_PATTERN = "^[%w%p ]$"
 Common.SERVER_PATTERN = "^[%w%.%-:]$"
 
 return Common

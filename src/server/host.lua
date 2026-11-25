@@ -134,8 +134,58 @@ function Host:leaveRoom(client)
     end
 end
 
+--- @return table[] the rooms anyone can join, oldest first
+function Host:Listings()
+    local list = {}
+    for _, room in pairs(self.rooms) do
+        if room:Public() and room:Count() > 0 then list[#list + 1] = room:Listing() end
+    end
+    table.sort(list, function(a, b) return a.id < b.id end)
+    return list
+end
+
+--- Opens a room with the settings a player picked, listed in the server browser.
+--- @param client table
+--- @param options table
+function Host:hostRoom(client, options)
+    local mode = GameConfig.modes[options.mode or ""] and options.mode or "duel"
+    local map = type(options.map) == "string" and options.map or nil
+    local title = Text.clean(options.title, Config.titleLength) or ""
+    if title == "" then title = client.name .. "'s game" end
+    local password = Text.clean(options.password, Config.passwordLength)
+    if password == "" then password = nil end
+    local room = self:CreateRoom({ mode = mode, map = map, rules = options.rules, hosted = true, title = title, password = password })
+    Logger:info("server", string.format("%s hosts room %d (%s)%s", client.name, room.id, mode, password and " with a password" or ""))
+    local ok, err = room:Add(client)
+    if not ok then client:Send("error", { message = err }) end
+end
+
+--- Joins one room picked from the server browser, as a player or to watch it.
+--- @param client table
+--- @param options table
+function Host:joinRoom(client, options)
+    local room = self.rooms[tonumber(options.room) or -1]
+    if not room or not room:Public() then
+        client:Send("error", { message = "This game is over" })
+        return
+    end
+    local password = Text.clean(options.password, Config.passwordLength)
+    if not room:Opens(password) then
+        client:Send("error", { message = password and password ~= "" and "Wrong password" or "This game needs a password", password = true })
+        return
+    end
+    if options.spectate == true or room:Full() then
+        room:Watch(client)
+        return
+    end
+    local ok, err = room:Add(client)
+    if not ok then client:Send("error", { message = err }) end
+end
+
 function Host:matchmake(client, options)
     options = type(options) == "table" and options or {}
+    if options.host == true then return self:hostRoom(client, options) end
+    if options.room ~= nil then return self:joinRoom(client, options) end
     local practice = type(options.bot) == "string" and options.bot or nil
     local mode = type(options.mode) == "string" and options.mode or nil
     local map = type(options.map) == "string" and options.map or nil
@@ -145,7 +195,7 @@ function Host:matchmake(client, options)
         local watched
         for _, room in pairs(self.rooms) do
             local fits = (not mode or room.mode == mode) and (not map or room.map == map)
-            if fits and not room.practice and room:Count() > 0 and (not watched or room.id < watched.id) then
+            if fits and not room.practice and not room:Locked() and room:Count() > 0 and (not watched or room.id < watched.id) then
                 watched = room
             end
         end
@@ -162,12 +212,12 @@ function Host:matchmake(client, options)
     local best
     for _, room in pairs(self.rooms) do
         local fits = (not mode or room.mode == mode) and (not map or room.map == map)
-        if not practice and not room.practice and not room.matched and not room.tournament and fits and not room:Full() and (not best or room.id < best.id) then
+        if not practice and not room.practice and not room.matched and not room.tournament and not room:Locked() and fits and not room:Full() and (not best or room.id < best.id) then
             best = room
         end
     end
     if not best then
-        best = self:CreateRoom({ bot = practice, mode = mode, map = map, rules = options.rules })
+        best = self:CreateRoom({ bot = practice, mode = mode, map = map, rules = options.rules, title = client.name .. "'s game" })
     end
     local ok, err = best:Add(client)
     if not ok then
@@ -213,6 +263,14 @@ function Host:bind()
 
     server:On("tournament", function(client, data)
         self.tournaments:Handle(client, data)
+    end)
+
+    server:On("rooms", function(client, data)
+        if type(data) ~= "table" or data.v ~= Config.version then
+            client:Send("rooms", { error = "Version mismatch: server is v" .. Config.version })
+            return
+        end
+        client:Send("rooms", { list = self:Listings(), server = self:Info() })
     end)
 
     server:On("leaderboard", function(client)

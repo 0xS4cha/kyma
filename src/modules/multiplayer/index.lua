@@ -4,6 +4,7 @@ local Protocol = require("src.net.protocol")
 local NetConfig = require("src.net.config")
 local LocalServer = require("src.modules.multiplayer.localserver")
 local Lan = require("src.modules.multiplayer.lan")
+local Browser = require("src.modules.multiplayer.browser")
 local Address = require("src.net.address")
 local Identity = require("src.net.identity")
 
@@ -26,6 +27,7 @@ function GM.Multiplayer:Initialize()
     self.pending = nil
     self.queueOptions = nil
     self.lan = Lan()
+    self.browser = Browser()
     self.lanHost = false
     self.lanAddress = nil
     self.listening = false
@@ -184,6 +186,29 @@ function GM.Multiplayer:Browse(enabled)
     self.listening = enabled == true
 end
 
+--- Lists the games of a server in the background, or stops with nil.
+--- @param address string?
+function GM.Multiplayer:BrowseServer(address)
+    self.browser:Watch(address)
+end
+
+--- @return table[]
+function GM.Multiplayer:ServerGames()
+    return self.browser:List()
+end
+
+--- Opens a game on a server with the settings picked in the Play menu.
+--- @param address string
+--- @param name string
+--- @param options table { mode, map, rules, title, password }
+function GM.Multiplayer:HostOn(address, name, options)
+    local queue = { host = true }
+    for key, value in pairs(options or {}) do queue[key] = value end
+    self.queueOptions = queue
+    self.lanHost = false
+    return self:Connect(address, name)
+end
+
 --- @return table[]
 function GM.Multiplayer:LanGames()
     return self.lan:List()
@@ -208,7 +233,8 @@ function GM.Multiplayer:announce()
         max = room.max or NetConfig.roomPlayers,
         name = self.name .. " - " .. ((require("src.config.game").modes[room.mode or ""] or {}).name or "Duel")
             .. " - " .. require("src.maps.index").get(room.map).name,
-        address = self.lanAddress
+        address = self.lanAddress,
+        locked = room.lk == true
     })
 end
 
@@ -266,6 +292,7 @@ function GM.Multiplayer:Think()
     self.localServer:Update()
     self.lan:Listen(self.listening)
     self.lan:Poll()
+    self.browser:Update()
     self:announce()
     if self.pending and self.localServer.state == "failed" then
         self.pending = nil
@@ -300,6 +327,7 @@ end
 function GM.Multiplayer:Shutdown()
     self:Leave()
     self.lan:Close()
+    self.browser:Close()
 end
 
 return GM.Multiplayer
