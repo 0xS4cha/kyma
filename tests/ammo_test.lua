@@ -74,5 +74,43 @@ return {
             world:step()
             assert(count(world, "ammo") == 2)
         end
+    },
+    {
+        name = "firing during a reload cancels it and shoots the rounds left",
+        run = function()
+            local world, p = solo()
+            Weapons.give(p, "rifle", 10, 48)
+            idle(world, { l = 1 })
+            assert(p.reload > 0, "reloading")
+            idle(world)
+            idle(world, { b = 1 })
+            assert(p.reload == 0, "the reload is cancelled")
+            assert(p.ammo == 9 and p.reserve == 48, "one round fired from the magazine, reserve untouched: " .. p.ammo .. "/" .. p.reserve)
+        end
+    },
+    {
+        name = "holding the trigger while starting a reload does not cancel it",
+        run = function()
+            local world, p = solo()
+            Weapons.give(p, "rifle", 10, 48)
+            idle(world, { b = 1 })
+            idle(world, { b = 1, l = 1 })
+            local reload = p.reload
+            assert(reload > 0, "reloading")
+            idle(world, { b = 1 })
+            assert(p.reload == reload - 1, "the reload goes on while the trigger stays held")
+        end
+    },
+    {
+        name = "an empty magazine still has to finish reloading",
+        run = function()
+            local world, p = solo()
+            Weapons.give(p, "pistol", 1, 24)
+            idle(world, { b = 1 })
+            assert(p.ammo == 0 and p.reload > 0, "auto reload after the last round")
+            idle(world)
+            idle(world, { b = 1 })
+            assert(p.reload > 0 and p.ammo == 0, "nothing to fire, the reload goes on")
+        end
     }
 }
