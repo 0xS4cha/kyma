@@ -29,6 +29,7 @@ make test             # love . --test
 
 - [Gameplay guide](docs/GAMEPLAY.md)
 - [Technical guide](docs/TECHNICAL.md)
+- [Hosting](docs/HOSTING.md)
 
 ## Credits
 
