@@ -35,10 +35,17 @@ function Hud.mapCanvas(def)
     for k, chunk in ipairs(def.chunks) do
         local cx, cy = (k - 1) % def.count, floor((k - 1) / def.count)
         local c = Worldgen.BIOMES[chunk.biome].color
-        local danger = (chunk.tier - 1) * 0.05
-        lg.setColor(c[1] - danger, c[2] - danger * 1.5, c[3] - danger * 1.5)
-        lg.rectangle("fill", cx * def.chunk + Config.road, cy * def.chunk + Config.road, def.chunk - Config.road * 2, def.chunk - Config.road * 2)
+        local danger = (chunk.tier - 1) * 0.04
+        lg.setColor(c[1] - danger, c[2] - danger * 1.4, c[3] - danger * 1.4)
+        lg.rectangle("fill", cx * def.chunk, cy * def.chunk, def.chunk + 1, def.chunk + 1)
     end
+    lg.setColor(0.42, 0.42, 0.44)
+    lg.setLineWidth(260)
+    for _, r in ipairs(def.roads) do
+        lg.line(r[1], r[2], r[3], r[4])
+        lg.circle("fill", r[1], r[2], 130)
+    end
+    lg.setLineWidth(1)
     lg.setColor(0.3, 0.42, 0.56)
     for _, pit in ipairs(def.pits) do lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h) end
     lg.setColor(0.24, 0.25, 0.28)
@@ -217,7 +224,7 @@ function Hud.map(ext)
     lg.setScissor()
     Kit.text("Map   ·   wheel to zoom   ·   " .. Keys.label("map") .. " to close", 14, 0, my0 - 26, Kit.INK, 0.7, "center", W)
     local legend = {}
-    for _, id in ipairs({ "forest", "field", "lake", "town", "industrial", "military", "citadel" }) do legend[#legend + 1] = id end
+    for _, id in ipairs({ "forest", "field", "highlands", "lake", "town", "industrial", "military", "citadel" }) do legend[#legend + 1] = id end
     local lx = mx0 + size + 16
     if lx + 140 < W then
         for k, id in ipairs(legend) do

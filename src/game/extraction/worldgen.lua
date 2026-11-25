@@ -1,7 +1,11 @@
 --- Builds the extraction world from a seed. The server and every client run the same
---- generation, so only the seed goes over the network. The world is a grid of chunks
---- separated by roads; each chunk gets a biome and a danger tier (1 at the edges, 4 in
---- the centre) that pick its buildings, loot containers and monster nests.
+--- generation, so only the seed goes over the network.
+---
+--- The land is shaped by noise: elevation makes lakes in the hollows and rocky
+--- highlands on the heights, moisture splits forests from open fields. Settlements
+--- (villages, towns, industrial zones, military camps and the citadel in the centre)
+--- are scattered over the land and joined by winding roads. Danger goes up from the
+--- edges (tier 1) to the centre (tier 4) and picks the monsters and the loot.
 local B = require("src.maps.builder")
 local Random = require("src.core.random")
 local Hash = require("src.core.hash")
@@ -9,13 +13,14 @@ local Config = require("src.config.extraction")
 
 local Worldgen = {}
 
-local floor, sqrt, min, max = math.floor, math.sqrt, math.min, math.max
+local floor, sqrt, min, max, abs, cos, sin, pi = math.floor, math.sqrt, math.min, math.max, math.abs, math.cos, math.sin, math.pi
 
 Worldgen.BIOMES = {
     forest = { name = "Forest", color = { 0.55, 0.66, 0.5 } },
     field = { name = "Fields", color = { 0.78, 0.76, 0.58 } },
+    highlands = { name = "Highlands", color = { 0.66, 0.64, 0.6 } },
     lake = { name = "Lake", color = { 0.5, 0.64, 0.76 } },
-    town = { name = "Town", color = { 0.72, 0.7, 0.68 } },
+    town = { name = "Town", color = { 0.74, 0.7, 0.66 } },
     industrial = { name = "Industrial", color = { 0.62, 0.6, 0.6 } },
     military = { name = "Military", color = { 0.58, 0.6, 0.48 } },
     citadel = { name = "Citadel", color = { 0.56, 0.44, 0.44 } }
@@ -26,12 +31,11 @@ local EXTRACT_NAMES = {
     "Dam tunnel", "Cliff stairs", "Checkpoint", "Helipad", "Sewer outlet"
 }
 
+local CELL = 200
+local OCC = 50
+local ROAD = 130
+
 --- Smooth noise in [0, 1] from a lattice of hashed values.
---- @param seed number
---- @param x number
---- @param y number
---- @param scale number lattice spacing
---- @return number
 local function noise(seed, x, y, scale)
     local gx, gy = x / scale, y / scale
     local ix, iy = floor(gx), floor(gy)
@@ -47,29 +51,28 @@ end
 
 Worldgen.noise = noise
 
---- @param seed number
---- @param cx number
---- @param cy number
---- @param count number chunks per side
---- @return string biome, number tier
-function Worldgen.classify(seed, cx, cy, count)
-    local half = count / 2
-    local dx, dy = (cx + 0.5 - half) / half, (cy + 0.5 - half) / half
-    local base = sqrt(dx * dx + dy * dy)
-    if base < 0.1 then return "citadel", 4 end
-    local d = base + (noise(seed + 3, cx, cy, 3) - 0.5) * 0.18
-    local tier = d < 0.22 and 4 or d < 0.48 and 3 or d < 0.74 and 2 or 1
-    local v = noise(seed, cx, cy, 4.5)
-    local w = noise(seed + 17, cx, cy, 3.2)
-    if tier >= 3 and w > 0.64 then return "military", tier end
-    if v < 0.16 and tier <= 3 then return "lake", tier end
-    if v < 0.42 then return "forest", tier end
-    if v < 0.54 then return "field", tier end
-    if v < 0.8 then return "town", tier end
-    return "industrial", tier
+local function fbm(seed, x, y, scale)
+    return noise(seed, x, y, scale) * 0.55 + noise(seed + 101, x, y, scale / 2.3) * 0.3 + noise(seed + 211, x, y, scale / 5.1) * 0.15
 end
 
---- A world under construction: the map lists plus the containers and nests.
+--- @param x number
+--- @param y number
+--- @param half number
+--- @return number distance from the centre, 0 in the middle, about 1 at the edges
+local function radial(x, y, half)
+    local dx, dy = (x - half) / half, (y - half) / half
+    return sqrt(dx * dx + dy * dy)
+end
+
+local function pointSegment(px, py, x1, y1, x2, y2)
+    local dx, dy = x2 - x1, y2 - y1
+    local l2 = dx * dx + dy * dy
+    local t = l2 > 0 and max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / l2)) or 0
+    local cx, cy = x1 + dx * t, y1 + dy * t
+    return sqrt((px - cx) ^ 2 + (py - cy) ^ 2)
+end
+
+--- A world under construction: the map lists, the land fields and what is taken.
 local Ctx = {}
 Ctx.__index = Ctx
 
@@ -83,27 +86,71 @@ function Ctx:nest(x, y, tier, biome)
     list[#list + 1] = { id = #list + 1, x = floor(x), y = floor(y), tier = tier, biome = biome }
 end
 
---- Is a rectangle free of every rectangle placed in this chunk so far?
+--- Elevation at a point, interpolated from the grid.
+function Ctx:elevation(x, y)
+    local n = self.n
+    local gx, gy = max(0, min(n - 1.001, x / CELL)), max(0, min(n - 1.001, y / CELL))
+    local ix, iy = floor(gx), floor(gy)
+    local fx, fy = gx - ix, gy - iy
+    local e = self.elev
+    local w = n + 1
+    local a, b = e[iy * w + ix + 1], e[iy * w + ix + 2]
+    local c, d = e[(iy + 1) * w + ix + 1], e[(iy + 1) * w + ix + 2]
+    return (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fy
+end
+
+function Ctx:water(x, y)
+    return self:elevation(x, y) < self.waterLevel
+end
+
+--- Is a point within `margin` of a road?
+function Ctx:nearRoad(x, y, margin)
+    local key0x, key0y = floor((x - margin - ROAD) / 1000), floor((y - margin - ROAD) / 1000)
+    local key1x, key1y = floor((x + margin + ROAD) / 1000), floor((y + margin + ROAD) / 1000)
+    local roads = self.m.roads
+    for ky = key0y, key1y do
+        for kx = key0x, key1x do
+            for _, k in ipairs(self.roadCells[ky * 1000 + kx] or {}) do
+                local r = roads[k]
+                if pointSegment(x, y, r[1], r[2], r[3], r[4]) < r[5] / 2 + margin then return true end
+            end
+        end
+    end
+    return false
+end
+
+--- Is a rectangle free of everything placed so far, of roads and of water?
 function Ctx:free(x, y, w, h, pad)
     pad = pad or 0
-    for _, r in ipairs(self.placed) do
-        if x - pad < r.x + r.w and r.x < x + w + pad and y - pad < r.y + r.h and r.y < y + h + pad then return false end
+    local size = self.m.width
+    if x - pad < 100 or y - pad < 100 or x + w + pad > size - 100 or y + h + pad > size - 100 then return false end
+    for cy = floor((y - pad) / OCC), floor((y + h + pad) / OCC) do
+        for cx = floor((x - pad) / OCC), floor((x + w + pad) / OCC) do
+            if self.occ[cy * 1000 + cx] then return false end
+        end
     end
+    local cx, cy = x + w / 2, y + h / 2
+    if self:nearRoad(cx, cy, sqrt(w * w + h * h) / 2 + pad) then return false end
+    if self:water(cx, cy) or self:water(x, y) or self:water(x + w, y + h) or self:water(x + w, y) or self:water(x, y + h) then return false end
     return true
 end
 
---- @param deco string? how the client draws it (tree, rock, bale, furniture)
+function Ctx:claim(x, y, w, h)
+    for cy = floor(y / OCC), floor((y + h) / OCC) do
+        for cx = floor(x / OCC), floor((x + w) / OCC) do
+            self.occ[cy * 1000 + cx] = true
+        end
+    end
+end
+
+--- @param deco string? how the client draws it (tree, rock, bale, furniture...)
 function Ctx:box(x, y, w, h, kind, deco)
     B.box(self.m, floor(x), floor(y), floor(w), floor(h), kind)
     if deco then
         local list = self.m[kind == "cover" and "cover" or (kind == "pit" and "pits" or "walls")]
         list[#list].deco = deco
     end
-    self.placed[#self.placed + 1] = { x = x, y = y, w = w, h = h }
-end
-
-function Ctx:claim(x, y, w, h)
-    self.placed[#self.placed + 1] = { x = x, y = y, w = w, h = h }
+    self:claim(x, y, w, h)
 end
 
 local DOOR, WINDOW, T = 74, 110, 24
@@ -193,146 +240,106 @@ function Ctx:building(x, y, w, h, tier, kinds, options)
     end
 end
 
+
 local TOWN = { "crate", "cabinet", "fridge", "locker", "drawer", "medbox" }
 local INDUSTRIAL = { "toolbox", "crate", "locker", "crate", "cabinet" }
 local MILITARY = { "weapon_case", "ammo_crate", "crate", "medbox", "weapon_case" }
 local WILD = { "stash", "crate" }
 
-local Biome = {}
-
-function Biome.town(ctx, x, y, size, tier)
+--- Tries to place a building somewhere in a disc.
+local function placeBuilding(ctx, cx, cy, radius, w, h, tier, kinds, options)
     local rng = ctx.rng
-    local blocks = rng:random() < 0.5 and 2 or 3
-    local street = 150
-    local block = (size - street * (blocks - 1)) / blocks
-    for by = 0, blocks - 1 do
-        for bx = 0, blocks - 1 do
-            local px, py = x + bx * (block + street), y + by * (block + street)
-            if rng:random() < 0.82 then
-                local w = block * (0.55 + rng:random() * 0.4)
-                local h = block * (0.5 + rng:random() * 0.45)
-                local ox, oy = rng:random() * (block - w), rng:random() * (block - h)
-                ctx:building(px + ox, py + oy, w, h, tier, TOWN, { rooms = 3, windows = 2 })
-            else
-                for _ = 1, rng:random(4, 9) do
-                    local s = rng:random(34, 54)
-                    local tx, ty = px + rng:random() * (block - s), py + rng:random() * (block - s)
-                    if ctx:free(tx, ty, s, s, 40) then ctx:box(tx, ty, s, s, nil, "tree") end
-                end
-                ctx:nest(px + block / 2, py + block / 2, tier, "town")
-            end
+    for _ = 1, 24 do
+        local a, r = rng:random() * 2 * pi, sqrt(rng:random()) * radius
+        local x, y = cx + cos(a) * r - w / 2, cy + sin(a) * r - h / 2
+        if ctx:free(x, y, w, h, 60) then
+            ctx:building(x, y, w, h, tier, kinds, options)
+            return true
         end
     end
-    for _ = 1, rng:random(3, 7) do
+    return false
+end
+
+local function scatter(ctx, cx, cy, radius, count, make)
+    local rng = ctx.rng
+    for _ = 1, count do
+        local a, r = rng:random() * 2 * pi, rng:random() * radius
+        make(cx + cos(a) * r, cy + sin(a) * r)
+    end
+end
+
+local Settlement = {}
+
+function Settlement.village(ctx, s)
+    local rng = ctx.rng
+    for _ = 1, rng:random(4, 8) do
+        local w, h = rng:random(240, 400), rng:random(200, 320)
+        placeBuilding(ctx, s.x, s.y, s.r, w, h, s.tier, TOWN, { rooms = 2, windows = 1 })
+    end
+    scatter(ctx, s.x, s.y, s.r, rng:random(2, 5), function(x, y)
+        local horizontal = rng:random() < 0.5
+        local length = rng:random(160, 360)
+        local w, h = horizontal and length or 16, horizontal and 16 or length
+        if ctx:free(x, y, w, h, 40) then ctx:box(x, y, w, h, "cover") end
+    end)
+    ctx:nest(s.x + rng:random(-200, 200), s.y + rng:random(-200, 200), s.tier, "town")
+end
+
+function Settlement.town(ctx, s)
+    local rng = ctx.rng
+    for _ = 1, rng:random(14, 22) do
+        local w, h = rng:random(280, 560), rng:random(240, 440)
+        placeBuilding(ctx, s.x, s.y, s.r, w, h, s.tier, TOWN, { rooms = 3, windows = 2 })
+    end
+    scatter(ctx, s.x, s.y, s.r, rng:random(5, 10), function(x, y)
         local horizontal = rng:random() < 0.5
         local w, h = horizontal and 96 or 46, horizontal and 46 or 96
-        local cx, cy = x + rng:random() * (size - w), y + rng:random() * (size - h)
-        if ctx:free(cx, cy, w, h, 30) then ctx:box(cx, cy, w, h, "cover", "car") end
-    end
-    ctx:nest(x + size / 2, y + size / 2, tier, "town")
+        if ctx:free(x, y, w, h, 30) then ctx:box(x, y, w, h, "cover", "car") end
+    end)
+    scatter(ctx, s.x, s.y, s.r, rng:random(4, 9), function(x, y)
+        local size = rng:random(34, 54)
+        if ctx:free(x, y, size, size, 40) then ctx:box(x, y, size, size, nil, "tree") end
+    end)
+    ctx:nest(s.x + rng:random(-300, 300), s.y + rng:random(-300, 300), s.tier, "town")
+    ctx:nest(s.x + rng:random(-300, 300), s.y + rng:random(-300, 300), s.tier, "town")
 end
 
-function Biome.industrial(ctx, x, y, size, tier)
+function Settlement.industrial(ctx, s)
     local rng = ctx.rng
-    local w, h = size * (0.45 + rng:random() * 0.2), size * (0.3 + rng:random() * 0.15)
-    local wx, wy = x + rng:random() * (size - w), y + rng:random() * (size * 0.4)
-    ctx:building(wx, wy, w, h, tier, INDUSTRIAL, { rooms = 1, windows = 2, loot = 0.9, floor = "concrete" })
-    for k = 1, 3 do
-        local sx = wx + 60 + (w - 120) * k / 4
-        B.box(ctx.m, floor(sx - 14), floor(wy + 80), 28, floor(h - 160), "cover")
-        ctx.m.cover[#ctx.m.cover].deco = "shelf"
-    end
-    for _ = 1, rng:random(8, 16) do
-        local horizontal = rng:random() < 0.6
-        local cw, ch = horizontal and 240 or 80, horizontal and 80 or 240
-        local cx, cy = x + rng:random() * (size - cw), y + rng:random() * (size - ch)
-        if ctx:free(cx, cy, cw, ch, 70) then
-            ctx:box(cx, cy, cw, ch, nil, "container")
-            if rng:random() < 0.3 then ctx:container(cx + cw / 2, cy + ch + 40, "crate", tier) end
-        end
-    end
-    ctx:nest(x + size * 0.5, y + size * 0.8, tier, "industrial")
-    ctx:nest(x + size * 0.2, y + size * 0.5, tier, "industrial")
-end
-
-function Biome.forest(ctx, x, y, size, tier)
-    local rng = ctx.rng
-    if rng:random() < 0.4 then
-        local cw, ch = rng:random(260, 360), rng:random(220, 300)
-        ctx:building(x + rng:random() * (size - cw), y + rng:random() * (size - ch), cw, ch, tier, WILD, { rooms = 1, windows = 1, loot = 1 })
-    end
-    for _ = 1, rng:random(55, 85) do
-        local s = rng:random(30, 64)
-        local tx, ty = x + rng:random() * (size - s), y + rng:random() * (size - s)
-        if ctx:free(tx, ty, s, s, 50) then
-            ctx:box(tx, ty, s, s, nil, "tree")
-            if rng:random() < 0.04 then ctx:container(tx + s + 30, ty + s / 2, "stash", tier) end
-        end
-    end
-    for _ = 1, rng:random(4, 9) do
-        local w, h = rng:random(50, 130), rng:random(40, 90)
-        local rx, ry = x + rng:random() * (size - w), y + rng:random() * (size - h)
-        if ctx:free(rx, ry, w, h, 40) then ctx:box(rx, ry, w, h, "cover", "rock") end
-    end
-    ctx:nest(x + size * (0.3 + rng:random() * 0.4), y + size * (0.3 + rng:random() * 0.4), tier, "forest")
-end
-
-function Biome.field(ctx, x, y, size, tier)
-    local rng = ctx.rng
-    if rng:random() < 0.55 then
-        local bw, bh = rng:random(420, 560), rng:random(300, 380)
-        ctx:building(x + rng:random() * (size - bw), y + rng:random() * (size - bh), bw, bh, tier, { "crate", "toolbox" }, { rooms = 1, windows = 0, loot = 0.9, floor = "planks" })
-    end
-    for _ = 1, rng:random(3, 6) do
-        local horizontal = rng:random() < 0.5
-        local length = rng:random(300, 700)
-        local fx, fy = x + rng:random() * (size - length), y + rng:random() * (size - length)
-        local w, h = horizontal and length or 16, horizontal and 16 or length
-        if ctx:free(fx, fy, w, h, 60) then
-            local gap = rng:random(60, length - 160)
-            if horizontal then
-                ctx:box(fx, fy, gap, 16, "cover")
-                ctx:box(fx + gap + 100, fy, length - gap - 100, 16, "cover")
-            else
-                ctx:box(fx, fy, 16, gap, "cover")
-                ctx:box(fx, fy + gap + 100, 16, length - gap - 100, "cover")
+    for _ = 1, rng:random(1, 3) do
+        local w, h = rng:random(600, 900), rng:random(380, 560)
+        for _ = 1, 10 do
+            local a, r = rng:random() * 2 * pi, rng:random() * s.r * 0.6
+            local x, y = s.x + cos(a) * r - w / 2, s.y + sin(a) * r - h / 2
+            if ctx:free(x, y, w, h, 60) then
+                ctx:building(x, y, w, h, s.tier, INDUSTRIAL, { rooms = 1, windows = 2, loot = 0.9, floor = "concrete" })
+                for k = 1, 3 do
+                    local sx = x + 60 + (w - 120) * k / 4
+                    B.box(ctx.m, floor(sx - 14), floor(y + 80), 28, floor(h - 160), "cover")
+                    ctx.m.cover[#ctx.m.cover].deco = "shelf"
+                end
+                break
             end
         end
     end
-    for _ = 1, rng:random(6, 14) do
-        local fx, fy = x + rng:random() * (size - 80), y + rng:random() * (size - 44)
-        if ctx:free(fx, fy, 80, 44, 50) then ctx:box(fx, fy, 80, 44, "cover", "bale") end
-    end
-    ctx:nest(x + size / 2, y + size / 2, tier, "field")
-end
-
-function Biome.lake(ctx, x, y, size, tier)
-    local rng = ctx.rng
-    local cx, cy = x + size / 2, y + size / 2
-    for _ = 1, rng:random(3, 5) do
-        local w, h = size * (0.3 + rng:random() * 0.35), size * (0.3 + rng:random() * 0.35)
-        local px = cx - w / 2 + (rng:random() - 0.5) * size * 0.3
-        local py = cy - h / 2 + (rng:random() - 0.5) * size * 0.3
-        px, py = max(x + 60, min(px, x + size - w - 60)), max(y + 60, min(py, y + size - h - 60))
-        ctx:box(px, py, w, h, "pit")
-    end
-    for _ = 1, rng:random(8, 16) do
-        local s = rng:random(40, 90)
-        local tx, ty = x + rng:random() * (size - s), y + rng:random() * (size - s)
-        if ctx:free(tx, ty, s, s, 50) then ctx:box(tx, ty, s, s, "cover", "rock") end
-    end
-    if rng:random() < 0.5 then
-        local tx, ty = x + 80, y + 80
-        if ctx:free(tx, ty, 240, 200, 20) then
-            ctx:building(tx, ty, 240, 200, tier, WILD, { rooms = 1, windows = 1, loot = 1 })
+    scatter(ctx, s.x, s.y, s.r, rng:random(10, 18), function(x, y)
+        local horizontal = rng:random() < 0.6
+        local w, h = horizontal and 240 or 80, horizontal and 80 or 240
+        if ctx:free(x, y, w, h, 70) then
+            ctx:box(x, y, w, h, nil, "container")
+            if rng:random() < 0.3 then ctx:container(x + w / 2, y + h + 40, "crate", s.tier) end
         end
-    end
-    ctx:nest(x + size * 0.85, y + size * 0.85, tier, "lake")
+    end)
+    ctx:nest(s.x + s.r * 0.5, s.y, s.tier, "industrial")
+    ctx:nest(s.x - s.r * 0.5, s.y, s.tier, "industrial")
 end
 
-local function compound(ctx, x, y, size, tier, inner)
+--- A square fenced camp around the settlement centre, with a gate on each side.
+local function compound(ctx, s, inner)
     local rng, m = ctx.rng, ctx.m
-    local fx, fy, fs = x + 60, y + 60, size - 120
+    local half = floor(s.r * 0.72)
+    local fx, fy, fs = floor(s.x - half), floor(s.y - half), half * 2
+    if not ctx:free(fx, fy, fs, fs, 20) then return false end
     local function gate(from, to)
         local at = floor(from + (to - from) * (0.3 + rng:random() * 0.4))
         return { { at, at + 160, "open" } }
@@ -346,17 +353,18 @@ local function compound(ctx, x, y, size, tier, inner)
     ctx:claim(fx - 30, fy - 30, 80, fs + 60)
     ctx:claim(fx + fs - 50, fy - 30, 80, fs + 60)
     inner(fx + 80, fy + 80, fs - 160)
+    return true
 end
 
-function Biome.military(ctx, x, y, size, tier)
+function Settlement.military(ctx, s)
     local rng = ctx.rng
-    compound(ctx, x, y, size, tier, function(ix, iy, is)
+    compound(ctx, s, function(ix, iy, is)
         for k = 1, rng:random(2, 4) do
-            local w, h = rng:random(300, 460), rng:random(240, 340)
+            local w, h = rng:random(300, 440), rng:random(240, 320)
             for _ = 1, 8 do
                 local bx, by = ix + rng:random() * (is - w), iy + rng:random() * (is - h)
-                if ctx:free(bx, by, w, h, 90) then
-                    ctx:building(bx, by, w, h, tier, MILITARY, { rooms = k == 1 and 2 or 1, windows = 0, loot = 1, floor = "concrete" })
+                if ctx:free(bx, by, w, h, 60) then
+                    ctx:building(bx, by, w, h, s.tier, MILITARY, { rooms = k == 1 and 2 or 1, windows = 0, loot = 1, floor = "concrete" })
                     break
                 end
             end
@@ -365,76 +373,358 @@ function Biome.military(ctx, x, y, size, tier)
             local horizontal = rng:random() < 0.5
             local w, h = horizontal and 130 or 34, horizontal and 34 or 130
             local sx, sy = ix + rng:random() * (is - w), iy + rng:random() * (is - h)
-            if ctx:free(sx, sy, w, h, 50) then ctx:box(sx, sy, w, h, "cover", "sandbag") end
+            if ctx:free(sx, sy, w, h, 40) then ctx:box(sx, sy, w, h, "cover", "sandbag") end
         end
-        ctx:nest(ix + is / 2, iy + is / 2, tier, "military")
     end)
+    ctx:nest(s.x, s.y, s.tier, "military")
+    ctx:nest(s.x + s.r * 0.4, s.y - s.r * 0.4, s.tier, "military")
 end
 
-function Biome.citadel(ctx, x, y, size, tier)
+function Settlement.citadel(ctx, s)
     local rng = ctx.rng
-    compound(ctx, x, y, size, tier, function(ix, iy, is)
-        local w, h = is * 0.55, is * 0.45
-        ctx:building(ix + (is - w) / 2, iy + (is - h) / 2, w, h, tier, MILITARY, { rooms = 5, windows = 1, loot = 1, floor = "tiles" })
+    compound(ctx, s, function(ix, iy, is)
+        local w, h = floor(is * 0.55), floor(is * 0.45)
+        local bx, by = ix + (is - w) / 2, iy + (is - h) / 2
+        if ctx:free(bx, by, w, h, 20) then
+            ctx:building(bx, by, w, h, 4, MILITARY, { rooms = 5, windows = 1, loot = 1, floor = "tiles" })
+        end
         for _ = 1, 10 do
             local horizontal = rng:random() < 0.5
             local cw, ch = horizontal and 140 or 34, horizontal and 34 or 140
             local sx, sy = ix + rng:random() * (is - cw), iy + rng:random() * (is - ch)
-            if ctx:free(sx, sy, cw, ch, 50) then ctx:box(sx, sy, cw, ch, "cover", "sandbag") end
+            if ctx:free(sx, sy, cw, ch, 40) then ctx:box(sx, sy, cw, ch, "cover", "sandbag") end
         end
-        ctx:nest(ix + is * 0.15, iy + is * 0.15, tier, "military")
-        ctx:nest(ix + is * 0.85, iy + is * 0.85, tier, "military")
-        ctx.m.citadel = { x = ix + is / 2, y = iy + is * 0.9 }
+        ctx.m.citadel = { x = floor(ix + is / 2), y = floor(iy + is * 0.9) }
     end)
+    ctx:nest(s.x - s.r * 0.5, s.y - s.r * 0.5, 4, "military")
+    ctx:nest(s.x + s.r * 0.5, s.y + s.r * 0.5, 4, "military")
+end
+
+--- A winding road between two points, as segments added to the map.
+local function road(ctx, x1, y1, x2, y2, width)
+    local rng = ctx.rng
+    local points = { { x1, y1 }, { x2, y2 } }
+    for _ = 1, 4 do
+        local out = { points[1] }
+        for k = 1, #points - 1 do
+            local a, b = points[k], points[k + 1]
+            local dx, dy = b[1] - a[1], b[2] - a[2]
+            local len = sqrt(dx * dx + dy * dy)
+            local push = (rng:random() - 0.5) * len * 0.35
+            out[#out + 1] = { (a[1] + b[1]) / 2 - dy / max(1, len) * push, (a[2] + b[2]) / 2 + dx / max(1, len) * push }
+            out[#out + 1] = b
+        end
+        points = out
+    end
+    local m = ctx.m
+    for k = 1, #points - 1 do
+        local a, b = points[k], points[k + 1]
+        local ax = max(300, min(m.width - 300, a[1]))
+        local ay = max(300, min(m.height - 300, a[2]))
+        local bx = max(300, min(m.width - 300, b[1]))
+        local by = max(300, min(m.height - 300, b[2]))
+        local seg = { floor(ax), floor(ay), floor(bx), floor(by), width }
+        m.roads[#m.roads + 1] = seg
+        local index = #m.roads
+        for ky = floor((min(ay, by) - width) / 1000), floor((max(ay, by) + width) / 1000) do
+            for kx = floor((min(ax, bx) - width) / 1000), floor((max(ax, bx) + width) / 1000) do
+                local key = ky * 1000 + kx
+                ctx.roadCells[key] = ctx.roadCells[key] or {}
+                table.insert(ctx.roadCells[key], index)
+            end
+        end
+    end
 end
 
 --- Generates the whole world.
 --- @param seed number?
---- @return table map definition for Terrain.new, plus containers, nests, spawns, extracts, chunks
+--- @return table map definition for Terrain.new, plus containers, nests, spawns, extracts, roads, chunks
 function Worldgen.generate(seed)
     seed = seed or Config.seed
-    local size, chunk, road = Config.size, Config.chunk, Config.road
-    local count = floor(size / chunk)
+    local size = Config.size
+    local half = size / 2
+    local n = floor(size / CELL)
     local m = B.new("wilds", "The Wilds", size, size, "A vast persistent world. Loot, survive, extract.")
-    m.containers, m.nests, m.extracts, m.chunks, m.floors = {}, {}, {}, {}, {}
-    m.seed, m.count, m.chunk = seed, count, chunk
+    m.containers, m.nests, m.extracts, m.chunks, m.floors, m.roads = {}, {}, {}, {}, {}, {}
+    m.seed, m.count, m.chunk = seed, n, CELL
     B.border(m, 60)
-    for cy = 0, count - 1 do
-        for cx = 0, count - 1 do
-            local biome, tier = Worldgen.classify(seed, cx, cy, count)
-            m.chunks[cy * count + cx + 1] = { biome = biome, tier = tier }
-            local rng = Random.new(Hash.combine(Hash.combine(seed, cx + 7), cy + 13))
-            local ctx = setmetatable({ m = m, rng = rng, placed = {} }, Ctx)
-            local inset = road + 40
-            Biome[biome](ctx, cx * chunk + inset, cy * chunk + inset, chunk - inset * 2, tier)
+    local rng = Random.new(Hash.combine(seed, 4242))
+    local ctx = setmetatable({ m = m, rng = rng, occ = {}, roadCells = {}, n = n }, Ctx)
+
+    -- Land fields on the grid corners.
+    local elev, moist, sorted, wet = {}, {}, {}, {}
+    for gy = 0, n do
+        for gx = 0, n do
+            local x, y = gx * CELL, gy * CELL
+            local e = fbm(seed + 1, x, y, 9000)
+            local d = radial(x, y, half)
+            if d < 0.14 then e = e + (0.14 - d) * 3 end
+            elev[#elev + 1] = e
+            sorted[#sorted + 1] = e
+            local wetness = fbm(seed + 5, x, y, 6500)
+            moist[#moist + 1] = wetness
+            wet[#wet + 1] = wetness
         end
     end
-    -- Road crossings are always clear: players spawn on the outer ones, extracts sit on some.
-    local spawnRng = Random.new(Hash.combine(seed, 99))
-    for cy = 1, count - 1 do
-        for cx = 1, count - 1 do
-            local outer = min(cx, cy, count - cx, count - cy)
-            if outer <= 3 then
-                local angle = math.atan2(size / 2 - cy * chunk, size / 2 - cx * chunk)
-                B.spawn(m, cx * chunk, cy * chunk, angle)
+    table.sort(sorted)
+    table.sort(wet)
+    ctx.elev = elev
+    ctx.waterLevel = sorted[floor(#sorted * 0.09)]
+    ctx.highLevel = sorted[floor(#sorted * 0.86)]
+    local forestLevel = wet[floor(#wet * 0.5)]
+
+    local function tierAt(x, y)
+        local d = radial(x, y, half) + (noise(seed + 3, x, y, 6000) - 0.5) * 0.16
+        return d < 0.22 and 4 or d < 0.48 and 3 or d < 0.74 and 2 or 1
+    end
+    Worldgen.tierAt = tierAt
+
+    -- Settlements, the citadel first.
+    local settlements = { { x = half, y = half, r = 1300, kind = "citadel", tier = 4 } }
+    for _ = 1, 5000 do
+        if #settlements >= 160 then break end
+        local x, y = rng:random(1600, size - 1600), rng:random(1600, size - 1600)
+        local tier = tierAt(x, y)
+        local roll = rng:random()
+        local kind, r
+        if tier >= 3 and roll < 0.42 then
+            kind, r = "military", rng:random(700, 900)
+        elseif tier >= 2 and roll < 0.5 then
+            kind, r = "industrial", rng:random(700, 1000)
+        elseif roll < 0.8 then
+            kind, r = "town", rng:random(850, 1200)
+        else
+            kind, r = "village", rng:random(450, 650)
+        end
+        local ok = not ctx:water(x, y) and ctx:elevation(x, y) > ctx.waterLevel + 0.03
+        for _, s in ipairs(settlements) do
+            if ok and (s.x - x) ^ 2 + (s.y - y) ^ 2 < (s.r + r + 900) ^ 2 then ok = false end
+        end
+        if ok then settlements[#settlements + 1] = { x = x, y = y, r = r, kind = kind, tier = tier } end
+    end
+    m.settlements = settlements
+
+    -- Gates on the edges of the map: roads leave there, players arrive there.
+    local gates = {}
+    for k = 0, 15 do
+        local t = (k + 0.5) / 16 + (rng:random() - 0.5) * 0.03
+        local side = floor(t * 4)
+        local u = (t * 4 - side) * (size - 3000) + 1500
+        local x, y
+        if side == 0 then x, y = u, 700 elseif side == 1 then x, y = size - 700, u elseif side == 2 then x, y = size - u, size - 700 else x, y = 700, size - u end
+        gates[#gates + 1] = { x = floor(x), y = floor(y) }
+    end
+
+    -- Roads: a spanning tree over the settlements plus a few loops, and every gate.
+    local function edge(a, b)
+        local dx, dy = b.x - a.x, b.y - a.y
+        local d = max(1, sqrt(dx * dx + dy * dy))
+        local ar, br = (a.r or 0) * 0.95, (b.r or 0) * 0.95
+        road(ctx, a.x + dx / d * ar, a.y + dy / d * ar, b.x - dx / d * br, b.y - dy / d * br, ROAD)
+    end
+    local inTree, best, from = { [1] = true }, {}, {}
+    for k = 2, #settlements do
+        best[k] = (settlements[k].x - half) ^ 2 + (settlements[k].y - half) ^ 2
+        from[k] = 1
+    end
+    for _ = 2, #settlements do
+        local pick, pickD
+        for k = 2, #settlements do
+            if not inTree[k] and (not pickD or best[k] < pickD) then pick, pickD = k, best[k] end
+        end
+        inTree[pick] = true
+        edge(settlements[from[pick]], settlements[pick])
+        for k = 2, #settlements do
+            if not inTree[k] then
+                local d = (settlements[k].x - settlements[pick].x) ^ 2 + (settlements[k].y - settlements[pick].y) ^ 2
+                if d < best[k] then best[k], from[k] = d, pick end
             end
         end
     end
-    local picks = {
-        { 1, 3 }, { 1, count - 4 }, { count - 1, 4 }, { count - 1, count - 3 }, { 5, 1 }, { count - 6, 1 },
-        { 4, count - 1 }, { count - 5, count - 1 }, { floor(count / 2) - 3, floor(count / 2) + 3 }, { floor(count / 2) + 3, floor(count / 2) - 3 }
-    }
-    for k, pick in ipairs(picks) do
-        m.extracts[#m.extracts + 1] = { id = k, name = EXTRACT_NAMES[k], x = pick[1] * chunk, y = pick[2] * chunk }
+    for k, s in ipairs(settlements) do
+        local second, secondD
+        for j, o in ipairs(settlements) do
+            if j ~= k and from[k] ~= j and from[j] ~= k then
+                local d = (o.x - s.x) ^ 2 + (o.y - s.y) ^ 2
+                if not secondD or d < secondD then second, secondD = o, d end
+            end
+        end
+        if second and rng:random() < 0.35 then edge(s, second) end
     end
-    m.spawnRng = spawnRng
+    for _, g in ipairs(gates) do
+        local nearest, nearestD
+        for _, s in ipairs(settlements) do
+            local d = (s.x - g.x) ^ 2 + (s.y - g.y) ^ 2
+            if not nearestD or d < nearestD then nearest, nearestD = s, d end
+        end
+        edge(g, nearest)
+    end
+
+    -- Water: rows of the elevation field below the water line, except where a road
+    -- crosses (bridges) and inside settlements.
+    local function inSettlement(x, y, pad)
+        for _, s in ipairs(settlements) do
+            if (s.x - x) ^ 2 + (s.y - y) ^ 2 < (s.r + pad) ^ 2 then return s end
+        end
+    end
+    local step = 100
+    for y = 100, size - 200, step do
+        local start
+        for x = 100, size - 100, step do
+            local cx, cy = x + step / 2, y + step / 2
+            local water = x < size - 200 and ctx:water(cx, cy) and not ctx:nearRoad(cx, cy, 60) and not inSettlement(cx, cy, 150)
+            if water and not start then start = x end
+            if not water and start then
+                ctx:box(start, y, x - start, step, "pit")
+                start = nil
+            end
+        end
+    end
+
+    -- Settlement contents.
+    for _, s in ipairs(settlements) do
+        local sub = Random.new(Hash.combine(seed, floor(s.x) * 7 + floor(s.y)))
+        ctx.rng = sub
+        Settlement[s.kind](ctx, s)
+    end
+    ctx.rng = rng
+
+    -- The land between settlements, cell by cell.
+    local nestGrid = {}
+    for _, nest in ipairs(m.nests) do nestGrid[floor(nest.y / 1500) * 100 + floor(nest.x / 1500)] = true end
+    for gy = 0, n - 1 do
+        for gx = 0, n - 1 do
+            local x, y = gx * CELL, gy * CELL
+            local cx, cy = x + CELL / 2, y + CELL / 2
+            local tier = tierAt(cx, cy)
+            local s = inSettlement(cx, cy, 0)
+            local biome
+            if s then
+                biome = s.kind == "village" and "town" or s.kind
+            elseif ctx:water(cx, cy) then
+                biome = "lake"
+            elseif ctx:elevation(cx, cy) > ctx.highLevel then
+                biome = "highlands"
+            elseif moist[gy * (n + 1) + gx + 1] > forestLevel then
+                biome = "forest"
+            else
+                biome = "field"
+            end
+            m.chunks[gy * n + gx + 1] = { biome = biome, tier = tier }
+            if not s and biome ~= "lake" then
+                local r = rng:random()
+                if biome == "forest" then
+                    for _ = 1, 2 do
+                        if rng:random() < 0.5 then
+                            local size2 = rng:random(30, 64)
+                            local tx, ty = x + rng:random() * (CELL - size2), y + rng:random() * (CELL - size2)
+                            if ctx:free(tx, ty, size2, size2, 36) then ctx:box(tx, ty, size2, size2, nil, "tree") end
+                        end
+                    end
+                    if r < 0.008 then
+                        local w, h = rng:random(260, 340), rng:random(200, 260)
+                        if ctx:free(x, y, w, h, 40) then ctx:building(x, y, w, h, tier, WILD, { rooms = 1, windows = 1, loot = 1 }) end
+                    elseif r < 0.012 and ctx:free(cx - 20, cy - 20, 40, 40, 20) then
+                        ctx:container(cx, cy, "stash", tier)
+                    end
+                elseif biome == "highlands" then
+                    if r < 0.3 then
+                        local w, h = rng:random(50, 140), rng:random(40, 110)
+                        local tx, ty = x + rng:random() * (CELL - w), y + rng:random() * (CELL - h)
+                        if ctx:free(tx, ty, w, h, 40) then ctx:box(tx, ty, w, h, "cover", "rock") end
+                    elseif r < 0.38 then
+                        local s2 = rng:random(80, 170)
+                        local tx, ty = x + rng:random() * (CELL - s2 / 2), y + rng:random() * (CELL - s2 / 2)
+                        if ctx:free(tx, ty, s2, s2, 50) then ctx:box(tx, ty, s2, s2, nil, "boulder") end
+                    elseif r < 0.39 and ctx:free(cx - 20, cy - 20, 40, 40, 20) then
+                        ctx:container(cx, cy, "stash", tier)
+                    end
+                else
+                    if r < 0.025 then
+                        if ctx:free(cx, cy, 80, 44, 40) then ctx:box(cx, cy, 80, 44, "cover", "bale") end
+                    elseif r < 0.035 then
+                        local horizontal = rng:random() < 0.5
+                        local length = rng:random(240, 600)
+                        local w, h = horizontal and length or 16, horizontal and 16 or length
+                        if ctx:free(cx, cy, w, h, 50) then ctx:box(cx, cy, w, h, "cover") end
+                    elseif r < 0.042 then
+                        local w, h = rng:random(420, 540), rng:random(300, 360)
+                        if ctx:free(x, y, w, h, 50) then
+                            ctx:building(x, y, w, h, tier, { "crate", "toolbox" }, { rooms = 1, windows = 0, loot = 0.9, floor = "planks" })
+                        end
+                    end
+                end
+                local key = floor(cy / 1500) * 100 + floor(cx / 1500)
+                if not nestGrid[key] and rng:random() < 0.06 and ctx:free(cx - 40, cy - 40, 80, 80, 0) then
+                    nestGrid[key] = true
+                    ctx:nest(cx, cy, tier, biome)
+                end
+            end
+        end
+    end
+
+    -- Spawns along roads near the edges, extraction points at the gates and inside.
+    local roadPoints = {}
+    for _, r in ipairs(m.roads) do
+        local len = sqrt((r[3] - r[1]) ^ 2 + (r[4] - r[2]) ^ 2)
+        for t = 0, len, 450 do
+            local x, y = r[1] + (r[3] - r[1]) * t / max(1, len), r[2] + (r[4] - r[2]) * t / max(1, len)
+            roadPoints[#roadPoints + 1] = { x = floor(x), y = floor(y), tier = tierAt(x, y) }
+        end
+    end
+    m.roadPoints = roadPoints
+    local function spaced(list, x, y, gap)
+        for _, p in ipairs(list) do
+            if (p.x - x) ^ 2 + (p.y - y) ^ 2 < gap * gap then return false end
+        end
+        return true
+    end
+    for _, g in ipairs(gates) do
+        local angle = math.atan2(half - g.y, half - g.x)
+        B.spawn(m, g.x, g.y, angle)
+    end
+    for _, p in ipairs(roadPoints) do
+        local edgeDistance = min(p.x, p.y, size - p.x, size - p.y)
+        if p.tier <= 2 and edgeDistance < 7000 and not inSettlement(p.x, p.y, 200) and spaced(m.spawns, p.x, p.y, 1200) then
+            B.spawn(m, p.x, p.y, math.atan2(half - p.y, half - p.x))
+        end
+    end
+    local names = 1
+    for k = 1, #gates, 2 do
+        m.extracts[#m.extracts + 1] = { id = #m.extracts + 1, name = EXTRACT_NAMES[names], x = gates[k].x, y = gates[k].y }
+        names = names + 1
+    end
+    for _, p in ipairs(roadPoints) do
+        if #m.extracts >= 10 then break end
+        if p.tier == 3 and not inSettlement(p.x, p.y, 300) and spaced(m.extracts, p.x, p.y, 9000) then
+            m.extracts[#m.extracts + 1] = { id = #m.extracts + 1, name = EXTRACT_NAMES[names], x = p.x, y = p.y }
+            names = names + 1
+        end
+    end
+    m.roadCells = ctx.roadCells
+    m.spawnRng = rng
     return m
+end
+
+--- Calls fn on every road segment in a box ({ x1, y1, x2, y2, width }).
+function Worldgen.roadsNear(m, x0, y0, x1, y1, fn)
+    local seen = {}
+    for ky = floor(y0 / 1000), floor(y1 / 1000) do
+        for kx = floor(x0 / 1000), floor(x1 / 1000) do
+            for _, k in ipairs(m.roadCells[ky * 1000 + kx] or {}) do
+                if not seen[k] then
+                    seen[k] = true
+                    fn(m.roads[k])
+                end
+            end
+        end
+    end
 end
 
 --- @param m table generated map
 --- @param x number
 --- @param y number
---- @return table chunk { biome, tier }
+--- @return table cell { biome, tier }
 function Worldgen.chunkAt(m, x, y)
     local cx = max(0, min(m.count - 1, floor(x / m.chunk)))
     local cy = max(0, min(m.count - 1, floor(y / m.chunk)))
