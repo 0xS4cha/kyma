@@ -589,7 +589,10 @@ function Renderer.draw(session)
             drawPlayer(me, world.arena, Renderer.selfPalette(), true)
         end
         camera:clear()
-        if post then session.postfx:finish(camera) end
+        if post then
+            session.postfx:capture()
+            session.postfx:finish(camera)
+        end
         for _, p in ipairs(opponents) do
             label(camera, p, p.ally and Character.PALETTES.ally.body or COLORS.opponent)
         end

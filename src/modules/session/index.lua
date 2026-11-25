@@ -785,7 +785,14 @@ function GM.Session:receive(data)
     me.weapon = Weapons.unpack(own.g)
     me.ammo, me.reserve, me.reload, me.fireCooldown = own.q or 0, own.r or 0, own.l or 0, own.c or 0
     me.mod, me.modWeapon = own.md, Weapons.unpack(own.mw)
+    local wasBlind = me.blind or 0
     me.gadget, me.gadgets, me.blind = GadgetConfig.unpack(own.gk), own.gn or 0, own.bl or 0
+    if me.blind > wasBlind + 10 then
+        self.blindPeak = me.blind
+        self.postfx:freeze()
+    elseif me.blind <= 0 then
+        self.blindPeak = nil
+    end
     me.trigger = own.z == 1
     if me.dead == 0 and beforeDead == 0 then
         if me.weapon and me.weapon ~= beforeWeapon then
