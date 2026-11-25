@@ -5,6 +5,7 @@
 --- attach it, a utility on a quick slot to bind it, right click for more.
 local Kit = require("src.ui.kit")
 local Icons = require("src.modules.extraction.icons")
+local Assets = require("src.modules.extraction.assets")
 local Items = require("src.game.extraction.items")
 local Inventory = require("src.game.extraction.inventory")
 local ItemConfig = require("src.config.items")
@@ -132,10 +133,52 @@ function UI:slot(ref, inst, x, y, w, h, label)
     self.next[#self.next + 1] = { kind = "slot", ref = ref, inst = inst, x = x, y = y, w = w, h = h }
 end
 
+--- A titled card behind a group of panels.
+function UI.panel(title, x, y, w, h, subtitle)
+    Kit.card(x, y, w, h, 0.97, 14)
+    if title then
+        Kit.text(title, 15, x + 16, y + 12, Kit.INK, 0.95)
+        if subtitle then Kit.text(subtitle, 12, (x + w - 16), y + 14, Kit.INK, 0.5, "right") end
+    end
+end
+
+--- The whole loadout: equipment around a portrait, quick slots, pockets and bag.
+--- @return number width, number height
+function UI:loadout(gear, places, x, y, cell, set)
+    local C = cell
+    local pad = 8
+    self:slot("helmet", gear.helmet, x, y, C * 2, C * 2)
+    self:slot("backpack", gear.backpack, x, y + C * 2 + pad, C * 2, C * 2)
+    local px, pw, ph = x + C * 2 + pad, C * 3, C * 4 + pad
+    lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.05)
+    lg.rectangle("fill", px, y, pw, ph, 10, 10)
+    local look = gear.primary and ItemConfig.all[gear.primary.d] and ItemConfig.all[gear.primary.d].look or nil
+    lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.06)
+    lg.circle("fill", px + pw / 2, y + ph / 2, pw * 0.42)
+    Assets.drawCharacter(set or "survivor1", look, px + pw / 2 - C * 0.15, y + ph / 2, -math.pi / 2, C * 2.4)
+    self:slot("vest", gear.vest, px + pw + pad, y, C * 2, C * 3)
+    local wy = y + ph + pad + 4
+    local ww = C * 7 + pad * 2
+    self:slot("primary", gear.primary, x, wy, ww, C * 2, "Primary  ·  1")
+    self:slot("secondary", gear.secondary, x, wy + C * 2 + pad, ww, C * 2, "Secondary  ·  2")
+    local qy = wy + C * 4 + pad * 2 + 22
+    Kit.text("Quick slots", 12, x, qy - 18, Kit.INK, 0.55)
+    self:quick(gear, x, qy, C)
+    local py = qy + C + 30
+    self:grid("pk", places.pk, x, py, C, "Pockets")
+    local height = py + C - y
+    if places.bp then
+        local by = py + C + 30
+        self:grid("bp", places.bp, x, by, C, Items.name(gear.backpack))
+        height = by + places.bp.h * C - y
+    end
+    return ww, height
+end
+
 --- The quick slots bar (3 to 6 on the keyboard).
 function UI:quick(gear, x, y, size)
     for k = 1, Config.quickSlots do
-        local bx = x + (k - 1) * (size + 8)
+        local bx = x + (k - 1) * (size + 6)
         lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.06)
         lg.rectangle("fill", bx, y, size, size, 8, 8)
         local uid = gear.quick[k]

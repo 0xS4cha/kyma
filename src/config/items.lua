@@ -28,15 +28,15 @@ ITEMS.slots = {
 }
 
 ITEMS.calibers = {
-    light = { name = "Light rounds", color = { 0.84, 0.72, 0.36 }, stack = 60, price = 3 },
-    medium = { name = "Medium rounds", color = { 0.74, 0.5, 0.26 }, stack = 60, price = 4 },
-    heavy = { name = "Heavy rounds", color = { 0.6, 0.36, 0.2 }, stack = 40, price = 6 },
-    shell = { name = "Shells", color = { 0.82, 0.24, 0.18 }, stack = 24, price = 7 },
-    sniper = { name = "Sniper rounds", color = { 0.4, 0.42, 0.46 }, stack = 20, price = 10 },
-    bolt = { name = "Crossbow bolts", color = { 0.5, 0.38, 0.24 }, stack = 16, price = 9 },
+    light = { name = "Light rounds", color = { 0.84, 0.72, 0.36 }, stack = 40, price = 3 },
+    medium = { name = "Medium rounds", color = { 0.74, 0.5, 0.26 }, stack = 40, price = 4 },
+    heavy = { name = "Heavy rounds", color = { 0.6, 0.36, 0.2 }, stack = 30, price = 6 },
+    shell = { name = "Shells", color = { 0.82, 0.24, 0.18 }, stack = 16, price = 7 },
+    sniper = { name = "Sniper rounds", color = { 0.4, 0.42, 0.46 }, stack = 12, price = 10 },
+    bolt = { name = "Crossbow bolts", color = { 0.5, 0.38, 0.24 }, stack = 10, price = 9 },
     cell = { name = "Energy cells", color = { 0.3, 0.78, 0.9 }, stack = 12, price = 30 },
-    fuel = { name = "Fuel canister", color = { 0.86, 0.46, 0.12 }, stack = 100, price = 2 },
-    nail = { name = "Nails", color = { 0.7, 0.72, 0.76 }, stack = 100, price = 1 },
+    fuel = { name = "Fuel canister", color = { 0.86, 0.46, 0.12 }, stack = 60, price = 2 },
+    nail = { name = "Nails", color = { 0.7, 0.72, 0.76 }, stack = 60, price = 1 },
     grenade = { name = "40 mm grenades", color = { 0.36, 0.46, 0.3 }, stack = 8, price = 60 }
 }
 
@@ -272,11 +272,11 @@ ITEMS.armor = {
 ITEMS.armorOrder = { "cap", "helmet", "visor", "gasmask", "nightcap", "rig", "vest", "carrier", "firesuit", "juggernaut" }
 
 ITEMS.backpack = {
-    sling = { name = "Sling bag", kind = "backpack", w = 2, h = 2, grid = { 3, 3 }, price = 400 },
-    daypack = { name = "Daypack", kind = "backpack", w = 3, h = 3, grid = { 4, 5 }, price = 1100 },
-    rucksack = { name = "Rucksack", kind = "backpack", w = 3, h = 4, grid = { 5, 6 }, price = 2600 },
-    raid = { name = "Raid pack", kind = "backpack", w = 4, h = 4, grid = { 6, 7 }, price = 5200 },
-    hauler = { name = "Hauler frame", kind = "backpack", w = 4, h = 5, grid = { 7, 8 }, price = 9000, haste = 0.94 }
+    sling = { name = "Sling bag", kind = "backpack", w = 2, h = 2, grid = { 2, 3 }, price = 400 },
+    daypack = { name = "Daypack", kind = "backpack", w = 3, h = 3, grid = { 3, 4 }, price = 1100 },
+    rucksack = { name = "Rucksack", kind = "backpack", w = 3, h = 4, grid = { 4, 5 }, price = 2600 },
+    raid = { name = "Raid pack", kind = "backpack", w = 4, h = 4, grid = { 5, 5 }, price = 5200 },
+    hauler = { name = "Hauler frame", kind = "backpack", w = 4, h = 5, grid = { 6, 6 }, price = 9000, haste = 0.94 }
 }
 
 ITEMS.backpackOrder = { "sling", "daypack", "rucksack", "raid", "hauler" }
@@ -293,7 +293,7 @@ end
 
 -- Crafting materials. Most of the scrap you find ends up here.
 local function material(name, price, stack, w, h)
-    return { name = name, kind = "material", price = price, stack = stack or 10, w = w or 1, h = h or 1 }
+    return { name = name, kind = "material", price = price, stack = math.min(12, stack or 10), w = w or 1, h = h or 1 }
 end
 
 ITEMS.material = {

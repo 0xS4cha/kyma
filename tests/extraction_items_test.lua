@@ -83,21 +83,21 @@ return {
     {
         name = "items move, rotate and stack in grids",
         run = function()
-            local gear = gearWith("daypack")
+            local gear = gearWith("raid")
             local places = Inventory.places(gear)
             local rifle = item("ar")
             assert(Inventory.give(places, rifle, { "bp" }) == "bp")
             assert(rifle.x == 0 and rifle.y == 0)
-            local ok = Inventory.move(places, rifle.i, "bp", 3, 0, 1)
-            assert(not ok, "a rotated 2x4 rifle does not fit at column 3 of a 4 wide bag")
+            local ok = Inventory.move(places, rifle.i, "bp", 4, 0, 1)
+            assert(not ok, "a rotated 2x4 rifle does not fit at column 4 of a 5 wide bag")
             assert(Inventory.move(places, rifle.i, "bp", 0, 1, 1), "rotated at 0,1")
             local w, h = Items.size(rifle)
             assert(w == 2 and h == 4)
-            local a, b = item("ammo_medium", { n = 50 }), item("ammo_medium", { n = 30 })
+            local a, b = item("ammo_medium", { n = 30 }), item("ammo_medium", { n = 20 })
             assert(Inventory.give(places, a, { "pk" }) == "pk")
             assert(Inventory.give(places, b, { "pk" }) == "pk")
-            assert(a.n == 60 and Inventory.count(places, "ammo_medium") == 80, "stacks merge up to 60")
-            assert(Inventory.consume(places, "ammo_medium", 25) == 25 and Inventory.count(places, "ammo_medium") == 55)
+            assert(a.n == 40 and Inventory.count(places, "ammo_medium") == 50, "stacks merge up to 40")
+            assert(Inventory.consume(places, "ammo_medium", 25) == 25 and Inventory.count(places, "ammo_medium") == 25)
             assert(not Inventory.move(places, gear.backpack.i, "bp", 0, 0), "a backpack does not go in itself")
         end
     },
@@ -118,7 +118,7 @@ return {
             Inventory.give(places, mod, { "pk" })
             assert(Inventory.attach(places, mod.i, second.i))
             assert(second.m.optic == mod and #gear.pockets == 1)
-            assert(Inventory.move(places, mod.i, "pk", 3, 0), "detaching moves it out")
+            assert(Inventory.move(places, mod.i, "pk", 2, 0), "detaching moves it out")
             assert(not second.m.optic)
         end
     },
@@ -148,7 +148,7 @@ return {
             assert(copy ~= weapon and copy.m.optic ~= weapon.m.optic and copy.m.optic.d == "scope")
             assert(Items.sanitize({ i = 1, d = "nope" }) == nil)
             local clean = Items.sanitize({ i = 4, d = "ammo_light", n = 9999, r = 99 })
-            assert(clean.n == 60 and clean.r == 6)
+            assert(clean.n == 40 and clean.r == 6)
             local gear = Inventory.sanitizeGear({ primary = { i = 5, d = "vest" }, helmet = { i = 6, d = "helmet" }, quick = { "x", 7 } })
             assert(gear.primary == nil and gear.helmet.d == "helmet" and gear.quick[1] == 0 and gear.quick[2] == 7)
         end

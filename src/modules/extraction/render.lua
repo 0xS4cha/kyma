@@ -12,6 +12,8 @@ local Items = require("src.game.extraction.items")
 local Config = require("src.config.extraction")
 local GameConfig = require("src.config.game")
 local Theme = require("src.ui.theme")
+local Assets = require("src.modules.extraction.assets")
+local Icons = require("src.modules.extraction.icons")
 
 local Render = {}
 
@@ -37,30 +39,61 @@ local function mix(a, b, t)
     return { a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t }
 end
 
+local FLOOR_TILE = { wood = Assets.GROUND.wood, planks = Assets.GROUND.planks, concrete = Assets.GROUND.concrete, tiles = Assets.GROUND.tiles }
+
 local function drawFloor(raid, x0, y0, x1, y1)
     local def = raid.def
     local chunk = def.chunk
-    lg.setColor(T.floor[1] * 0.9, T.floor[2] * 0.9, T.floor[3] * 0.92)
-    lg.rectangle("fill", max(0, x0), max(0, y0), min(def.width, x1) - max(0, x0), min(def.height, y1) - max(0, y0))
-    local inset = Config.road
-    for cy = max(0, floor(y0 / chunk)), min(def.count - 1, floor(y1 / chunk)) do
-        for cx = max(0, floor(x0 / chunk)), min(def.count - 1, floor(x1 / chunk)) do
+    local road = Config.road
+    local bx0, by0 = math.max(0, x0), math.max(0, y0)
+    local bx1, by1 = math.min(def.width, x1), math.min(def.height, y1)
+    lg.setColor(1, 1, 1, 1)
+    if not Assets.fill(Assets.GROUND.road, bx0, by0, bx1 - bx0, by1 - by0, 1) then
+        lg.setColor(0.29, 0.29, 0.29)
+        lg.rectangle("fill", bx0, by0, bx1 - bx0, by1 - by0)
+    end
+    for cy = math.max(0, floor(y0 / chunk)), math.min(def.count - 1, floor(y1 / chunk)) do
+        for cx = math.max(0, floor(x0 / chunk)), math.min(def.count - 1, floor(x1 / chunk)) do
             local info = def.chunks[cy * def.count + cx + 1]
-            local tint = mix(T.floor, Worldgen.BIOMES[info.biome].color, 0.35)
-            lg.setColor(tint[1], tint[2], tint[3])
-            lg.rectangle("fill", cx * chunk + inset, cy * chunk + inset, chunk - inset * 2, chunk - inset * 2, 30, 30)
+            local gx, gy, gs = cx * chunk + road, cy * chunk + road, chunk - road * 2
+            lg.setColor(0.6, 0.6, 0.6, 1)
+            lg.rectangle("fill", gx - 6, gy - 6, gs + 12, gs + 12, 8, 8)
+            local tint = info.tier >= 4 and { 0.9, 0.84, 0.84 } or (info.tier == 3 and { 0.95, 0.93, 0.9 } or { 1, 1, 1 })
+            lg.setColor(tint[1], tint[2], tint[3], 1)
+            if not Assets.fill(Assets.GROUND[info.biome] or 1, gx, gy, gs, gs, 1.5) then
+                local color = Worldgen.BIOMES[info.biome].color
+                lg.setColor(color)
+                lg.rectangle("fill", gx, gy, gs, gs)
+            end
         end
     end
-    lg.setColor(T.grid)
-    lg.setLineWidth(1)
-    local step = 80
-    for x = floor(x0 / step) * step, x1, step do lg.line(x, max(0, y0), x, min(def.height, y1)) end
-    for y = floor(y0 / step) * step, y1, step do lg.line(max(0, x0), y, min(def.width, x1), y) end
+    -- Dashed centre lines on the roads.
+    lg.setColor(0.98, 0.82, 0.2, 0.8)
+    for cx = math.max(1, floor(x0 / chunk)), math.min(def.count - 1, floor(x1 / chunk) + 1) do
+        local x = cx * chunk
+        for y = math.max(0, floor(y0 / 120) * 120), by1, 120 do lg.rectangle("fill", x - 3, y, 6, 60) end
+    end
+    for cy = math.max(1, floor(y0 / chunk)), math.min(def.count - 1, floor(y1 / chunk) + 1) do
+        local y = cy * chunk
+        for x = math.max(0, floor(x0 / 120) * 120), bx1, 120 do lg.rectangle("fill", x, y - 3, 60, 6) end
+    end
+    raid.terrain:query("floors", x0, y0, x1, y1, function(f)
+        lg.setColor(1, 1, 1, 1)
+        if not Assets.fill(FLOOR_TILE[f.kind] or Assets.GROUND.wood, f.x, f.y, f.w, f.h, 0.75) then
+            lg.setColor(0.7, 0.6, 0.48)
+            lg.rectangle("fill", f.x, f.y, f.w, f.h)
+        end
+    end)
     raid.terrain:query("pits", x0, y0, x1, y1, function(pit)
-        lg.setColor(0.36, 0.5, 0.62)
-        lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
-        lg.setColor(0.42, 0.58, 0.72)
-        lg.rectangle("fill", pit.x + 10, pit.y + 10, pit.w - 20, pit.h - 20)
+        lg.setColor(0.86, 0.8, 0.62)
+        lg.rectangle("fill", pit.x - 10, pit.y - 10, pit.w + 20, pit.h + 20, 14, 14)
+    end)
+    raid.terrain:query("pits", x0, y0, x1, y1, function(pit)
+        lg.setColor(1, 1, 1, 1)
+        if not Assets.fill(Assets.GROUND.water, pit.x, pit.y, pit.w, pit.h, 1.5) then
+            lg.setColor(0.36, 0.5, 0.62)
+            lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h)
+        end
     end)
 end
 
@@ -71,11 +104,15 @@ local function shadow(rect, ox, oy)
 end
 
 --- The rectangles near the view, as a small arena for the session renderer.
+--- The rectangles near the view: plain ones as a small arena for the session
+--- renderer, decorated ones (trees, rocks, cars...) apart, drawn as sprites.
 local function nearby(raid, x0, y0, x1, y1)
-    local proxy = { walls = {}, doors = {}, glass = {}, cover = {} }
+    local proxy = { walls = {}, doors = {}, glass = {}, cover = {}, decor = {} }
     for _, list in ipairs({ "walls", "doors", "glass", "cover" }) do
         local out = proxy[list]
-        raid.terrain:query(list, x0, y0, x1, y1, function(rect) out[#out + 1] = rect end)
+        raid.terrain:query(list, x0, y0, x1, y1, function(rect)
+            if rect.deco then proxy.decor[#proxy.decor + 1] = rect else out[#out + 1] = rect end
+        end)
     end
     return proxy
 end
@@ -91,21 +128,134 @@ local function drawShadows(proxy)
     for _, block in ipairs(proxy.cover) do shadow(block, ox * 0.4, oy * 0.4) end
 end
 
+local TREES = { 183, 183, 186, 181 }
+local ROCKS = { 237, 238, 239 }
+local CAR_COLORS = { { 0.85, 0.24, 0.2 }, { 0.2, 0.45, 0.8 }, { 0.92, 0.78, 0.2 }, { 0.3, 0.62, 0.38 }, { 0.85, 0.86, 0.88 }, { 0.25, 0.26, 0.3 } }
+local CONTAINER_COLORS = { { 0.8, 0.36, 0.18 }, { 0.2, 0.46, 0.62 }, { 0.36, 0.52, 0.3 }, { 0.7, 0.18, 0.16 } }
+
+local function hash(rect)
+    return floor(rect.x * 7 + rect.y * 13) % 997
+end
+
+local function car(rect)
+    local horizontal = rect.w >= rect.h
+    local col = CAR_COLORS[hash(rect) % #CAR_COLORS + 1]
+    lg.push()
+    lg.translate(rect.x + rect.w / 2, rect.y + rect.h / 2)
+    if not horizontal then lg.rotate(pi / 2) end
+    local l, w = math.max(rect.w, rect.h), math.min(rect.w, rect.h)
+    lg.setColor(0, 0, 0, 0.2)
+    lg.rectangle("fill", -l / 2 + 4, -w / 2 + 5, l, w, 10, 10)
+    lg.setColor(col)
+    lg.rectangle("fill", -l / 2, -w / 2, l, w, 10, 10)
+    lg.setColor(0.2, 0.26, 0.32, 0.9)
+    lg.rectangle("fill", -l * 0.18, -w / 2 + 4, l * 0.42, w - 8, 6, 6)
+    lg.setColor(col[1] * 0.85, col[2] * 0.85, col[3] * 0.85)
+    lg.rectangle("fill", -l * 0.08, -w / 2 + 6, l * 0.24, w - 12, 4, 4)
+    lg.setColor(1, 0.95, 0.7, 0.9)
+    lg.rectangle("fill", l / 2 - 5, -w / 2 + 4, 3, 7)
+    lg.rectangle("fill", l / 2 - 5, w / 2 - 11, 3, 7)
+    lg.pop()
+end
+
+local function container(rect)
+    local col = CONTAINER_COLORS[hash(rect) % #CONTAINER_COLORS + 1]
+    lg.setColor(0, 0, 0, 0.22)
+    lg.rectangle("fill", rect.x + 6, rect.y + 8, rect.w, rect.h)
+    lg.setColor(col)
+    lg.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
+    lg.setColor(col[1] * 0.78, col[2] * 0.78, col[3] * 0.78)
+    if rect.w >= rect.h then
+        for x = rect.x + 10, rect.x + rect.w - 10, 14 do lg.rectangle("fill", x, rect.y + 4, 5, rect.h - 8) end
+    else
+        for y = rect.y + 10, rect.y + rect.h - 10, 14 do lg.rectangle("fill", rect.x + 4, y, rect.w - 8, 5) end
+    end
+end
+
+--- Trees and rocks are drawn above the fog like walls: you always see the land, the
+--- fog only hides who is there.
+local function drawDecor(proxy)
+    for _, rect in ipairs(proxy.decor) do
+        local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
+        local size = math.max(rect.w, rect.h)
+        local deco = rect.deco
+        if deco == "tree" then
+            lg.setColor(0, 0, 0, 0.16)
+            lg.circle("fill", cx + 10, cy + 12, size * 0.95)
+            lg.setColor(1, 1, 1, 1)
+            Assets.centered(Assets.tile(TREES[hash(rect) % #TREES + 1]), cx, cy, size * 2.2, (hash(rect) % 4) * pi / 2)
+        elseif deco == "rock" then
+            lg.setColor(1, 1, 1, 1)
+            Assets.centered(Assets.tile(ROCKS[hash(rect) % #ROCKS + 1]), cx, cy, size * 1.35, (hash(rect) % 8) * pi / 4)
+        elseif deco == "car" then
+            car(rect)
+        elseif deco == "container" then
+            container(rect)
+        elseif deco == "bale" then
+            lg.setColor(0, 0, 0, 0.18)
+            lg.rectangle("fill", rect.x + 4, rect.y + 6, rect.w, rect.h, 6, 6)
+            lg.setColor(0.86, 0.74, 0.36)
+            lg.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 6, 6)
+            lg.setColor(0.72, 0.6, 0.26)
+            for k = 1, 3 do lg.line(rect.x + rect.w * k / 4, rect.y + 3, rect.x + rect.w * k / 4, rect.y + rect.h - 3) end
+        elseif deco == "furniture" then
+            lg.setColor(1, 1, 1, 1)
+            local horizontal = rect.w >= rect.h
+            local tile = (hash(rect) % 2 == 0) and 453 or 448
+            Assets.stretch(tile, rect.x, rect.y, rect.w, rect.h, horizontal and 0 or nil)
+        elseif deco == "sandbag" then
+            lg.setColor(0.66, 0.6, 0.44)
+            lg.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 8, 8)
+            lg.setColor(0.56, 0.5, 0.34)
+            local horizontal = rect.w >= rect.h
+            local length = horizontal and rect.w or rect.h
+            for k = 1, floor(length / 24) do
+                if horizontal then lg.line(rect.x + k * 24, rect.y + 3, rect.x + k * 24, rect.y + rect.h - 3)
+                else lg.line(rect.x + 3, rect.y + k * 24, rect.x + rect.w - 3, rect.y + k * 24) end
+            end
+        elseif deco == "shelf" then
+            lg.setColor(0.55, 0.42, 0.3)
+            lg.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
+            lg.setColor(0.45, 0.33, 0.22)
+            local horizontal = rect.w >= rect.h
+            local length = horizontal and rect.w or rect.h
+            for k = 0, floor(length / 40) - 1 do
+                local p = (k + 0.5) * 40 - 12
+                if horizontal then Assets.stretch(130, rect.x + p, rect.y + 2, 24, rect.h - 4)
+                else Assets.stretch(130, rect.x + 2, rect.y + p, rect.w - 4, 24) end
+            end
+        end
+    end
+end
+
+local CONTAINER_LOOK = {
+    crate = { 129 }, ammo_crate = { 129, { 0.7, 0.78, 0.6 } }, weapon_case = { 156, { 0.55, 0.62, 0.5 } }, stash = { 130 },
+    toolbox = { 130, { 1, 0.6, 0.5 } }, locker = { 157, { 0.7, 0.76, 0.85 } }, cabinet = { 157 }, drawer = { 130, { 0.85, 0.75, 0.65 } },
+    fridge = { 321 }, medbox = { "medkit" }
+}
+
 local function drawContainers(raid, x0, y0, x1, y1)
     local cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     raid:eachContainer(cx, cy, (x1 - x0) / 2, function(c)
-        local color = CONTAINER_COLORS[c.kind] or CONTAINER_COLORS.crate
+        local look = CONTAINER_LOOK[c.kind] or CONTAINER_LOOK.crate
         local empty = raid.empty[c.id]
-        local w, h = c.kind == "weapon_case" and 44 or 32, c.kind == "locker" and 36 or 24
-        lg.setColor(0, 0, 0, 0.12)
-        lg.rectangle("fill", c.x - w / 2 + 3, c.y - h / 2 + 4, w, h, 4, 4)
-        lg.setColor(color[1], color[2], color[3], empty and 0.45 or 1)
-        lg.rectangle("fill", c.x - w / 2, c.y - h / 2, w, h, 4, 4)
-        lg.setColor(0, 0, 0, empty and 0.1 or 0.25)
-        lg.rectangle("line", c.x - w / 2 + 0.5, c.y - h / 2 + 0.5, w - 1, h - 1, 4, 4)
+        local size = c.kind == "weapon_case" and 46 or (c.kind == "drawer" and 30 or 38)
+        lg.setColor(0, 0, 0, 0.2)
+        lg.rectangle("fill", c.x - size / 2 + 4, c.y - size / 2 + 5, size, size, 4, 4)
+        local tint = look[2] or { 1, 1, 1 }
+        local a = empty and 0.5 or 1
+        lg.setColor(tint[1] * (empty and 0.7 or 1), tint[2] * (empty and 0.7 or 1), tint[3] * (empty and 0.7 or 1), a)
+        if look[1] == "medkit" then
+            Assets.centered(Assets.item("medkit"), c.x, c.y, size)
+        else
+            Assets.centered(Assets.tile(look[1]), c.x, c.y, size * 1.3)
+        end
         if not empty then
-            lg.setColor(1, 1, 1, 0.5)
-            lg.rectangle("fill", c.x - 4, c.y - 2, 8, 4, 1, 1)
+            local pulse = 0.5 + 0.5 * sin(love.timer.getTime() * 3 + c.id)
+            lg.setColor(1, 0.86, 0.4, 0.25 + 0.25 * pulse)
+            lg.setLineWidth(2)
+            lg.rectangle("line", c.x - size / 2 - 3, c.y - size / 2 - 3, size + 6, size + 6, 6, 6)
+            lg.setLineWidth(1)
         end
     end)
 end
@@ -113,27 +263,24 @@ end
 local function drawDrops(raid)
     local now = love.timer.getTime()
     for _, drop in ipairs(raid.drops) do
-        local alpha = drop.e == 1 and 0.45 or 1
+        local alpha = drop.e == 1 and 0.55 or 1
         if drop.k == "corpse" then
-            lg.setColor(0.42, 0.44, 0.5, 0.85 * alpha)
-            lg.ellipse("fill", drop.x, drop.y, 18, 11)
-            lg.setColor(0.3, 0.32, 0.36, alpha)
-            lg.circle("fill", drop.x + 14, drop.y - 3, 6)
-            Kit.color(Kit.RED, 0.5 * alpha)
-            lg.circle("fill", drop.x - 4, drop.y + 4, 9)
+            lg.setColor(0.55, 0.06, 0.06, 0.75 * alpha)
+            Assets.centered(Assets.tile(320), drop.x, drop.y, 70, drop.i)
+            Assets.drawCharacter(Assets.setOf(drop.i), nil, drop.x, drop.y, drop.i * 1.7, 34, false, { 0.62, 0.62, 0.66 }, alpha)
         elseif drop.k == "supply" or drop.k == "cache" then
             local pulse = 0.5 + 0.5 * sin(now * 4)
-            Kit.color(Kit.AMBER, (0.15 + 0.15 * pulse) * alpha)
-            lg.circle("fill", drop.x, drop.y, 60)
-            lg.setColor(0.36, 0.42, 0.3, alpha)
-            lg.rectangle("fill", drop.x - 28, drop.y - 22, 56, 44, 5, 5)
-            Kit.color(Kit.AMBER, alpha)
-            lg.rectangle("fill", drop.x - 28, drop.y - 4, 56, 8)
+            Kit.color(Kit.AMBER, (0.12 + 0.12 * pulse) * alpha)
+            lg.circle("fill", drop.x, drop.y, 70)
+            lg.setColor(1, 1, 1, alpha)
+            Assets.centered(Assets.tile(129), drop.x, drop.y, 78)
+            Kit.color(drop.k == "supply" and Kit.AMBER or Kit.RED, alpha)
+            lg.rectangle("fill", drop.x - 30, drop.y - 5, 60, 10)
         else
-            lg.setColor(0.38, 0.3, 0.32, 0.8 * alpha)
-            lg.circle("fill", drop.x, drop.y, 12)
-            lg.setColor(0.25, 0.2, 0.2, alpha)
-            lg.circle("fill", drop.x + 5, drop.y - 4, 5)
+            lg.setColor(0.45, 0.12, 0.1, 0.7 * alpha)
+            Assets.centered(Assets.tile(319), drop.x, drop.y, 54, drop.i)
+            lg.setColor(1, 1, 1, alpha)
+            Assets.centered(Assets.tile(262 + drop.i % 4), drop.x, drop.y, 30, drop.i)
         end
     end
 end
@@ -143,17 +290,15 @@ local function drawGround(raid)
     for _, item in ipairs(raid.items) do
         local def = ItemConfig.all[item.d]
         if def then
-            local c = Items.rarity({ r = item.r }).color
-            lg.setColor(c[1], c[2], c[3], 0.25 + 0.1 * sin(now * 3 + item.i))
-            lg.circle("fill", item.x, item.y, 16)
-            if def.kind == "weapon" then
-                Character.drawWeapon(def.look, item.x, item.y, (item.i % 6) * 0.5, 1)
-            else
-                lg.setColor(c[1], c[2], c[3], 1)
-                lg.rectangle("fill", item.x - 6, item.y - 6, 12, 12, 3, 3)
-                lg.setColor(1, 1, 1, 0.6)
-                lg.rectangle("line", item.x - 6, item.y - 6, 12, 12, 3, 3)
-            end
+            local col = Items.rarity({ r = item.r }).color
+            lg.setColor(col[1], col[2], col[3], 0.22 + 0.12 * sin(now * 3 + item.i))
+            lg.circle("fill", item.x, item.y, 20)
+            lg.setColor(col[1], col[2], col[3], 0.9)
+            lg.setLineWidth(2)
+            lg.circle("line", item.x, item.y, 20)
+            lg.setLineWidth(1)
+            local w = def.kind == "weapon" and 46 or 26
+            Icons.picture(def, item.x, item.y, w, def.kind == "weapon" and 22 or 26, 1)
         end
     end
 end
@@ -177,68 +322,60 @@ local function drawExtracts(raid)
     end
 end
 
-local function bodyPoints(r, spikes, wobble, phase)
-    local points = {}
-    for k = 0, spikes * 2 - 1 do
-        local a = k / (spikes * 2) * 2 * pi
-        local rr = r * ((k % 2 == 0) and 1 or 0.72) * (1 + wobble * sin(phase + k))
-        points[#points + 1] = cos(a) * rr
-        points[#points + 1] = sin(a) * rr
-    end
-    return points
-end
+-- Monsters are Kenney's zombie and robot, tinted and scaled per kind.
+local MONSTER_LOOK = {
+    crawler = { set = "zoimbie1", tint = { 0.8, 0.95, 0.75 }, scale = 2.3, pose = "hold" },
+    stalker = { set = "zoimbie1", tint = { 0.45, 0.38, 0.55 }, scale = 2.4, pose = "hold" },
+    brute = { set = "zoimbie1", tint = { 1, 0.7, 0.62 }, scale = 2.1, pose = "hold" },
+    spitter = { set = "zoimbie1", tint = { 0.7, 1, 0.45 }, scale = 2.4, pose = "hold" },
+    sentinel = { set = "robot1", tint = { 0.85, 0.9, 1 }, scale = 2.3, look = "rifle" },
+    warden = { set = "robot1", tint = { 1, 0.45, 0.45 }, scale = 2.0, look = "lmg" }
+}
 
 --- @param m table interpolated monster
 function Render.monster(m)
     local def = MonsterConfig[m.kind]
     if not def then return end
     local now = love.timer.getTime()
-    local c = def.color
+    local look = MONSTER_LOOK[m.kind] or MONSTER_LOOK.crawler
     local r = def.radius
-    lg.setColor(0, 0, 0, 0.15)
-    lg.ellipse("fill", m.x + 3, m.y + 4, r, r * 0.8)
-    lg.push()
-    lg.translate(m.x, m.y)
-    lg.rotate(m.angle)
     local lunge = m.swing and 6 or 0
-    lg.translate(lunge, 0)
-    if m.kind == "sentinel" or m.kind == "warden" then
-        lg.setColor(c[1] * 0.7, c[2] * 0.7, c[3] * 0.7)
-        lg.rectangle("fill", r * 0.4, -3, r * 1.2, 6, 2, 2)
-        lg.setColor(c)
-        lg.polygon("fill", bodyPoints(r, 4, 0, 0))
-        lg.setColor(c[1] * 1.2, c[2] * 1.2, c[3] * 1.2)
-        lg.polygon("fill", bodyPoints(r * 0.6, 4, 0, 0))
-        if m.kind == "warden" then
-            Kit.color(Kit.AMBER, 1)
-            for k = -1, 1 do lg.polygon("fill", -r * 0.2, k * 9 - 4, -r * 0.2, k * 9 + 4, -r * 0.7, k * 9) end
-        end
-    else
-        local spikes = m.kind == "crawler" and 7 or (m.kind == "brute" and 5 or (m.kind == "spitter" and 9 or 6))
-        lg.setColor(c[1] * 0.75, c[2] * 0.75, c[3] * 0.75)
-        lg.polygon("fill", bodyPoints(r * 1.08, spikes, 0.05, now * 6 + m.id))
-        lg.setColor(c)
-        lg.polygon("fill", bodyPoints(r * 0.92, spikes, 0.04, now * 5 + m.id))
-        if m.kind == "spitter" then
-            lg.setColor(0.7, 0.9, 0.3, 0.9)
-            lg.circle("fill", -r * 0.3, 0, r * 0.45)
-        end
+    local x, y = m.x + cos(m.angle) * lunge, m.y + sin(m.angle) * lunge
+    if m.kind == "warden" then
+        lg.setColor(0.9, 0.1, 0.1, 0.18 + 0.08 * sin(now * 4))
+        lg.circle("fill", x, y, r * 1.8)
     end
-    local eye = m.kind == "stalker" and { 0.9, 0.3, 1 } or { 1, 0.85, 0.3 }
-    lg.setColor(eye[1], eye[2], eye[3], 0.95)
-    lg.circle("fill", r * 0.55, -r * 0.28, max(2, r * 0.13))
-    lg.circle("fill", r * 0.55, r * 0.28, max(2, r * 0.13))
-    lg.pop()
+    local ok = Assets.drawCharacter(look.set, look.look, x, y, m.angle, r * look.scale, false, look.tint)
+    if not ok then
+        lg.setColor(def.color)
+        lg.circle("fill", x, y, r)
+    end
     if m.burn then
         Kit.color(Kit.AMBER, 0.6 + 0.3 * sin(now * 20))
         lg.circle("fill", m.x + sin(now * 9) * 4, m.y - r * 0.6, 4)
     end
     if m.chill then
-        lg.setColor(0.6, 0.85, 1, 0.5)
-        lg.circle("line", m.x, m.y, r + 4)
+        lg.setColor(0.6, 0.85, 1, 0.6)
+        lg.setLineWidth(2)
+        lg.circle("line", m.x, m.y, r + 5)
+        lg.setLineWidth(1)
     end
-    if m.hp < 100 then
-        Kit.bar(m.x - r, m.y - r - 10, r * 2, 3, m.hp / 100, Kit.RED, 0.9)
+end
+
+--- Health bars of hurt monsters, in screen space so they stay level.
+local function monsterBars(camera, monsters)
+    for _, m in ipairs(monsters) do
+        if m.hp < 100 then
+            local def = MonsterConfig[m.kind]
+            local sx, sy = camera:toScreen(m.x, m.y)
+            local w = math.max(30, def.radius * 2.4 * camera.scale * 0.6)
+            local top = sy - def.radius * camera.scale - 16
+            lg.setColor(0, 0, 0, 0.4)
+            lg.rectangle("fill", sx - w / 2 - 1, top - 1, w + 2, 6, 3, 3)
+            Kit.color(def.boss and Kit.AMBER or Kit.RED, 1)
+            lg.rectangle("fill", sx - w / 2, top, w * m.hp / 100, 4, 2, 2)
+            if def.boss then Kit.text(def.name, 13, sx - 80, top - 18, Kit.RED, 1, "center", 160) end
+        end
     end
 end
 
@@ -347,10 +484,6 @@ local function drawFog(raid, me, x0, y0, x1, y1)
     lg.setStencilTest()
 end
 
-local function palette()
-    return Character.PALETTES.opponent
-end
-
 --- @param ext table the extraction module
 function Render.draw(ext)
     local raid, camera = ext.raid, ext.camera
@@ -369,8 +502,8 @@ function Render.draw(ext)
     drawZones(raid)
     for _, p in ipairs(players) do
         if p.dead == 0 then
-            p.weapon = ItemConfig.all[p.weapon or ""] and ItemConfig.all[p.weapon].look or nil
-            Character.draw(p, palette(p))
+            local def = ItemConfig.all[p.weapon or ""]
+            Assets.drawCharacter(Assets.setOf(p.slot), def and def.look, p.x, p.y, p.angle, 34, false, nil, 1)
         end
     end
     for _, m in ipairs(monsters) do Render.monster(m) end
@@ -378,36 +511,38 @@ function Render.draw(ext)
     for _, p in ipairs(players) do
         if p.marked then
             Kit.color(Kit.RED, 0.8)
-            lg.circle("line", p.x, p.y, 20)
+            lg.circle("line", p.x, p.y, 22)
         end
     end
     for _, m in ipairs(monsters) do
         if m.marked then
             Kit.color(Kit.RED, 0.8)
-            lg.circle("line", m.x, m.y, MonsterConfig[m.kind].radius + 6)
+            lg.circle("line", m.x, m.y, MonsterConfig[m.kind].radius + 8)
         end
     end
     drawSmokes(raid)
     ext.effects:drawWorld()
     drawBooms(raid)
+    drawDecor(proxy)
     Renderer.drawWalls(proxy, camera)
     ext.effects:drawImpacts()
     if me.dead == 0 then
-        Character.draw(me, Renderer.selfPalette())
+        Assets.drawCharacter(Assets.setOf(raid.slot), me.weapon, me.x, me.y, me.angle, 34, (raid.me.reload or 0) > 0)
     end
     camera:clear()
+    monsterBars(camera, monsters)
     for _, p in ipairs(players) do
         if p.dead == 0 and p.name then
             local sx, sy = camera:toScreen(p.x, p.y)
-            Kit.text(p.name, 14, sx - 100, sy - 30 * camera.scale - 18, Kit.RED, 0.85, "center", 200)
+            Kit.text(p.name, 13, sx - 100, sy - 30 * camera.scale - 18, Kit.RED, 0.9, "center", 200)
         end
     end
+    local W, H = lg.getDimensions()
     for _, e in ipairs(raid.extracts) do
         local sx, sy = camera:toScreen(e.x, e.y)
-        local W, H = lg.getDimensions()
         if sx > -50 and sx < W + 50 and sy > -50 and sy < H + 50 then
             local label = e.n .. ((e.r and e.r > 0) and string.format(" (%d s)", math.ceil(e.r / 60)) or "")
-            Kit.text(label, 14, sx - 120, sy - 12, Kit.GREEN, 0.9, "center", 240)
+            Kit.text(label, 14, sx - 120, sy - 12, Kit.GREEN, 0.95, "center", 240)
         end
     end
 end

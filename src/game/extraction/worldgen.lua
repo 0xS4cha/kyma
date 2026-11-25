@@ -92,8 +92,13 @@ function Ctx:free(x, y, w, h, pad)
     return true
 end
 
-function Ctx:box(x, y, w, h, kind)
+--- @param deco string? how the client draws it (tree, rock, bale, furniture)
+function Ctx:box(x, y, w, h, kind, deco)
     B.box(self.m, floor(x), floor(y), floor(w), floor(h), kind)
+    if deco then
+        local list = self.m[kind == "cover" and "cover" or (kind == "pit" and "pits" or "walls")]
+        list[#list].deco = deco
+    end
     self.placed[#self.placed + 1] = { x = x, y = y, w = w, h = h }
 end
 
@@ -135,6 +140,8 @@ function Ctx:building(x, y, w, h, tier, kinds, options)
     local rng, m = self.rng, self.m
     x, y, w, h = floor(x), floor(y), floor(w), floor(h)
     self:claim(x - 20, y - 20, w + 40, h + 40)
+    local floors = self.m.floors
+    floors[#floors + 1] = { x = x, y = y, w = w, h = h, kind = options.floor or "wood" }
     local sides = { "n", "s", "w", "e" }
     local doorSides = { [sides[rng:random(4)]] = true }
     if rng:random() < 0.6 then doorSides[sides[rng:random(4)]] = true end
@@ -181,6 +188,7 @@ function Ctx:building(x, y, w, h, tier, kinds, options)
             local fw, fh = rng:random(70, 140), rng:random(36, 60)
             if rng:random() < 0.5 then fw, fh = fh, fw end
             B.box(m, floor(room.x + room.w / 2 - fw / 2), floor(room.y + room.h / 2 - fh / 2), fw, fh, "cover")
+            m.cover[#m.cover].deco = "furniture"
         end
     end
 end
@@ -209,7 +217,7 @@ function Biome.town(ctx, x, y, size, tier)
                 for _ = 1, rng:random(4, 9) do
                     local s = rng:random(34, 54)
                     local tx, ty = px + rng:random() * (block - s), py + rng:random() * (block - s)
-                    if ctx:free(tx, ty, s, s, 40) then ctx:box(tx, ty, s, s) end
+                    if ctx:free(tx, ty, s, s, 40) then ctx:box(tx, ty, s, s, nil, "tree") end
                 end
                 ctx:nest(px + block / 2, py + block / 2, tier, "town")
             end
@@ -219,7 +227,7 @@ function Biome.town(ctx, x, y, size, tier)
         local horizontal = rng:random() < 0.5
         local w, h = horizontal and 96 or 46, horizontal and 46 or 96
         local cx, cy = x + rng:random() * (size - w), y + rng:random() * (size - h)
-        if ctx:free(cx, cy, w, h, 30) then ctx:box(cx, cy, w, h, "cover") end
+        if ctx:free(cx, cy, w, h, 30) then ctx:box(cx, cy, w, h, "cover", "car") end
     end
     ctx:nest(x + size / 2, y + size / 2, tier, "town")
 end
@@ -228,17 +236,18 @@ function Biome.industrial(ctx, x, y, size, tier)
     local rng = ctx.rng
     local w, h = size * (0.45 + rng:random() * 0.2), size * (0.3 + rng:random() * 0.15)
     local wx, wy = x + rng:random() * (size - w), y + rng:random() * (size * 0.4)
-    ctx:building(wx, wy, w, h, tier, INDUSTRIAL, { rooms = 1, windows = 2, loot = 0.9 })
+    ctx:building(wx, wy, w, h, tier, INDUSTRIAL, { rooms = 1, windows = 2, loot = 0.9, floor = "concrete" })
     for k = 1, 3 do
         local sx = wx + 60 + (w - 120) * k / 4
         B.box(ctx.m, floor(sx - 14), floor(wy + 80), 28, floor(h - 160), "cover")
+        ctx.m.cover[#ctx.m.cover].deco = "shelf"
     end
     for _ = 1, rng:random(8, 16) do
         local horizontal = rng:random() < 0.6
         local cw, ch = horizontal and 240 or 80, horizontal and 80 or 240
         local cx, cy = x + rng:random() * (size - cw), y + rng:random() * (size - ch)
         if ctx:free(cx, cy, cw, ch, 70) then
-            ctx:box(cx, cy, cw, ch)
+            ctx:box(cx, cy, cw, ch, nil, "container")
             if rng:random() < 0.3 then ctx:container(cx + cw / 2, cy + ch + 40, "crate", tier) end
         end
     end
@@ -256,14 +265,14 @@ function Biome.forest(ctx, x, y, size, tier)
         local s = rng:random(30, 64)
         local tx, ty = x + rng:random() * (size - s), y + rng:random() * (size - s)
         if ctx:free(tx, ty, s, s, 50) then
-            ctx:box(tx, ty, s, s)
+            ctx:box(tx, ty, s, s, nil, "tree")
             if rng:random() < 0.04 then ctx:container(tx + s + 30, ty + s / 2, "stash", tier) end
         end
     end
     for _ = 1, rng:random(4, 9) do
         local w, h = rng:random(50, 130), rng:random(40, 90)
         local rx, ry = x + rng:random() * (size - w), y + rng:random() * (size - h)
-        if ctx:free(rx, ry, w, h, 40) then ctx:box(rx, ry, w, h, "cover") end
+        if ctx:free(rx, ry, w, h, 40) then ctx:box(rx, ry, w, h, "cover", "rock") end
     end
     ctx:nest(x + size * (0.3 + rng:random() * 0.4), y + size * (0.3 + rng:random() * 0.4), tier, "forest")
 end
@@ -272,7 +281,7 @@ function Biome.field(ctx, x, y, size, tier)
     local rng = ctx.rng
     if rng:random() < 0.55 then
         local bw, bh = rng:random(420, 560), rng:random(300, 380)
-        ctx:building(x + rng:random() * (size - bw), y + rng:random() * (size - bh), bw, bh, tier, { "crate", "toolbox" }, { rooms = 1, windows = 0, loot = 0.9 })
+        ctx:building(x + rng:random() * (size - bw), y + rng:random() * (size - bh), bw, bh, tier, { "crate", "toolbox" }, { rooms = 1, windows = 0, loot = 0.9, floor = "planks" })
     end
     for _ = 1, rng:random(3, 6) do
         local horizontal = rng:random() < 0.5
@@ -292,7 +301,7 @@ function Biome.field(ctx, x, y, size, tier)
     end
     for _ = 1, rng:random(6, 14) do
         local fx, fy = x + rng:random() * (size - 80), y + rng:random() * (size - 44)
-        if ctx:free(fx, fy, 80, 44, 50) then ctx:box(fx, fy, 80, 44, "cover") end
+        if ctx:free(fx, fy, 80, 44, 50) then ctx:box(fx, fy, 80, 44, "cover", "bale") end
     end
     ctx:nest(x + size / 2, y + size / 2, tier, "field")
 end
@@ -310,7 +319,7 @@ function Biome.lake(ctx, x, y, size, tier)
     for _ = 1, rng:random(8, 16) do
         local s = rng:random(40, 90)
         local tx, ty = x + rng:random() * (size - s), y + rng:random() * (size - s)
-        if ctx:free(tx, ty, s, s, 50) then ctx:box(tx, ty, s, s, "cover") end
+        if ctx:free(tx, ty, s, s, 50) then ctx:box(tx, ty, s, s, "cover", "rock") end
     end
     if rng:random() < 0.5 then
         local tx, ty = x + 80, y + 80
@@ -347,7 +356,7 @@ function Biome.military(ctx, x, y, size, tier)
             for _ = 1, 8 do
                 local bx, by = ix + rng:random() * (is - w), iy + rng:random() * (is - h)
                 if ctx:free(bx, by, w, h, 90) then
-                    ctx:building(bx, by, w, h, tier, MILITARY, { rooms = k == 1 and 2 or 1, windows = 0, loot = 1 })
+                    ctx:building(bx, by, w, h, tier, MILITARY, { rooms = k == 1 and 2 or 1, windows = 0, loot = 1, floor = "concrete" })
                     break
                 end
             end
@@ -356,7 +365,7 @@ function Biome.military(ctx, x, y, size, tier)
             local horizontal = rng:random() < 0.5
             local w, h = horizontal and 130 or 34, horizontal and 34 or 130
             local sx, sy = ix + rng:random() * (is - w), iy + rng:random() * (is - h)
-            if ctx:free(sx, sy, w, h, 50) then ctx:box(sx, sy, w, h, "cover") end
+            if ctx:free(sx, sy, w, h, 50) then ctx:box(sx, sy, w, h, "cover", "sandbag") end
         end
         ctx:nest(ix + is / 2, iy + is / 2, tier, "military")
     end)
@@ -366,12 +375,12 @@ function Biome.citadel(ctx, x, y, size, tier)
     local rng = ctx.rng
     compound(ctx, x, y, size, tier, function(ix, iy, is)
         local w, h = is * 0.55, is * 0.45
-        ctx:building(ix + (is - w) / 2, iy + (is - h) / 2, w, h, tier, MILITARY, { rooms = 5, windows = 1, loot = 1 })
+        ctx:building(ix + (is - w) / 2, iy + (is - h) / 2, w, h, tier, MILITARY, { rooms = 5, windows = 1, loot = 1, floor = "tiles" })
         for _ = 1, 10 do
             local horizontal = rng:random() < 0.5
             local cw, ch = horizontal and 140 or 34, horizontal and 34 or 140
             local sx, sy = ix + rng:random() * (is - cw), iy + rng:random() * (is - ch)
-            if ctx:free(sx, sy, cw, ch, 50) then ctx:box(sx, sy, cw, ch, "cover") end
+            if ctx:free(sx, sy, cw, ch, 50) then ctx:box(sx, sy, cw, ch, "cover", "sandbag") end
         end
         ctx:nest(ix + is * 0.15, iy + is * 0.15, tier, "military")
         ctx:nest(ix + is * 0.85, iy + is * 0.85, tier, "military")
@@ -387,7 +396,7 @@ function Worldgen.generate(seed)
     local size, chunk, road = Config.size, Config.chunk, Config.road
     local count = floor(size / chunk)
     local m = B.new("wilds", "The Wilds", size, size, "A vast persistent world. Loot, survive, extract.")
-    m.containers, m.nests, m.extracts, m.chunks = {}, {}, {}, {}
+    m.containers, m.nests, m.extracts, m.chunks, m.floors = {}, {}, {}, {}, {}
     m.seed, m.count, m.chunk = seed, count, chunk
     B.border(m, 60)
     for cy = 0, count - 1 do

@@ -19,6 +19,7 @@ local Render = require("src.modules.extraction.render")
 local Hud = require("src.modules.extraction.hud")
 local Hub = require("src.modules.extraction.hub")
 local UI = require("src.modules.extraction.inventory")
+local Assets = require("src.modules.extraction.assets")
 
 GM.Extraction = {}
 
@@ -381,40 +382,39 @@ function GM.Extraction:drawRaidInventory()
     local view = raid.inventory
     if not view then return end
     local W, H = love.graphics.getDimensions()
-    love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.9)
+    love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.55)
     love.graphics.rectangle("fill", 0, 0, W, H)
     local ui = self.raidUI
     local places = raid.places
     ui:begin(places)
-    local cell = math.max(30, math.min(46, math.floor((H - 160) / 16)))
-    local x, y = 40, 90
-    Kit.text("Inventory", 26, x, 30, Kit.INK, 1)
-    local g = view.g
-    ui:slot("primary", g.primary, x, y + 20, cell * 5, cell * 2)
-    ui:slot("secondary", g.secondary, x, y + 30 + cell * 2, cell * 5, cell * 2)
-    local ax = x + cell * 5 + 16
-    ui:slot("helmet", g.helmet, ax, y + 20, cell * 2, cell * 2)
-    ui:slot("vest", g.vest, ax + cell * 2 + 8, y + 20, cell * 2, cell * 3)
-    ui:slot("backpack", g.backpack, ax, y + 28 + cell * 2, cell * 2, cell * 2)
-    local qy = y + 50 + cell * 4
-    ui:quick(g, x, qy, cell)
-    local py = qy + cell + 40
-    ui:grid("pk", places.pk, x, py, cell, "Pockets")
-    if places.bp then ui:grid("bp", places.bp, x, py + cell + 40, cell, Items.name(g.backpack)) end
-    local rx = x + cell * 10 + 60
+    local M = 24
+    local cell = math.max(28, math.min(40, math.floor((H - 2 * M - 330) / 9)))
+    local lw = cell * 7 + 16 + 32
+    local value = 0
+    for _, inst in ipairs(Inventory.all(view.g)) do value = value + Items.value(inst, Config.sellRate) end
+    UI.panel("Inventory", M, M, lw, H - 2 * M, value .. " cr")
+    local Assets = require("src.modules.extraction.assets")
+    ui:loadout(view.g, places, M + 16, M + 44, cell, Assets.setOf(raid.slot))
+    local rx = M + lw + 16
     if view.ct and places.ct then
-        Kit.text(view.ct.n, 22, rx, 30, Kit.INK, 1)
-        ui:grid("ct", places.ct, rx, y + 20, cell, "Shift click to take, or drag", math.floor((H - y - 60) / cell))
-        Kit.button("ext:lootall", rx, y + 30 + math.min(places.ct.h, math.floor((H - y - 60) / cell)) * cell, 200, 40, "Take all", { size = 14, align = "center" })
-        self.lootAllButton = { x = rx, y = y + 30 + math.min(places.ct.h, math.floor((H - y - 60) / cell)) * cell, w = 200, h = 40 }
+        local rows = math.min(places.ct.h, math.floor((H - 2 * M - 120) / cell))
+        local rw = places.ct.w * cell + 40
+        UI.panel(view.ct.n, rx, M, rw, rows * cell + 118, "Shift click to take")
+        ui:grid("ct", places.ct, rx + 16, M + 44, cell, nil, rows)
+        local by = M + 44 + rows * cell + 16
+        local mx, my = love.mouse.getPosition()
+        local hot = mx >= rx + 16 and mx < rx + rw - 16 and my >= by and my < by + 42
+        Kit.button("ext:lootall", rx + 16, by, rw - 32, 42, "Take all", { size = 14, align = "center", hot = hot })
+        self.lootAllButton = { x = rx + 16, y = by, w = rw - 32, h = 42 }
     else
         self.lootAllButton = nil
-        Kit.text("Open a crate or a body with F to loot it.", 15, rx, y + 20, Kit.INK, 0.5)
-        Kit.text("Drag an item out of the panels to drop it on the ground.", 13, rx, y + 46, Kit.INK, 0.45)
+        UI.panel(nil, rx, M, 360, 96)
+        Kit.text("Open a crate or a body with F to loot it.", 14, rx + 18, M + 22, Kit.INK, 0.75)
+        Kit.text("Drag an item out of the panels to drop it.", 13, rx + 18, M + 50, Kit.INK, 0.5)
     end
     ui:finish()
     ui:overlay()
-    Kit.hint("Tab", "Close", W - 140, 30, 0.8, 13)
+    Kit.hint("Tab", "Close", W - 130, M + 8, 0.9, 13)
 end
 
 function GM.Extraction:drawPause()

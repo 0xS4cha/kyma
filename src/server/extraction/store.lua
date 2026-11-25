@@ -13,6 +13,31 @@ local Store = Class()
 Store.SAVE_EVERY = Config.saveEvery
 
 --- @param path string? nil keeps everything in memory
+--- Puts the pockets and backpack contents of a gear back inside their grids.
+--- @param gear table
+function Store.repack(gear)
+    local places = Inventory.places(gear)
+    for _, ref in ipairs({ "pk", "bp" }) do
+        local place = places[ref]
+        if place then
+            local items = place.list
+            local keep, left = {}, {}
+            for _, inst in ipairs(items) do
+                local iw, ih = Items.size(inst)
+                if Inventory.fits(keep, place.w, place.h, iw, ih, inst.x, inst.y) then keep[#keep + 1] = inst else left[#left + 1] = inst end
+            end
+            for k = #items, 1, -1 do items[k] = nil end
+            for k, inst in ipairs(keep) do items[k] = inst end
+            for _, inst in ipairs(left) do
+                if not Inventory.give(places, inst, { ref, "pk", "bp" }) then
+                    -- No room anywhere: it stays listed so nothing is ever deleted.
+                    items[#items + 1] = inst
+                end
+            end
+        end
+    end
+end
+
 function Store:init(path)
     self.path = path
     self.players = {}
@@ -59,10 +84,23 @@ local function sanitize(raw)
         kitAt = tonumber(raw.kitAt) or 0,
         raid = raw.raid == true or nil
     }
+    -- Items are placed again so a smaller grid (or smaller stacks) never leaves one
+    -- outside: what fits keeps its spot, the rest is packed where there is room.
+    local place = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = profile.stash }
+    local left = {}
     for _, inst in ipairs(type(raw.stash) == "table" and raw.stash or {}) do
         local clean = Items.sanitize(inst)
-        if clean then profile.stash[#profile.stash + 1] = clean end
+        if clean then
+            local iw, ih = Items.size(clean)
+            if Inventory.fits(place.list, place.w, place.h, iw, ih, clean.x, clean.y) then
+                place.list[#place.list + 1] = clean
+            else
+                left[#left + 1] = clean
+            end
+        end
     end
+    for _, inst in ipairs(left) do Inventory.give({ st = place }, inst, { "st" }) end
+    Store.repack(profile.gear)
     for id, rarity in pairs(type(raw.known) == "table" and raw.known or {}) do
         if ItemConfig.recipes[id] and tonumber(rarity) then profile.known[id] = math.max(1, math.min(6, math.floor(rarity))) end
     end
