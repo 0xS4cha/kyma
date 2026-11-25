@@ -12,7 +12,7 @@ local Kit = require("src.ui.kit")
 local GadgetConfig = require("src.config.gadgets")
 local Livemap = require("src.ui.livemap")
 
-local min, max, sin, pi = math.min, math.max, math.sin, math.pi
+local min, max, sin, pi, floor = math.min, math.max, math.sin, math.pi, math.floor
 
 local INK, RED, GREEN, AMBER = Kit.INK, Kit.RED, Kit.GREEN, Kit.AMBER
 
@@ -492,7 +492,7 @@ function Hud:drawSpectator(session)
 end
 
 function Hud:drawBoard(session)
-    if self.board < 0.01 then return end
+    if self.board < 0.01 or (self.overShown or 0) > 0.02 then return end
     local W, H = love.graphics.getDimensions()
     local world = session.world
     local a = self.board
@@ -523,31 +523,167 @@ function Hud:drawBoard(session)
     end
 end
 
+--- A number that counts up from zero once its moment comes.
+--- @param value number
+--- @param t number seconds since the screen opened
+--- @param from number when it starts counting
+--- @return number shown, number progress
+local function rolling(value, t, from)
+    local p = Kit.clamp((t - from) / 0.7, 0, 1)
+    return math.floor(value * easeOutCubic(p) + 0.5), p
+end
+
+--- One stat of the local player on the end screen.
+local function statTile(label, value, x, y, w, h, t, from, a, accent)
+    local shown, p = rolling(value, t, from)
+    local e = easeOutCubic((t - from) / 0.35) * a
+    if e <= 0 then return end
+    love.graphics.setColor(INK[1], INK[2], INK[3], 0.045 * e)
+    love.graphics.rectangle("fill", x, y + (1 - e) * 8, w, h, 12, 12)
+    local bump = p >= 1 and math.max(0, 1 - (t - from - 0.7) * 5) or 0
+    text(tostring(shown), 30 + floor(bump * 4), x + 16, y + 10 + (1 - e) * 8 - bump * 2, accent or INK, e)
+    text(label, 12, x + 16, y + h - 24 + (1 - e) * 8, INK, 0.5 * e)
+end
+
+--- @param session table
+--- @param x number
+--- @param y number
+--- @param w number
+--- @param t number
+--- @param a number
+--- @return number height
+local function drawStandings(session, x, y, w, t, a)
+    local world = session.world
+    local list = session:standings()
+    local rowH = 38
+    local h = 70 + #list * rowH
+    card(x, y, w, h, a, 18)
+    text("Standings", 18, x + 22, y + 18, INK, a)
+    text(world.rules.ladder and "Level" or "Kills", 12, x + w - 22, y + 22, INK, 0.45 * a, "right")
+    for k, entry in ipairs(list) do
+        local e = easeOutCubic((t - 0.35 - (k - 1) * 0.08) / 0.4) * a
+        if e > 0 then
+            local ry = y + 60 + (k - 1) * rowH
+            local dx = (1 - e) * 24
+            if k == 1 then
+                color(RED, 0.1 * e)
+                love.graphics.rectangle("fill", x + 12, ry - 4, w - 24, rowH - 4, 9, 9)
+                color(RED, e)
+                love.graphics.rectangle("fill", x + 12, ry + 4, 3, rowH - 20, 1.5, 1.5)
+            elseif entry.me then
+                love.graphics.setColor(INK[1], INK[2], INK[3], 0.05 * e)
+                love.graphics.rectangle("fill", x + 12, ry - 4, w - 24, rowH - 4, 9, 9)
+            end
+            local c = (entry.me or session:friendly(entry.slot)) and (entry.me and INK or Kit.ALLY) or RED
+            text(tostring(k), 15, x + 26 + dx, ry + 5, k == 1 and RED or INK, (k == 1 and 1 or 0.4) * e)
+            dot(x + 56 + dx, ry + 15, 5, c, e)
+            local nw = text(entry.name, 16, x + 70 + dx, ry + 4, INK, e)
+            if entry.bot then text("BOT", 10, x + 78 + nw + dx, ry + 9, INK, 0.4 * e) end
+            local value = world.rules.ladder and math.min(#world.rules.ladder, entry.kills + 1) or entry.kills
+            text(tostring(rolling(value, t, 0.45 + (k - 1) * 0.08)), 18, x + w - 22, ry + 3, INK, e, "right")
+        end
+    end
+    return h
+end
+
+--- The end of a match: the result, the standings coming in one by one, what
+--- you did during the match counting up, your new rating, and the time left
+--- before the next match.
 function Hud:drawMatchOver(session)
     local over = session.world.over
-    self.overShown = approach(self.overShown or 0, over and 1 or 0, 8, love.timer.getDelta())
+    self.overShown = approach(self.overShown or 0, over and 1 or 0, 6, love.timer.getDelta())
+    if not over then self.overAt = nil end
     if self.overShown < 0.01 then return end
-    local W, H = love.graphics.getDimensions()
+    local lg = love.graphics
+    local W, H = lg.getDimensions()
+    local now = love.timer.getTime()
     local a = self.overShown
     local world = session.world
-    local title, won
     if over then
+        if not self.overAt then self.overAt, self.overTotal = now, over.c end
+        local title, won
         if over.tm == 1 then
             won = over.w == world.team
-            title = won and "Your team wins" or "Your team lost"
+            title = world.spectator and (over.w == 1 and "Blue team wins" or "Red team wins") or (won and "Your team wins" or "Your team lost")
         else
             won = over.w == world.slot
             title = won and "You win" or (session:nameOf(over.w) .. " wins")
         end
-        self.overTitle, self.overWon, self.overTimer = title, won, over.c
+        self.overTitle, self.overWon, self.overTimer = title, won or world.spectator, over.c
+        self.overTotal = math.max(self.overTotal or 0, over.c or 0)
     end
-    love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.6 * a)
-    love.graphics.rectangle("fill", 0, 0, W, H)
-    local t = easeOutBack(a)
-    local y = H * 0.28 + (1 - t) * 20
-    text(self.overTitle or "", 52, 0, y, self.overWon and INK or RED, a, "center", W)
-    text("Next match in " .. math.ceil((self.overTimer or 0) / 60), 18, 0, y + 74, INK, 0.6 * a, "center", W)
-    self.board = math.max(self.board, a)
+    local t = now - (self.overAt or now)
+
+    lg.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.86 * a)
+    lg.rectangle("fill", 0, 0, W, H)
+
+    local spectator = world.spectator
+    local leftW, rightW, gap = 440, 340, 24
+    local totalW = spectator and leftW or leftW + gap + rightW
+    local x0 = floor((W - totalW) / 2)
+    local top = math.max(40, floor(H * 0.1))
+
+    local te = easeOutBack(t / 0.55)
+    Kit.text("Match over", 13, x0, top, RED, a * easeOutCubic(t / 0.3))
+    text(self.overTitle or "", 52, x0, top + 18 + (1 - te) * 18, self.overWon and INK or RED, a * Kit.clamp(t / 0.25, 0, 1))
+    local parts = { world.rules.name }
+    if world.map then parts[#parts + 1] = require("src.maps.index").get(world.map).name end
+    if world.rules.teams then
+        parts[#parts + 1] = string.format("Blue %d : %d Red", world.teamScore[1] or 0, world.teamScore[2] or 0)
+    end
+    text(table.concat(parts, "  -  "), 16, x0, top + 86, INK, 0.55 * a * easeOutCubic((t - 0.15) / 0.4))
+    local barW = math.min(totalW, 220)
+    color(RED, a)
+    lg.rectangle("fill", x0, top + 116, barW * easeOutCubic((t - 0.1) / 0.6), 4, 2, 2)
+
+    local y = top + 146
+    local h = drawStandings(session, x0, y, leftW, t, a * easeOutCubic((t - 0.2) / 0.4))
+
+    if not spectator then
+        local match = world.match or session.newMatch()
+        local rx = x0 + leftW + gap
+        local ce = a * easeOutCubic((t - 0.45) / 0.4)
+        local rating = self.rating
+        local ch = 70 + 2 * 92 + (rating and 74 or 0)
+        card(rx + (1 - ce) * 20, y, rightW, ch, ce, 18)
+        text("Your match", 18, rx + 22, y + 18, INK, ce)
+        if match.kills + match.deaths > 0 then
+            local kd = match.deaths > 0 and string.format("%.1f K/D", match.kills / match.deaths) or "No deaths"
+            text(kd, 12, rx + rightW - 22, y + 22, INK, 0.45 * ce, "right")
+        end
+        local tw, th = (rightW - 44 - 12) / 2, 80
+        local tiles = {
+            { "Eliminations", match.kills, RED }, { "Deaths", match.deaths },
+            { "Damage dealt", match.damage }, { "Best streak", match.best }
+        }
+        for k, tile in ipairs(tiles) do
+            local col, row = (k - 1) % 2, floor((k - 1) / 2)
+            statTile(tile[1], tile[2], rx + 22 + col * (tw + 12), y + 58 + row * (th + 12), tw, th, t, 0.6 + (k - 1) * 0.12, ce, tile[3])
+        end
+        if rating then
+            local rt = now - math.max(rating.at, (self.overAt or now) + 1.1)
+            local re = easeOutCubic(rt / 0.4) * ce
+            if re > 0 then
+                local ry = y + 58 + 2 * (th + 12) + 4
+                local shown = rolling(rating.d, rt, 0.15)
+                text("Rating", 12, rx + 22, ry, INK, 0.5 * re)
+                text(tostring(rating.r - rating.d + shown), 30, rx + 22, ry + 16, INK, re)
+                local good = rating.d >= 0
+                text((good and "+" or "") .. shown, 20, rx + rightW - 22, ry + 22, good and GREEN or RED, re, "right")
+            end
+        end
+        h = math.max(h, ch)
+    end
+
+    local by = y + h + 28
+    local remaining = (self.overTimer or 0) / Config.tickRate
+    local fill = self.overTotal and self.overTotal > 0 and (self.overTimer or 0) / self.overTotal or 0
+    local fe = a * easeOutCubic((t - 0.9) / 0.4)
+    text("Next match in " .. math.ceil(remaining), 15, x0, by, INK, 0.6 * fe)
+    lg.setColor(INK[1], INK[2], INK[3], 0.08 * fe)
+    lg.rectangle("fill", x0, by + 28, totalW, 4, 2, 2)
+    color(RED, fe)
+    lg.rectangle("fill", x0, by + 28, totalW * fill, 4, 2, 2)
 end
 
 function Hud:drawVitals(session)
@@ -1237,12 +1373,12 @@ function Hud:draw(session)
     if session.world and session.world.spectator then
         self:drawScore(session)
         self:drawFeed(session, self:drawStats(session))
-        self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)
         self:drawRound(session)
         self:drawBanner()
         self:drawSpectator(session)
+        self:drawMatchOver(session)
         self:drawChat(session)
         self:drawOverlay(session)
         return
@@ -1266,10 +1402,10 @@ function Hud:draw(session)
         self:drawDeath(session)
         local replay = session:killcam() ~= nil
         if not replay then self:drawLobby(session) end
-        self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)
-        if not replay then self:drawHelp(session) end
+        if not replay and (self.overShown or 0) < 0.02 then self:drawHelp(session) end
+        self:drawMatchOver(session)
         self:drawChat(session)
     end
     self:drawOverlay(session)

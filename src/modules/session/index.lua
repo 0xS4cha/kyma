@@ -119,6 +119,8 @@ function GM.Session:Initialize()
     end)
     mp:On("rating", function(data)
         local delta = tonumber(data.d) or 0
+        self.hud.rating = { r = tonumber(data.r) or 0, d = delta, at = love.timer.getTime() }
+        if self.world and self.world.over then return end
         self.hud:banner("Rating " .. tostring(data.r), (delta >= 0 and "+" or "") .. delta .. " points", delta >= 0)
     end)
     mp:On("level", function(data)
@@ -127,6 +129,19 @@ function GM.Session:Initialize()
             sound("level")
         end
     end)
+end
+
+--- What the local player did during the current match, for the end screen.
+--- @return table
+function GM.Session.newMatch()
+    return { kills = 0, deaths = 0, damage = 0, hits = 0, streak = 0, best = 0 }
+end
+
+--- Whether the match counts what happens now (not during the warmup).
+--- @return boolean
+function GM.Session:counting()
+    local world = self.world
+    return world ~= nil and not world.spectator and world.phase == "playing" and not world.over
 end
 
 --- @param options table { mode = "practice"|"host"|"local"|"connect", bot, address, name }
@@ -226,7 +241,9 @@ function GM.Session:join(data)
     self.world = {
         arena = arena,
         mode = mode,
+        map = data.map,
         rules = Config.modes[mode],
+        match = GM.Session.newMatch(),
         options = Loadout.rules(data.ru),
         team = data.team,
         teamScore = { 0, 0 },
@@ -441,6 +458,10 @@ function GM.Session:onHit(data)
             self.hud:damageFrom(world.me.x, world.me.y, data.x, data.y)
         end
     elseif data.a == world.slot then
+        if self:counting() then
+            world.match.hits = world.match.hits + 1
+            world.match.damage = world.match.damage + (tonumber(data.d) or 0)
+        end
         sound("hit")
         local shieldOnly = data.s and (tonumber(data.h) or 0) <= 0
         self.effects:hitMarker(shieldOnly and "shield" or "hit", at and at.x, at and at.y)
@@ -455,6 +476,15 @@ function GM.Session:onKill(data)
     local world = self.world
     if not world then return end
     local victim = data.v
+    if self:counting() then
+        local match = world.match
+        if victim == world.slot then
+            match.deaths, match.streak = match.deaths + 1, 0
+        elseif data.k == world.slot then
+            match.kills, match.streak = match.kills + 1, match.streak + 1
+            match.best = math.max(match.best, match.streak)
+        end
+    end
     if victim == world.slot then
         sound("death")
         self.effects:shatter(world.me.x, world.me.y, Theme.lifted(SELF_COLOR))
@@ -691,7 +721,12 @@ function GM.Session:receive(data)
     end
     world.over = type(data.ov) == "table" and data.ov or nil
     if type(data.ph) == "table" then
+        local before = world.phase
         world.phase, world.countdown = data.ph.p or "playing", data.ph.c or 0
+        if before == "warmup" and world.phase ~= "warmup" then
+            world.match = GM.Session.newMatch()
+            self.hud.rating = nil
+        end
     end
     world.ready = {}
     for _, slot in ipairs(type(data.rd) == "table" and data.rd or {}) do world.ready[slot] = true end
