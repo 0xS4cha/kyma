@@ -19,6 +19,14 @@ function Weapons.def(kind)
     return kind and Config[kind] or nil
 end
 
+--- The stats of the weapon a player holds: the effective stats set by the extraction
+--- mode (attachments, rarity) when present, else the base weapon definition.
+--- @param p table
+--- @return table?
+function Weapons.held(p)
+    return p.def or Weapons.def(p.weapon)
+end
+
 --- Les armes de poing (petits flingues) ne se lâchent pas, ne se jettent pas et ne se volent pas.
 --- @param kind string?
 --- @return boolean
@@ -47,6 +55,7 @@ local INTEGER = { magazine = true, reserve = true, reloadTicks = true }
 --- @param key string
 --- @return number?
 function Weapons.stat(p, key)
+    if p.def then return p.def[key] end
     local def = Weapons.def(p.weapon)
     if not def then return nil end
     local value = def[key]
@@ -105,7 +114,7 @@ end
 --- @return boolean
 function Weapons.update(p, input)
     local held = input.b == 1
-    local def = Weapons.def(p.weapon)
+    local def = Weapons.held(p)
     if not def then
         local melee = Config.melee
         if p.meleeCooldown > 0 then p.meleeCooldown = p.meleeCooldown - 1 end
@@ -151,7 +160,7 @@ end
 --- @param p table
 --- @return number, number
 function Weapons.muzzle(p)
-    local def = Weapons.def(p.weapon)
+    local def = Weapons.held(p)
     local reach = def and def.muzzle or UNARMED_REACH
     local ca, sa = cos(p.angle), sin(p.angle)
     return p.x + ca * reach - sa * MUZZLE_SIDE, p.y + sa * reach + ca * MUZZLE_SIDE
@@ -161,7 +170,7 @@ end
 --- @param sequence number
 --- @return table[]
 function Weapons.rays(p, sequence)
-    local def = Weapons.def(p.weapon)
+    local def = Weapons.held(p)
     if not def then return {} end
     local mx, my = Weapons.muzzle(p)
     local list = {}

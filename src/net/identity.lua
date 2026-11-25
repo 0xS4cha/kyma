@@ -4,6 +4,15 @@ local Identity = {}
 
 local FILE = "kyma_identity.txt"
 
+--- Uses another identity file, so several clients on one computer are different
+--- players (--profile name).
+--- @param name string
+function Identity.use(name)
+    local clean = tostring(name):gsub("[^%w%-_]", "")
+    FILE = clean ~= "" and ("kyma_identity_" .. clean .. ".txt") or "kyma_identity.txt"
+    Identity.cached = nil
+end
+
 --- @param token any
 --- @return boolean
 function Identity.valid(token)
