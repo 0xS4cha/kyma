@@ -75,8 +75,13 @@ standalone-server: $(APPIMAGETOOL)
 run:
 	@love .
 
+SERVER_ARGS ?=
+
 server:
-	@love . --server
+	@love . --server $(SERVER_ARGS)
+
+docker-server:
+	@docker compose up -d --build
 
 host:
 	@love . --host
@@ -95,4 +100,4 @@ fclean: clean
 dist: build
 	@ls -1 $(DIST_DIR)/$(VERSION)/$(APP_NAME)-*.zip
 
-.PHONY: all build build-windows build-macos build-linux run server host test clean fclean dist standalone standalone-server
+.PHONY: all build build-windows build-macos build-linux run server docker-server host test clean fclean dist standalone standalone-server

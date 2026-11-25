@@ -1,0 +1,16 @@
+services:
+  kyma:
+    build: .
+    image: kyma-server
+    restart: unless-stopped
+    ports:
+      - "6789:6789/udp"
+    environment:
+      SERVER_NAME: "Kyma official"
+      SERVER_MOTD: "Welcome to the official Kyma server. Be nice."
+      MAX_PEERS: "128"
+    volumes:
+      - kyma-data:/data
+
+volumes:
+  kyma-data:
