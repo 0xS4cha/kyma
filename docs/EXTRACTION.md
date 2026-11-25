@@ -120,7 +120,7 @@ Command line flags for testing: `--extraction` joins the mode (with `--connect h
 
 ## Art
 
-Ground textures, trees, rocks, crates, furniture, characters, zombies and robots come from Kenney's [Top-down Shooter](https://kenney.nl/assets/top-down-shooter) pack, and most item icons from his [Generic Items](https://kenney.nl/assets/generic-items) pack, both CC0 (`assets/kenney/`, licenses alongside). Weapons are drawn in the same flat style by `src/modules/extraction/icons.lua`.
+The world, the characters and the monsters use the game's own drawing style. Most item icons come from Kenney's [Generic Items](https://kenney.nl/assets/generic-items) pack, CC0 (`assets/kenney/items`, license alongside); weapons, attachments, armor and the rest are drawn in the same flat style by `src/modules/extraction/icons.lua`.
 
 ## How it works
 

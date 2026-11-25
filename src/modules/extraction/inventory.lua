@@ -5,7 +5,6 @@
 --- attach it, a utility on a quick slot to bind it, right click for more.
 local Kit = require("src.ui.kit")
 local Icons = require("src.modules.extraction.icons")
-local Assets = require("src.modules.extraction.assets")
 local Items = require("src.game.extraction.items")
 local Inventory = require("src.game.extraction.inventory")
 local ItemConfig = require("src.config.items")
@@ -144,7 +143,7 @@ end
 
 --- The whole loadout: equipment around a portrait, quick slots, pockets and bag.
 --- @return number width, number height
-function UI:loadout(gear, places, x, y, cell, set)
+function UI:loadout(gear, places, x, y, cell)
     local C = cell
     local pad = 8
     self:slot("helmet", gear.helmet, x, y, C * 2, C * 2)
@@ -155,7 +154,13 @@ function UI:loadout(gear, places, x, y, cell, set)
     local look = gear.primary and ItemConfig.all[gear.primary.d] and ItemConfig.all[gear.primary.d].look or nil
     lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.06)
     lg.circle("fill", px + pw / 2, y + ph / 2, pw * 0.42)
-    Assets.drawCharacter(set or "survivor1", look, px + pw / 2 - C * 0.15, y + ph / 2, -math.pi / 2, C * 2.4)
+    local Character = require("src.modules.session.character")
+    local Renderer = require("src.modules.session.renderer")
+    lg.push()
+    lg.translate(px + pw / 2, y + ph / 2)
+    lg.scale(C / 14, C / 14)
+    Character.draw({ slot = 0, x = 0, y = 0, angle = -math.pi / 2, vx = 0, vy = 0, weapon = look }, Renderer.selfPalette())
+    lg.pop()
     self:slot("vest", gear.vest, px + pw + pad, y, C * 2, C * 3)
     local wy = y + ph + pad + 4
     local ww = C * 7 + pad * 2

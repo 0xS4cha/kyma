@@ -19,7 +19,6 @@ local Render = require("src.modules.extraction.render")
 local Hud = require("src.modules.extraction.hud")
 local Hub = require("src.modules.extraction.hub")
 local UI = require("src.modules.extraction.inventory")
-local Assets = require("src.modules.extraction.assets")
 
 GM.Extraction = {}
 
@@ -393,8 +392,7 @@ function GM.Extraction:drawRaidInventory()
     local value = 0
     for _, inst in ipairs(Inventory.all(view.g)) do value = value + Items.value(inst, Config.sellRate) end
     UI.panel("Inventory", M, M, lw, H - 2 * M, value .. " cr")
-    local Assets = require("src.modules.extraction.assets")
-    ui:loadout(view.g, places, M + 16, M + 44, cell, Assets.setOf(raid.slot))
+    ui:loadout(view.g, places, M + 16, M + 44, cell)
     local rx = M + lw + 16
     if view.ct and places.ct then
         local rows = math.min(places.ct.h, math.floor((H - 2 * M - 120) / cell))
