@@ -1,18 +1,14 @@
---- GLSL shaders for in-game VFX, compiled lazily.
---- Every getter returns false when the GPU refuses a shader, so callers keep a plain fallback.
 local Shaders = {}
 
 local SOURCES = {}
 
--- Final composite of the world canvas: shockwave refraction, chromatic aberration,
--- vignette, damage and low-health edges, and desaturation.
 SOURCES.post = [[
-extern vec4 waves[8];   // screen x, screen y, radius (px), strength
-extern number aberration; // px
-extern number hurt;       // 0..1
-extern number low;        // 0..1
-extern number desat;      // 0..1
-extern number vignette;   // 0..1
+extern vec4 waves[8];
+extern number aberration;
+extern number hurt;
+extern number low;
+extern number desat;
+extern number vignette;
 extern number time;
 extern vec2 size;
 extern vec3 tint;
@@ -58,7 +54,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
--- Soft radial light: muzzle flashes, sparks, flashbangs. Drawn on a stretched 1x1 texture.
 SOURCES.glow = [[
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float d = length(uv * 2.0 - 1.0);
@@ -69,7 +64,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
--- Soft beam along x with a hot core and a tapered tail: bullet tracers.
 SOURCES.beam = [[
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float y = abs(uv.y * 2.0 - 1.0);
@@ -81,7 +75,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
--- Billowing smoke grenade cloud: domain-warped fbm inside a ragged disc.
 SOURCES.smoke = [[
 extern number time;
 extern number seed;
@@ -131,7 +124,6 @@ function Shaders.get(name)
     return cache[name]
 end
 
---- A 1x1 white texture whose stretched UVs drive the sprite shaders.
 --- @return love.Image
 function Shaders.pixel()
     if not pixel then
@@ -142,13 +134,11 @@ function Shaders.pixel()
     return pixel
 end
 
---- Blend mode for light sprites: additive glows only read on dark floors.
 --- @return string
 function Shaders.lightBlend()
     return require("src.ui.theme").dark() and "add" or "alpha"
 end
 
---- Draw a soft radial glow, or a plain circle when shaders are unavailable.
 --- @param x number
 --- @param y number
 --- @param radius number
@@ -169,8 +159,7 @@ function Shaders.glow(x, y, radius, r, g, b, a)
     lg.setShader()
 end
 
---- Draw a soft beam from (x1, y1) to (x2, y2).
---- @return boolean drawn false when shaders are unavailable
+--- @return boolean
 function Shaders.beam(x1, y1, x2, y2, width, r, g, b, a)
     local shader = Shaders.get("beam")
     if not shader then return false end

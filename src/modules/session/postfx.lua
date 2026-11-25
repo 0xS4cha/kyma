@@ -1,5 +1,3 @@
---- Screen-space post-processing for the live game view.
---- The world is drawn into a canvas, then composited through the `post` shader.
 local Shaders = require("src.modules.session.shaders")
 local Theme = require("src.ui.theme")
 
@@ -8,7 +6,7 @@ PostFX.__index = PostFX
 
 local MAX_WAVES = 8
 local WAVE_LIFE = 0.55
-local WAVE_SPEED = 900 -- world units per second at full strength
+local WAVE_SPEED = 900
 local ABERRATION_DECAY = 7
 local HURT_DECAY = 2.6
 local TINT = { 0.88, 0.14, 0.12 }
@@ -27,17 +25,15 @@ function PostFX.enabled()
     return not settings or settings.postfx ~= false
 end
 
---- Motion effects (waves, aberration) follow the screen shake setting, so "Off" stays calm.
 --- @param strength number
 function PostFX:setMotion(strength)
     self.motion = strength
 end
 
---- A refraction ring expanding from a world position.
 --- @param x number
 --- @param y number
---- @param strength number 0..1
---- @param reach number? world radius the ring travels
+--- @param strength number
+--- @param reach number?
 function PostFX:wave(x, y, strength, reach)
     if strength <= 0 then return end
     self.waves[#self.waves + 1] = {
@@ -46,18 +42,18 @@ function PostFX:wave(x, y, strength, reach)
     if #self.waves > MAX_WAVES then table.remove(self.waves, 1) end
 end
 
---- @param amount number pixels of colour fringing
+--- @param amount number
 function PostFX:kick(amount)
     self.aberration = math.min(14, self.aberration + amount)
 end
 
---- @param amount number 0..1
+--- @param amount number
 function PostFX:hit(amount)
     self.hurt = math.min(1, self.hurt + amount)
 end
 
 --- @param dt number
---- @param health number 0..1 of the local player, 1 when unknown
+--- @param health number
 --- @param dead boolean
 function PostFX:update(dt, health, dead)
     self.time = self.time + dt
@@ -74,8 +70,7 @@ function PostFX:update(dt, health, dead)
     self.desat = self.desat + (desatTarget - self.desat) * math.min(1, dt * (dead and 2.5 or 4))
 end
 
---- Start drawing the world into the offscreen canvas.
---- @return boolean active when the composite pass will run
+--- @return boolean
 function PostFX:begin()
     if not PostFX.enabled() or not Shaders.get("post") then return false end
     local lg = love.graphics
@@ -88,7 +83,6 @@ function PostFX:begin()
     return true
 end
 
---- Composite the world canvas onto the screen.
 --- @param camera table
 function PostFX:finish(camera)
     local lg = love.graphics
@@ -130,7 +124,7 @@ function PostFX:finish(camera)
     lg.pop()
 end
 
---- @return boolean true when the composite already draws the damage edges
+--- @return boolean
 function PostFX:drawsHurt()
     return PostFX.enabled() and Shaders.get("post") ~= false
 end

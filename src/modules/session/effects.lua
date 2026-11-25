@@ -48,7 +48,6 @@ function Effects:tracer(x1, y1, x2, y2, color, hit, trail)
     end
 end
 
---- A short-lived soft light, drawn with the glow shader.
 --- @param x number
 --- @param y number
 --- @param radius number
@@ -286,7 +285,7 @@ function Effects:drawImpacts()
     end
 end
 
---- @param composited boolean? the post shader already draws the damage edges
+--- @param composited boolean?
 function Effects:drawScreen(composited)
     local lg = love.graphics
     local W, H = lg.getDimensions()
