@@ -40,12 +40,13 @@ local function noise(seed, x, y, scale)
     local gx, gy = x / scale, y / scale
     local ix, iy = floor(gx), floor(gy)
     local fx, fy = gx - ix, gy - iy
-    local function at(a, b)
-        return Hash.combine(Hash.combine(seed, a + 1000), b + 1000) / 4294967296
-    end
+    local combine = Hash.combine
+    local left, right = combine(seed, ix + 1000), combine(seed, ix + 1001)
+    local v00, v10 = combine(left, iy + 1000) / 4294967296, combine(right, iy + 1000) / 4294967296
+    local v01, v11 = combine(left, iy + 1001) / 4294967296, combine(right, iy + 1001) / 4294967296
     local sx, sy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
-    local top = at(ix, iy) + (at(ix + 1, iy) - at(ix, iy)) * sx
-    local bottom = at(ix, iy + 1) + (at(ix + 1, iy + 1) - at(ix, iy + 1)) * sx
+    local top = v00 + (v10 - v00) * sx
+    local bottom = v01 + (v11 - v01) * sx
     return top + (bottom - top) * sy
 end
 
@@ -562,8 +563,29 @@ function Worldgen.generate(seed)
 
     -- Water: rows of the elevation field below the water line, except where a road
     -- crosses (bridges) and inside settlements.
+    local SETTLEMENT_CELL, SETTLEMENT_PAD = 2000, 300
+    local settlementGrid = {}
+    for _, s in ipairs(settlements) do
+        local reach = s.r + SETTLEMENT_PAD
+        for gy = floor((s.y - reach) / SETTLEMENT_CELL), floor((s.y + reach) / SETTLEMENT_CELL) do
+            for gx = floor((s.x - reach) / SETTLEMENT_CELL), floor((s.x + reach) / SETTLEMENT_CELL) do
+                local key = gy * 100000 + gx
+                local bucket = settlementGrid[key]
+                if not bucket then
+                    bucket = {}
+                    settlementGrid[key] = bucket
+                end
+                bucket[#bucket + 1] = s
+            end
+        end
+    end
     local function inSettlement(x, y, pad)
-        for _, s in ipairs(settlements) do
+        local candidates = settlements
+        if pad <= SETTLEMENT_PAD then
+            candidates = settlementGrid[floor(y / SETTLEMENT_CELL) * 100000 + floor(x / SETTLEMENT_CELL)]
+            if not candidates then return nil end
+        end
+        for _, s in ipairs(candidates) do
             if (s.x - x) ^ 2 + (s.y - y) ^ 2 < (s.r + pad) ^ 2 then return s end
         end
     end
