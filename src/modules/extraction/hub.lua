@@ -271,7 +271,7 @@ function Hub.draw(ext)
     local value = 0
     for _, inst in ipairs(Inventory.all(data.g)) do value = value + Items.value(inst, Config.sellRate) end
     UI.panel("Loadout", M, top, lw, bottom - top, Hub.money(value))
-    state.ui:loadout(data.g, places, M + 16, top + 44, cell, "survivor1")
+    state.ui:loadout(data.g, places, M + 16, top + 44, cell)
     -- Stash
     local sw = Config.stash.w * cell + 40
     local sx = W - M - sw

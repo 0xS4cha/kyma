@@ -36,4 +36,4 @@ make dev              # local official server + the extraction mode (DEV_CLIENTS
 ## Credits
 
 - [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License (`assets/fonts/OFL.txt`).
-- Extraction mode art: [Kenney](https://kenney.nl)'s Top-down Shooter and Generic Items packs, CC0 (`assets/kenney/`).
+- Extraction item icons: [Kenney](https://kenney.nl)'s Generic Items pack, CC0 (`assets/kenney/`).
