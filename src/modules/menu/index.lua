@@ -16,6 +16,7 @@ local Screens = {
     play = require("src.modules.menu.screens.play"),
     multiplayer = require("src.modules.menu.screens.multiplayer"),
     settings = require("src.modules.menu.screens.settings"),
+    minimap = require("src.modules.menu.screens.minimap"),
     howto = require("src.modules.menu.screens.howto"),
     profile = require("src.modules.menu.screens.profile"),
     keybinds = require("src.modules.menu.screens.keybinds"),

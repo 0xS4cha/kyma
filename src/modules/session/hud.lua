@@ -9,6 +9,7 @@ Hud.__index = Hud
 
 local Kit = require("src.ui.kit")
 local GadgetConfig = require("src.config.gadgets")
+local Livemap = require("src.ui.livemap")
 
 local min, max, sin, pi = math.min, math.max, math.sin, math.pi
 
@@ -413,7 +414,7 @@ function Hud:drawChat(session)
     local chat = session.chat
     local H = love.graphics.getHeight()
     local now = love.timer.getTime()
-    local x, bottom = MARGIN, H - MARGIN - 112 - 16
+    local x, bottom = MARGIN + self:leftShift(session, "bottom"), H - MARGIN - 112 - 16
     local w = 420
     local open = chat.open
     if open then
@@ -701,10 +702,12 @@ function Hud:drawPrompt()
     hint(Keys.label("pickup"), label, x + 16, y + 9, self.prompt, 16)
 end
 
-function Hud:drawFeed()
+function Hud:drawFeed(session)
     local W = love.graphics.getWidth()
     local now = love.timer.getTime()
     local y = MARGIN + 44
+    local mx, my, mw, mh = self:mapBox(session)
+    if mx and my < 100 and mx > W / 2 then y = my + mh + 12 end -- carte en haut à droite
     for _, entry in ipairs(self.feed) do
         local age = now - entry.time
         local enter = easeOutCubic(age / 0.3)
@@ -853,7 +856,7 @@ function Hud:drawDeath(session)
     end
 end
 
-function Hud:drawHelp()
+function Hud:drawHelp(session)
     if self.help < 0.01 then return end
     local W, H = love.graphics.getDimensions()
     local a = self.help
@@ -879,7 +882,7 @@ function Hud:drawHelp()
     }
     local w, rowH = 360, 34
     local h = 64 + #rows * rowH
-    local x = MARGIN
+    local x = MARGIN + self:leftShift(session)
     local y = (H - h) / 2 + (1 - easeOutCubic(a)) * 12
     card(x, y, w, h, a, 16)
     text("Controls", 18, x + 20, y + 18, INK, a)
@@ -934,11 +937,38 @@ function Hud:drawOverlay(session)
     end
 end
 
+--- Mini-map en haut à droite (touche Tab/overlay non concernés)
+--- @param session table
+function Hud:drawMinimap(session)
+    local x, y = Livemap.box(session)
+    if x then Livemap.draw(session, x, y) end
+end
+
+--- Cadre de la mini-map à l'écran (nil si elle est masquée).
+--- @return number?, number?, number?, number?
+function Hud:mapBox(session)
+    if not session or not session.world or session.world.spectator then return nil end
+    return Livemap.box(session)
+end
+
+--- Décalage horizontal à appliquer aux éléments posés sur le bord gauche
+--- pour qu'ils ne passent pas sous la mini-map.
+--- @param session table
+--- @param zone string  "top" ou "bottom"
+--- @return number
+function Hud:leftShift(session, zone)
+    local x, y, w, h = self:mapBox(session)
+    if not x or x > MARGIN + 1 then return 0 end
+    local isTop = y < love.graphics.getHeight() / 2
+    if zone == nil or (zone == "top") == isTop then return w + 16 end
+    return 0
+end
+
 --- @param session table
 function Hud:draw(session)
     if session.world and session.world.spectator then
         self:drawScore(session)
-        self:drawFeed()
+        self:drawFeed(session)
         self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)
@@ -958,17 +988,18 @@ function Hud:draw(session)
         self:drawRound(session)
         self:drawBanner()
         self:drawVitals(session)
+        self:drawMinimap(session)
         self:drawWeapon(session)
         self:drawGadget(session)
         self:drawPrompt()
-        self:drawFeed()
+        self:drawFeed(session)
         self:drawDeath(session)
         local replay = session:killcam() ~= nil
         if not replay then self:drawLobby(session) end
         self:drawMatchOver(session)
         self:drawBoard(session)
         self:drawStatus(session)
-        if not replay then self:drawHelp() end
+        if not replay then self:drawHelp(session) end
         self:drawChat(session)
     end
     self:drawOverlay(session)

@@ -8,7 +8,15 @@ Settings.SENSITIVITY = { 0.002, 0.0028, 0.0035, 0.0045, 0.006 }
 Settings.ZOOM = { 1.3, 1.6, 2.0 }
 Settings.ZOOM_LABELS = { "Far", "Normal", "Close" }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget" }
+-- Mini-map (HUD)
+Settings.MAP_POSITIONS = { "Top left", "Bottom left", "Top right", "Bottom right" }
+Settings.MAP_SIZES = { "Tiny", "Small", "Medium", "Large", "Huge" }
+Settings.MAP_OPACITY = { 0.4, 0.6, 0.8, 1 }
+Settings.MAP_OPACITY_LABELS = { "40%", "60%", "80%", "100%" }
+Settings.MAP_VIEWS = { "Full arena", "Follow me" }
+Settings.MAP_SPANS = { 1200, 800, 500 } -- largeur visible (unités monde) en mode "Follow me"
+
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget" }
 
 --- @return table
 function Settings.defaults()
@@ -30,6 +38,17 @@ function Settings.defaults()
         head = 1,
         shake = 3,
         theme = 1,
+        minimap = true,
+        minimapPos = 1,
+        minimapSize = 3,
+        minimapOpacity = 4,
+        minimapView = 1,
+        minimapZoom = 2,
+        minimapRotate = false,
+        minimapVision = true,
+        minimapAllies = true,
+        minimapEnemies = true,
+        minimapLoot = false,
         kitWeapon = 1,
         kitMods = Settings.cleanMods(""),
         floorWeapons = true,
@@ -67,6 +86,11 @@ function Settings.parse(text)
     values.head = math.max(1, math.min(#Profile.heads, math.floor(values.head)))
     values.shake = math.max(1, math.min(#require("src.config.feel").strength, math.floor(values.shake)))
     values.theme = math.max(1, math.min(#require("src.ui.theme").order, math.floor(values.theme)))
+    values.minimapPos = math.max(1, math.min(#Settings.MAP_POSITIONS, math.floor(values.minimapPos)))
+    values.minimapSize = math.max(1, math.min(#Settings.MAP_SIZES, math.floor(values.minimapSize)))
+    values.minimapOpacity = math.max(1, math.min(#Settings.MAP_OPACITY, math.floor(values.minimapOpacity)))
+    values.minimapView = math.max(1, math.min(#Settings.MAP_VIEWS, math.floor(values.minimapView)))
+    values.minimapZoom = math.max(1, math.min(#Settings.MAP_SPANS, math.floor(values.minimapZoom)))
     local Loadout = require("src.config.loadout")
     values.kitWeapon = Loadout.sanitize({ w = values.kitWeapon }).w
     values.presetWeapon = Loadout.sanitize({ w = values.presetWeapon }).w
