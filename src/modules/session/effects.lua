@@ -24,12 +24,13 @@ local PRINT_LENGTH = 17
 local PRINT_WIDTH = 8
 local PRINT_GAP = 6
 local NUMBER_LIFE = 0.9
+local PING_LIFE = 6
 local ECHO_SIZE = { shot = 70, dash = 46, step = 30, throw = 40, clank = 40 }
 
 --- @return table
 function Effects.new()
     return setmetatable({
-        tracers = {}, flashes = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, texts = {}, hit = -1, hurt = -1
+        tracers = {}, flashes = {}, glows = {}, shards = {}, echoes = {}, impacts = {}, dust = {}, texts = {}, pings = {}, hit = -1, hurt = -1
     }, Effects)
 end
 
@@ -124,6 +125,19 @@ function Effects:shatter(x, y, color)
     self:glow(x, y, 70, color, 0.3)
 end
 
+Effects.PING_LIFE = PING_LIFE
+
+--- Ping d'équipe affiché dans le monde (un seul par joueur : le dernier remplace l'ancien).
+--- @param ping table { x, y, s, mine, t, label, name }
+function Effects:ping(ping)
+    for k = #self.pings, 1, -1 do
+        if self.pings[k].s == ping.s then table.remove(self.pings, k) end
+    end
+    ping.time = love.timer.getTime()
+    self.pings[#self.pings + 1] = ping
+    if #self.pings > 8 then table.remove(self.pings, 1) end
+end
+
 --- Chiffre de dégâts flottant à côté de la cible.
 --- @param x number
 --- @param y number
@@ -207,6 +221,7 @@ function Effects:update(dt)
     end
     prune(self.shards, SHARD_LIFE)
     prune(self.texts, NUMBER_LIFE)
+    prune(self.pings, PING_LIFE)
     prune(self.echoes, ECHO_LIFE)
     if self.prints then prune(self.prints, PRINT_LIFE) end
     local drag = math.exp(-4 * dt)
@@ -216,6 +231,61 @@ function Effects:update(dt)
         shard.angle = shard.angle + shard.spin * dt
         shard.spin = shard.spin * drag
     end
+end
+
+--- Couleur d'un ping : rouge = ennemi, ambre = objet, bleu = lieu.
+--- @param ping table
+--- @return table
+function Effects.pingColor(ping)
+    if ping.t == 2 then return { 0.95, 0.25, 0.2 } end
+    if ping.t == 1 then return { 1, 0.78, 0.2 } end
+    return { 0.35, 0.78, 1 }
+end
+
+--- @param ping table
+--- @param now number
+function Effects.drawPing(ping, now)
+    local lg = love.graphics
+    local age = now - ping.time
+    local fade = age > PING_LIFE - 1 and math.max(0, PING_LIFE - age) or 1
+    local c = Effects.pingColor(ping)
+    local pop = 1 + 0.6 * math.max(0, 1 - age * 6)
+    -- ondes qui partent du point
+    for ring = 0, 2 do
+        local k = (age * 0.9 - ring * 0.3) % 1.4 / 1.4
+        if age * 0.9 - ring * 0.3 >= 0 and age < 3.2 then
+            lg.setColor(c[1], c[2], c[3], (1 - k) * 0.6 * fade)
+            lg.setLineWidth(2.5 - 1.5 * k)
+            lg.circle("line", ping.x, ping.y, 6 + 26 * k)
+        end
+    end
+    -- losange
+    local r = 9 * pop
+    lg.setColor(0.05, 0.07, 0.1, 0.5 * fade)
+    lg.polygon("fill", ping.x, ping.y - r - 2, ping.x + r + 2, ping.y, ping.x, ping.y + r + 2, ping.x - r - 2, ping.y)
+    lg.setColor(c[1], c[2], c[3], fade)
+    lg.polygon("fill", ping.x, ping.y - r, ping.x + r, ping.y, ping.x, ping.y + r, ping.x - r, ping.y)
+    lg.setColor(1, 1, 1, 0.9 * fade)
+    lg.circle("fill", ping.x, ping.y, 2.2)
+    -- libellé : arme visée / objet ; nom de l'auteur en dessous
+    local function label(text, size, y, alpha)
+        local font = Kit.font(size)
+        lg.setFont(font)
+        lg.push()
+        lg.translate(ping.x, ping.y + y)
+        lg.scale(0.5)
+        local w, h = font:getWidth(text), font:getHeight()
+        lg.setColor(0.04, 0.05, 0.08, 0.8 * fade * alpha)
+        for _, o in ipairs({ { -1.5, 0 }, { 1.5, 0 }, { 0, -1.5 }, { 0, 1.5 } }) do
+            lg.print(text, -w / 2 + o[1], -h / 2 + o[2])
+        end
+        lg.setColor(c[1] * 0.4 + 0.6, c[2] * 0.4 + 0.6, c[3] * 0.4 + 0.6, fade * alpha)
+        lg.print(text, -w / 2, -h / 2)
+        lg.pop()
+    end
+    if ping.label and ping.label ~= "" then label(ping.label, 22, -24, 1) end
+    if ping.name and ping.name ~= "" then label(ping.name, 16, 22, 0.8) end
+    lg.setLineWidth(1)
 end
 
 function Effects:drawWorld()
@@ -301,6 +371,9 @@ function Effects:drawWorld()
     for _, flash in ipairs(self.flashes) do
         lg.setColor(1, 0.95, 0.8, 1 - (now - flash.time) / FLASH_LIFE)
         lg.circle("fill", flash.x, flash.y, 7)
+    end
+    for _, ping in ipairs(self.pings) do
+        Effects.drawPing(ping, now)
     end
     for _, n in ipairs(self.texts) do
         local t = (now - n.time) / NUMBER_LIFE

@@ -129,9 +129,10 @@ return {
             Combat.spawnItem(world, "rifle", nil, nil, 1700, 300)
             local bot = Bot.new(1, "medium", 4)
             for _ = 1, 60 * 20 do
+                world.players[1].weapon = nil -- le pistolet de secours est redonné à chaque tick : on le retire pour tester le chemin
                 world:queue(1, { bot:command(world) })
                 world:step()
-                if world.players[1].weapon then break end
+                if world.players[1].weapon == "rifle" then break end
             end
             assert(world.players[1].weapon == "rifle", "stuck at " .. world.players[1].x .. ", " .. world.players[1].y)
         end

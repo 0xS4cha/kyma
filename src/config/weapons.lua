@@ -2,6 +2,7 @@ local WEAPONS = {
     order = { "pistol", "rifle", "shotgun", "sniper", "silencer", "lmg", "smg", "revolver", "dmr", "autoshotgun", "breaker" },
 
     pistol = {
+        sidearm = true,
         name = "PISTOL",
         damage = 34,
         pellets = 1,
@@ -60,6 +61,7 @@ local WEAPONS = {
     },
 
     silencer = {
+        sidearm = true,
         name = "SILENCER",
         tag = "Silent. Only seen by those who see you",
         damage = 30,
@@ -107,6 +109,7 @@ local WEAPONS = {
     },
 
     revolver = {
+        sidearm = true,
         name = "REVOLVER",
         tag = "Slow and heavy. Three hits kill",
         damage = 58,
@@ -185,6 +188,9 @@ local WEAPONS = {
         landSpeed = 150,
         radius = 6
     },
+
+    -- arme rendue automatiquement quand le joueur n'en a plus (hors gun game)
+    fallback = "pistol",
 
     ammoReserveCap = 2,
     healAmount = 50,
