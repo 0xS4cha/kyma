@@ -17,6 +17,15 @@ local FLASH_LIFE = 0.06
 local GLOW_LIFE = 0.1
 local SHARD_LIFE = 1.4
 local HIT_LIFE = 0.25
+local MARK_LIFE = { hit = 0.32, shield = 0.32, kill = 0.6 }
+local MARK_SIZE = { hit = 92, shield = 92, kill = 132 }
+local MARK_COLOR = { hit = { 0.88, 0.14, 0.12 }, shield = { 0.35, 0.78, 1 }, kill = { 0.88, 0.14, 0.12 } }
+local DAMAGE_TIERS = {
+    { 75, { 1, 0.25, 0.2 } },
+    { 50, { 1, 0.55, 0.2 } },
+    { 25, { 1, 0.82, 0.3 } },
+    { 0, { 1, 0.96, 0.9 } }
+}
 local HURT_LIFE = 0.45
 local ECHO_LIFE = 1.1
 local PRINT_LIFE = 2.6
@@ -146,6 +155,12 @@ end
 --- @param big boolean?
 --- @param scale number? taille relative (réglage "Damage number size")
 function Effects:damageNumber(x, y, text, color, big, scale)
+    if not color then
+        local amount = tonumber(text) or 0
+        for _, tier in ipairs(DAMAGE_TIERS) do
+            if amount >= tier[1] then color = tier[2] break end
+        end
+    end
     self.texts[#self.texts + 1] = {
         x = x + 15 + random() * 8, y = y - 12 - random() * 6, text = text, color = color,
         big = big, scale = scale or 1, time = love.timer.getTime(), drift = (random() - 0.3) * 10
@@ -189,8 +204,16 @@ function Effects:burst(x, y)
     self:glow(x, y, 420, { 1, 1, 0.92 }, 0.6)
 end
 
-function Effects:hitMarker()
-    self.hit = love.timer.getTime()
+--- @param kind string?
+--- @param x number?
+--- @param y number?
+function Effects:hitMarker(kind, x, y)
+    local now = love.timer.getTime()
+    self.hit = now
+    self.marks = self.marks or {}
+    kind = MARK_LIFE[kind or "hit"] and kind or "hit"
+    self.marks[#self.marks + 1] = { kind = kind, x = x, y = y, time = now }
+    if #self.marks > 12 then table.remove(self.marks, 1) end
 end
 
 function Effects:hurtFlash()
@@ -221,6 +244,10 @@ function Effects:update(dt)
     end
     prune(self.shards, SHARD_LIFE)
     prune(self.texts, NUMBER_LIFE)
+    for k = #(self.marks or {}), 1, -1 do
+        local mark = self.marks[k]
+        if now - mark.time > MARK_LIFE[mark.kind] then table.remove(self.marks, k) end
+    end
     prune(self.pings, PING_LIFE)
     prune(self.echoes, ECHO_LIFE)
     if self.prints then prune(self.prints, PRINT_LIFE) end
@@ -381,9 +408,13 @@ function Effects:drawWorld()
         local pop = 1 + 0.55 * math.max(0, 1 - t * 7)
         local alpha = t < 0.6 and 1 or 1 - (t - 0.6) / 0.4
         local font = Kit.font(math.floor((n.big and 26 or 20) * n.scale + 0.5))
+        local nx, ny = n.x + n.drift * rise, n.y - 26 * rise
+        lg.setBlendMode(Shaders.lightBlend())
+        Shaders.glow(nx, ny, (n.big and 22 or 15) * n.scale * pop, n.color[1], n.color[2], n.color[3], 0.45 * alpha)
+        lg.setBlendMode("alpha")
         lg.setFont(font)
         lg.push()
-        lg.translate(n.x + n.drift * rise, n.y - 26 * rise)
+        lg.translate(nx, ny)
         lg.scale(0.5 * pop)
         local w, h = font:getWidth(n.text), font:getHeight()
         lg.setColor(0.04, 0.05, 0.08, 0.75 * alpha)
@@ -449,8 +480,49 @@ function Effects:drawImpacts()
     end
 end
 
+--- @param now number
+--- @param camera table?
+--- @param W number
+--- @param H number
+function Effects:drawMarks(now, camera, W, H)
+    if not self.marks or #self.marks == 0 then return end
+    local lg = love.graphics
+    local shader = Shaders.get("hitmark")
+    local dark = require("src.ui.theme").dark()
+    for _, mark in ipairs(self.marks) do
+        local age = now - mark.time
+        local t = age / MARK_LIFE[mark.kind]
+        local cx, cy = W / 2, H * 0.3
+        if mark.x and camera then cx, cy = camera:toScreen(mark.x, mark.y) end
+        local pop = 1 + 0.45 * math.max(0, 1 - age / 0.09)
+        local size = MARK_SIZE[mark.kind] * pop
+        local c = MARK_COLOR[mark.kind]
+        if shader then
+            lg.setBlendMode(dark and "add" or "alpha")
+            lg.setColor(c[1], c[2], c[3], 1)
+            lg.setShader(shader)
+            shader:send("progress", t)
+            shader:send("kill", mark.kind == "kill" and 1 or 0)
+            shader:send("whiten", dark and 0.7 or 0.25)
+            lg.draw(Shaders.pixel(), cx, cy, 0, size, size, 0.5, 0.5)
+            lg.setShader()
+            lg.setBlendMode("alpha")
+        else
+            local s = size * 0.22
+            lg.setColor(c[1], c[2], c[3], 1 - t)
+            lg.setLineWidth(3)
+            lg.line(cx - s, cy - s, cx - s / 3, cy - s / 3)
+            lg.line(cx + s, cy - s, cx + s / 3, cy - s / 3)
+            lg.line(cx - s, cy + s, cx - s / 3, cy + s / 3)
+            lg.line(cx + s, cy + s, cx + s / 3, cy + s / 3)
+            lg.setLineWidth(1)
+        end
+    end
+end
+
 --- @param composited boolean?
-function Effects:drawScreen(composited)
+--- @param camera table?
+function Effects:drawScreen(composited, camera)
     local lg = love.graphics
     local W, H = lg.getDimensions()
     local now = love.timer.getTime()
@@ -476,18 +548,7 @@ function Effects:drawScreen(composited)
         edge(0, H, 0, 0, d, d, d, H - d)
     end
 
-    local hit = now - self.hit
-    if hit < HIT_LIFE then
-        local cx, cy = W / 2, H * 0.3
-        local s = 10
-        lg.setColor(0.88, 0.14, 0.12, 1 - hit / HIT_LIFE)
-        lg.setLineWidth(3)
-        lg.line(cx - s, cy - s, cx - s / 3, cy - s / 3)
-        lg.line(cx + s, cy - s, cx + s / 3, cy - s / 3)
-        lg.line(cx - s, cy + s, cx - s / 3, cy + s / 3)
-        lg.line(cx + s, cy + s, cx + s / 3, cy + s / 3)
-        lg.setLineWidth(1)
-    end
+    self:drawMarks(now, camera, W, H)
 end
 
 return Effects

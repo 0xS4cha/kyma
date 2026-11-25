@@ -378,7 +378,6 @@ function GM.Session:shoot(p, sequence, color)
 end
 
 local ARMOR_COLOR = { 0.35, 0.78, 1 }
-local DAMAGE_COLOR = { 1, 0.96, 0.9 }
 
 --- Plaques (flash, fissures, éclats, son) et chiffres de dégâts à côté de la cible.
 --- @param data table
@@ -393,7 +392,7 @@ function GM.Session:hitFeedback(data)
             if p.slot == victim then at = p break end
         end
     end
-    if not at then return end
+    if not at then return nil end
     if data.s then
         Shield.hit(victim, data.ar or 0, data.s, at.x, at.y, at.angle or 0)
         if data.b then
@@ -414,16 +413,17 @@ function GM.Session:hitFeedback(data)
             self.effects:damageNumber(at.x, at.y + 8, tostring(data.s), ARMOR_COLOR, false, scale)
         end
         if health > 0 then
-            self.effects:damageNumber(at.x, at.y - 4, tostring(health), DAMAGE_COLOR, health >= 40, scale)
+            self.effects:damageNumber(at.x, at.y - 4, tostring(health), nil, health >= 40, scale)
         end
     end
+    return at
 end
 
 --- @param data table
 function GM.Session:onHit(data)
     local world = self.world
     if not world then return end
-    self:hitFeedback(data)
+    local at = self:hitFeedback(data)
     if data.t == world.slot then
         sound("hurt")
         self.effects:hurtFlash()
@@ -437,7 +437,8 @@ function GM.Session:onHit(data)
         end
     elseif data.a == world.slot then
         sound("hit")
-        self.effects:hitMarker()
+        local shieldOnly = data.s and (tonumber(data.h) or 0) <= 0
+        self.effects:hitMarker(shieldOnly and "shield" or "hit", at and at.x, at and at.y)
         self.postfx:kick(1.5)
         self:shake(Feel.shake.hitGiven)
         if (tonumber(data.d) or 0) >= Feel.hitstop.heavyDamage then self:freeze(Feel.hitstop.heavyHit) end
@@ -463,6 +464,7 @@ function GM.Session:onKill(data)
             self.postfx:wave(seen.x, seen.y, data.k == world.slot and 0.75 or 0.35, 300)
             if data.k == world.slot then
                 self.postfx:kick(4)
+                self.effects:hitMarker("kill", seen.x, seen.y)
                 sound("kill")
                 self:shake(Feel.shake.killGiven)
                 self:freeze(Feel.hitstop.killGiven)
@@ -590,7 +592,8 @@ function GM.Session:onMelee(data)
         end
     elseif data.t then
         sound("punch")
-        self.effects:hitMarker()
+        local target = type(data.t) == "number" and world.lastSeen[data.t]
+        self.effects:hitMarker("hit", target and target.x, target and target.y)
         self.postfx:kick(3)
         self:shake(Feel.shake.punchLanded)
         self:freeze(Feel.hitstop.punchLanded)

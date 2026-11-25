@@ -165,6 +165,32 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
+SOURCES.hitmark = [[
+extern number progress;
+extern number kill;
+extern number whiten;
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+    vec2 p = uv * 2.0 - 1.0;
+    float r = length(p);
+    vec2 q = vec2(p.x + p.y, p.y - p.x) * 0.70710678;
+    float d = min(abs(q.x), abs(q.y));
+    float t = clamp(progress, 0.0, 1.0);
+    float gap = mix(0.44, 0.54, t);
+    float reach = mix(0.9, 0.96, t);
+    float span = smoothstep(gap, gap + 0.05, r) * (1.0 - smoothstep(reach - 0.06, reach, r));
+    float taper = mix(0.05, 0.022, smoothstep(gap, reach, r));
+    float arms = (1.0 - smoothstep(taper * 0.6, taper, d)) * span;
+    float halo = exp(-d * d * 220.0) * smoothstep(gap - 0.05, gap + 0.15, r) * (1.0 - smoothstep(reach - 0.1, reach + 0.25, r));
+    float ringR = mix(0.45, 1.0, 1.0 - pow(1.0 - t, 2.0));
+    float ring = kill * exp(-pow((r - ringR) / 0.025, 2.0)) * (1.0 - t);
+    float fade = 1.0 - t * t;
+    float alpha = clamp(arms + halo * 0.45 + ring * 0.9, 0.0, 1.0) * fade;
+    vec3 rgb = mix(color.rgb, vec3(1.0), clamp(arms * whiten, 0.0, 1.0));
+    return vec4(rgb, color.a * alpha);
+}
+]]
+
 local cache = {}
 local pixel
 
