@@ -7,7 +7,7 @@ local Config = require("src.config.game")
 local Pause = {}
 
 local ACTIONS_W, INFO_W, GAP, BUTTON = 380, 440, 20, 52
-local ACTIONS = 5
+local ACTIONS = 6
 
 local function layout()
     local W, H = love.graphics.getDimensions()
@@ -36,6 +36,10 @@ function Pause.build(menu)
     local l = layout()
     local list = {
         { id = "resume", label = "Resume", primary = true, hint = "Esc", press = function() menu:Resume() end },
+        { id = "loadout", label = "Loadout", press = function()
+            menu.loadoutTarget = nil
+            menu:switch("loadout", 1)
+        end },
         { id = "settings", label = "Settings", press = function() menu:switch("settings", 1) end },
         { id = "howto", label = "How to play", press = function() menu:switch("howto", 1) end },
         { id = "leave", label = "Leave the match", confirm = "Click again to leave", press = confirm(menu, "leave", function() menu:LeaveGame() end) },

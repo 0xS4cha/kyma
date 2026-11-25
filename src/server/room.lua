@@ -315,6 +315,12 @@ function Room:Hold(client, data)
     return true
 end
 
+--- @param client table
+function Room:Kit(client)
+    local player = client.slot and self.world.players[client.slot]
+    if player then player.kit = client.loadout end
+end
+
 function Room:Ready(client, data)
     if not client.slot then return end
     self.world:setReady(client.slot, type(data) == "table" and data.ready == true)

@@ -127,5 +127,27 @@ return {
             assert(rules.p.w == index("lmg") and rules.p.m == mod("hands"))
             assert(Settings.kit(values).m == 1, "your own loadout is separate")
         end
+    },
+    {
+        name = "a loadout changed during the match applies at the next respawn",
+        run = function()
+            local Room = require("src.server.room")
+            local Combat = require("src.game.combat")
+            local Config = require("src.config.game")
+            local w = world({ s = 2 })
+            local p = w:add(1, "A", nil, { w = index("rifle"), m = 1 })
+            w:add(2, "B", nil, { w = index("pistol"), m = 1 })
+            local client = { slot = 1, loadout = Loadout.sanitize({ w = index("sniper"), m = mod("extended") }) }
+            Room.Kit({ world = w }, client)
+            assert(p.weapon == "rifle" and not p.mod, "nothing changes until the player respawns")
+            Combat.kill(w, p, 2)
+            for k = 1, Config.respawnTicks + 2 do
+                w:queue(1, { { s = k, f = 0, r = 0, a = 0, d = 0, b = 0, l = 0, t = 0, e = 0, k = 0 } })
+                w:step()
+            end
+            assert(p.dead == 0, "respawned")
+            assert(p.weapon == "sniper" and p.ammo == math.floor(WeaponConfig.sniper.magazine * 1.5 + 0.5),
+                "the new loadout: " .. tostring(p.weapon) .. " " .. tostring(p.ammo))
+        end
     }
 }
