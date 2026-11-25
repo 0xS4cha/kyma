@@ -1,9 +1,10 @@
 local GameConfig = require("src.config.game")
 
 local CONFIG = {
-    version = 1,
+    version = 2,
     address = "*",
     port = 6789,
+    official = "localhost:6789",
     localAddress = "127.0.0.1",
     localPorts = { 6790, 6809 },
     lanPorts = { 6789, 6799 },
@@ -24,7 +25,14 @@ local CONFIG = {
     chatHistory = 30,
     inputRedundancy = 4,
     inputCredit = 4,
-    inputQueue = 12
+    inputQueue = 12,
+    matchmaking = {
+        sizes = { duel = 2, ffa = 4, teams = 4, gungame = 4, infiltration = 4 },
+        fillAfter = 25,
+        window = 100,
+        widen = 15,
+        statusInterval = 1
+    }
 }
 
 return CONFIG

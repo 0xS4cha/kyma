@@ -106,6 +106,10 @@ function GM.Session:Initialize()
         local won = data.tm == 1 and data.w == world.team or data.tm ~= 1 and data.w == world.slot
         sound(won and "win" or "lose")
     end)
+    mp:On("rating", function(data)
+        local delta = tonumber(data.d) or 0
+        self.hud:banner("Rating " .. tostring(data.r), (delta >= 0 and "+" or "") .. delta .. " points", delta >= 0)
+    end)
     mp:On("level", function(data)
         if self.world and data.p == self.world.slot then
             self.hud.levelAt = love.timer.getTime()
@@ -129,7 +133,9 @@ function GM.Session:Start(options)
     self.chat = { open = false, text = "", team = false, log = {} }
     self.camera.scale = Config.camera.scale
     GM.State = "game"
-    if options.mode == "connect" then
+    if options.mode == "matchmaking" then
+        mp:FindMatch(options.address or mp:OfficialAddress(), name, options.game or "duel")
+    elseif options.mode == "connect" then
         mp:Join(options.address, name, options.spectate and { spectate = true } or nil)
     else
         local queue = { mode = options.game or "duel", map = options.map, spectate = options.spectate or nil, rules = options.rules }
@@ -963,6 +969,11 @@ function GM.Session:KeyPressed(key, scancode)
     end
     if Keys.is("chat", scancode) and GM.Multiplayer.state == "online" then
         self:openChat()
+        return
+    end
+    if key == "escape" and not self.world and GM.Multiplayer.search and GM.Menu then
+        GM.Menu:LeaveGame()
+        GM.Menu.consumed = key
         return
     end
     if key == "escape" then

@@ -893,6 +893,68 @@ function Hud:drawHelp(session)
     end
 end
 
+--- @param seconds number
+--- @return string
+local function clock(seconds)
+    seconds = math.max(0, math.floor(seconds))
+    return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
+end
+
+--- The matchmaking card shown while the server looks for players.
+--- @param mp table the multiplayer module
+--- @param c number fade
+function Hud:drawSearch(mp, c)
+    local W, H = love.graphics.getDimensions()
+    local now = love.timer.getTime()
+    local search = mp.search
+    if search ~= self.searchSeen then
+        self.searchSeen, self.searchAt = search, now
+    end
+    local waited = (tonumber(search.t) or 0) + (now - (self.searchAt or now))
+    local board = mp.leaderboard or {}
+    local rows = math.min(5, #board)
+    local server = mp.server or {}
+    local motd = server.motd
+    local w = 460
+    local h = 214 + (motd and 40 or 0) + (rows > 0 and 40 + rows * 26 or 0)
+    local x, y = (W - w) / 2, (H - h) / 2
+    card(x, y, w, h, c, 18)
+    local rules = Config.modes[search.m or ""] or Config.modes.duel
+    text(server.name or "Kyma", 14, x, y + 20, INK, 0.45 * c, "center", w)
+    text("Looking for a " .. rules.name:lower(), 24, x, y + 44, INK, c, "center", w)
+    local lg = love.graphics
+    lg.setLineWidth(3)
+    color(RED, c)
+    local start = now * 5
+    lg.arc("line", "open", W / 2, y + 104, 12, start, start + pi * 1.3, 24)
+    lg.setLineWidth(1)
+    local line = string.format("%s  -  %d / %d in queue  -  %d online", clock(waited), tonumber(search.q) or 1, tonumber(search.s) or 2, tonumber(search.o) or 1)
+    text(line, 14, x, y + 132, INK, 0.6 * c, "center", w)
+    local rating = mp.rating and mp.rating.r or search.r
+    if rating then
+        text("Your rating " .. tostring(rating), 14, x, y + 154, INK, 0.8 * c, "center", w)
+    end
+    local ty = y + 186
+    if motd then
+        lg.setFont(font(13))
+        color(INK, 0.55 * c)
+        lg.printf(motd, math.floor(x + 24), math.floor(ty), w - 48, "center")
+        ty = ty + 40
+    end
+    if rows > 0 then
+        text("Top players", 12, x + 24, ty, RED, c)
+        ty = ty + 26
+        for k = 1, rows do
+            local entry = board[k]
+            text(k .. ".", 14, x + 24, ty, INK, 0.4 * c)
+            text(tostring(entry.n), 14, x + 52, ty, INK, 0.85 * c)
+            text(string.format("%d  -  %dW %dL", entry.r or 0, entry.w or 0, entry.l or 0), 13, x + w - 24, ty + 1, INK, 0.6 * c, "right")
+            ty = ty + 26
+        end
+    end
+    hint("Esc", "Leave the queue", x + (w - measureHint("Esc", "Leave the queue", 13)) / 2, y + h - 36, 0.6 * c, 13)
+end
+
 function Hud:drawOverlay(session)
     local W, H = love.graphics.getDimensions()
     local now = love.timer.getTime()
@@ -909,6 +971,10 @@ function Hud:drawOverlay(session)
         love.graphics.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], c)
         love.graphics.rectangle("fill", 0, 0, W, H)
         if session.world then return end
+        if mp.search and not mp.error and status == "queued" then
+            self:drawSearch(mp, c)
+            return
+        end
         card(x, y, w, h, c, 18)
         text("Kyma", 14, x, y + 20, INK, 0.45 * c, "center", w)
         text(label, 20, x + 20, y + 46, mp.error and RED or INK, c, "center", w - 40)

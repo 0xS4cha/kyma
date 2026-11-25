@@ -56,6 +56,7 @@ function love.load(args)
     parser:add_argument("map", { default = nil, type = "value" })
     parser:add_argument("watch", { default = false, type = "boolean" })
     parser:add_argument("theme", { default = nil, type = "value" })
+    parser:add_argument("find", { default = nil, type = "value" })
     flags = parser:parse(args)
     GM.Flags = flags
 
@@ -65,7 +66,9 @@ function love.load(args)
     local name = flags.name and tostring(flags.name) or GM.Menu.settings.name
     local game = flags.mode and tostring(flags.mode) or nil
     local map = flags.map and tostring(flags.map) or nil
-    if flags.connect then
+    if flags.find then
+        GM.Session:Start({ mode = "matchmaking", address = flags.connect and tostring(flags.connect) or nil, name = name, game = tostring(flags.find) })
+    elseif flags.connect then
         GM.Session:Start({ mode = "connect", address = tostring(flags.connect), name = name, spectate = flags.watch })
     elseif flags.host then
         GM.Session:Start({ mode = "host", name = name, game = game, map = map })
