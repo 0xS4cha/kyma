@@ -19,6 +19,7 @@ local lg = love.graphics
 local floor, min, max, pi, cos, sin = math.floor, math.min, math.max, math.pi, math.cos, math.sin
 
 local MAP_SIZE = 1024
+local MARGIN = 24
 local maps = {}
 
 --- A picture of the whole world, drawn once per seed.
@@ -107,24 +108,71 @@ local function arrow(x, y, angle, size)
         x + cos(angle - 2.5) * size * 0.7, y + sin(angle - 2.5) * size * 0.7)
 end
 
---- The minimap in the top right corner. It turns with the camera, so what is
---- ahead of you on screen is ahead of you on the minimap too.
+-- The minimap is the duel modes' one: a card in the corner chosen in
+-- Settings > Mini-map, with its size, opacity and rotation. The world is far
+-- too big to show whole, so it always follows you.
+local MAP_BASE_W, MAP_BASE_H = 240, 170
+local MAP_SIZE_FACTOR = { 0.6, 0.8, 1, 1.3, 1.65 }
+local MAP_SPANS = { 7200, 4800, 3000 }
+local MAP_PAD = 8
+local CARD_H = 112
+local QUICK_H = 66 + 12
+local PILL_H = 36
+
+local function mapOptions()
+    local Settings = require("src.modules.menu.settings")
+    return (GM.Menu and GM.Menu.settings) or Settings.defaults(), Settings
+end
+
+--- Where the minimap card sits, nil when it is turned off.
+--- @return number? x, number? y, number? w, number? h
+function Hud.mapBox()
+    local opt = mapOptions()
+    if opt.minimap == false then return nil end
+    local f = MAP_SIZE_FACTOR[opt.minimapSize] or 1
+    local w, h = MAP_BASE_W * f + MAP_PAD * 2, MAP_BASE_H * f + MAP_PAD * 2
+    local W, H = lg.getDimensions()
+    local pos = opt.minimapPos or 1
+    local left = pos == 1 or pos == 2
+    local top = pos == 1 or pos == 3
+    local x = left and MARGIN or (W - MARGIN - w)
+    local y
+    if top then
+        -- on the left it pushes the status pill aside, on the right it sits under the ping
+        y = left and MARGIN or MARGIN + 30 + 10
+    else
+        y = H - MARGIN - CARD_H - 12 - h
+        if not left then y = y - QUICK_H end
+    end
+    return x, y, w, h
+end
+
+--- How far the top left status has to move right to clear the minimap.
+function Hud.leftShift()
+    local x, y, w = Hud.mapBox()
+    if not x or x > MARGIN + 1 or y > lg.getHeight() / 2 then return 0 end
+    return w + 16
+end
+
 function Hud.minimap(ext)
     local raid, camera = ext.raid, ext.camera
-    local W = lg.getWidth()
-    local size = 200
-    local x, y = W - size - 20, 20
-    local cx, cy = x + size / 2, y + size / 2
+    local x, y, w, h = Hud.mapBox()
+    if not x then return end
+    local opt, Settings = mapOptions()
+    local alpha = Settings.MAP_OPACITY[opt.minimapOpacity] or 1
+    local mw, mh = w - MAP_PAD * 2, h - MAP_PAD * 2
+    local ox, oy = x + MAP_PAD, y + MAP_PAD
+    local cx, cy = ox + mw / 2, oy + mh / 2
     local canvas = Hud.mapCanvas(raid.def)
-    local reach = 2400
     local me = raid:view()
-    local s = size / (reach * 2)
+    local span = MAP_SPANS[opt.minimapZoom] or 4800
+    local s = mw / span
     local px = MAP_SIZE / raid.def.width
-    local rotation = camera:rotation()
-    Kit.card(x - 6, y - 6, size + 12, size + 12, 0.96, size / 2 + 6)
-    lg.stencil(function() lg.circle("fill", cx, cy, size / 2) end, "replace", 1)
-    lg.setStencilTest("equal", 1)
-    lg.setColor(1, 1, 1, 1)
+    -- like the duel modes: north up, or turned so you always face up
+    local rotation = opt.minimapRotate and camera:rotation() or 0
+    Kit.card(x, y, w, h, alpha, 10)
+    lg.setScissor(ox, oy, mw, mh)
+    lg.setColor(1, 1, 1, alpha)
     lg.push()
     lg.translate(cx, cy)
     lg.rotate(rotation)
@@ -137,20 +185,48 @@ function Hud.minimap(ext)
         local dx, dy = (wx - me.x) * s, (wy - me.y) * s
         return cx + dx * c - dy * sn, cy + dx * sn + dy * c
     end, 0.4)
-    lg.setStencilTest()
-    lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.25)
-    lg.setLineWidth(2)
-    lg.circle("line", cx, cy, size / 2)
-    lg.setLineWidth(1)
-    -- North marker on the rim.
-    local na = rotation - pi / 2
-    local nx, ny = cx + cos(na) * (size / 2 - 10), cy + sin(na) * (size / 2 - 10)
-    Kit.color(Kit.RED, 1)
-    lg.circle("fill", nx, ny, 9)
-    Kit.text("N", 11, nx - 10, ny - 7, { 1, 1, 1 }, 1, "center", 20)
-    arrow(cx, cy, -pi / 2, 9)
+    lg.setScissor()
+    -- you, as the arrow of the duel modes
+    local a = rotation + me.angle
+    local ca, sa = cos(a), sin(a)
+    Kit.color(Kit.INK, alpha)
+    lg.polygon("fill", cx + ca * 7, cy + sa * 7, cx - ca * 4.2 - sa * 4.9, cy - sa * 4.2 + ca * 4.9, cx - ca * 4.2 + sa * 4.9, cy - sa * 4.2 - ca * 4.9)
+    if opt.minimapRotate then
+        -- a turned map needs to say where north is
+        local na = rotation - pi / 2
+        local r = min(mw, mh) / 2 - 10
+        local nx, ny = cx + cos(na) * r, cy + sin(na) * r
+        Kit.dot(nx, ny, 8, Kit.RED, alpha)
+        Kit.text("N", 10, nx - 10, ny - 7, { 1, 1, 1 }, alpha, "center", 20)
+    end
+end
+
+--- The status pill of the duel modes, top left: where you are and how
+--- dangerous it is, then the keys of the inventory and the map.
+function Hud.status(ext)
+    local raid = ext.raid
+    local me = raid:view()
     local chunk = Worldgen.chunkAt(raid.def, me.x, me.y)
-    Kit.text(Worldgen.BIOMES[chunk.biome].name .. "  -  danger " .. chunk.tier, 12, x, y + size + 12, chunk.tier >= 3 and Kit.RED or Kit.INK, 0.75, "center", size)
+    local label = Worldgen.BIOMES[chunk.biome].name .. "  -  danger " .. chunk.tier
+    local x = MARGIN + Hud.leftShift()
+    local w = Kit.font(16):getWidth(label) + 46
+    Kit.card(x, MARGIN, w, PILL_H, 1, 18)
+    Kit.dot(x + 20, MARGIN + 18, 5, chunk.tier >= 3 and Kit.RED or Kit.AMBER, 1)
+    Kit.text(label, 16, x + 34, MARGIN + 8, Kit.INK, 1)
+    local hint = { Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.6 }
+    Kit.hint(Keys.label("inventory"), "Inventory", x, MARGIN + 46, 0.75, 14, hint)
+    local hw = Kit.measureHint(Keys.label("inventory"), "Inventory", 14)
+    Kit.hint(Keys.label("map"), "Map", x + hw + 18, MARGIN + 46, 0.75, 14, hint)
+    local ping = GM.Multiplayer and GM.Multiplayer:Ping()
+    if ping then
+        local W = lg.getWidth()
+        local quality = ping < 60 and Kit.GREEN or ping < 130 and Kit.AMBER or Kit.RED
+        local str = floor(ping) .. " ms"
+        local pw = Kit.font(14):getWidth(str) + 40
+        Kit.card(W - MARGIN - pw, MARGIN, pw, 30, 1, 15)
+        Kit.dot(W - MARGIN - pw + 16, MARGIN + 15, 4, quality, 1)
+        Kit.text(str, 14, W - MARGIN - pw + 28, MARGIN + 7, Kit.INK, 0.8)
+    end
 end
 
 local function wrap(a)
@@ -250,10 +326,11 @@ local function edgeMarkers(ext)
         local tw = Kit.font(12):getWidth(text) + 14
         local lx = math.max(8, math.min(W - tw - 8, ex - ca * 30 - tw / 2))
         local ly = math.max(top - 30, math.min(H - bottom + 6, ey - sa * 30 - 10))
-        -- not under the minimap in the top right corner
-        if lx + tw > W - 250 and ly < 270 then
-            ly = 270
-            if ey < 270 then ey = 290 end
+        -- not under the minimap
+        local bx, by, bw, bh = Hud.mapBox()
+        if bx and lx + tw > bx and lx < bx + bw and ly + 22 > by and ly < by + bh then
+            ly = by < H / 2 and by + bh + 8 or by - 30
+            ey = by < H / 2 and math.max(ey, by + bh + 30) or math.min(ey, by - 8)
         end
         lg.setColor(color[1], color[2], color[3], 0.95)
         pointer(ex, ey, a, 16)
@@ -322,7 +399,6 @@ local function bar(x, y, w, h, value, color, label)
     if label then Kit.text(label, 12, x + 8, y + h / 2 - 8, { 1, 1, 1 }, 1) end
 end
 
-local MARGIN = 24
 local SHIELD = require("src.modules.session.shield").COLOR
 
 --- Health like in the duel modes, with the vest and helmet wear under it as
@@ -597,10 +673,7 @@ function Hud.draw(ext)
 
     Hud.intro(ext, now)
 
-    Kit.hint(Keys.label("inventory"), "Inventory", 24, 24, 0.7, 12)
-    Kit.hint(Keys.label("map"), "Map", 24, 50, 0.7, 12)
-    local ping = GM.Multiplayer and GM.Multiplayer:Ping()
-    if ping then Kit.text(string.format("%d ms", floor(ping)), 11, 24, 76, Kit.INK, 0.4) end
+    if not ext.showMap and not ext.showInventory then Hud.status(ext) end
 end
 
 return Hud
