@@ -67,6 +67,7 @@ function GM.Extraction:Initialize()
         self.state = "raid"
         self.showInventory, self.showMap, self.paused = false, false, false
         self.killer, self.banner = nil, nil
+        self.introAt, self.diedAt = love.timer.getTime(), nil
         self.effects = Effects.new()
         self.postfx = PostFX.new()
         self.camera.scale = GameConfig.camera.scale
@@ -141,6 +142,7 @@ function GM.Extraction:Initialize()
     mp:On("xend", function(data)
         if not self.active then return end
         self.ending = data
+        self.summaryAt = nil
         self.state = "summary"
         self.raid = nil
         self:capture(false)
@@ -475,22 +477,41 @@ end
 
 function GM.Extraction:drawSummary()
     local W, H = love.graphics.getDimensions()
+    local lg = love.graphics
     local e = self.ending or {}
     love.graphics.clear(Kit.PAPER)
+    self.summaryAt = self.summaryAt or love.timer.getTime()
+    local t = love.timer.getTime() - self.summaryAt
+    local a = Kit.easeOutCubic(math.min(1, t / 0.4))
     local titles = { extracted = "Extracted", died = "Killed in action", left = "Back from the wilds" }
-    local colors = { extracted = Kit.GREEN, died = Kit.RED, left = Kit.INK }
-    Kit.card(W / 2 - 300, H / 2 - 180, 600, 360, 1, 18)
-    Kit.text(titles[e.r] or "Raid over", 34, 0, H / 2 - 150, colors[e.r] or Kit.INK, 1, "center", W)
-    local lines = {}
-    if e.r == "died" then lines[#lines + 1] = "Killed by " .. tostring(e.k or "the wilds") .. ". Everything you carried is lost." end
-    if e.r == "extracted" then lines[#lines + 1] = "You made it out with " .. (e.v or 0) .. " items. They are in your loadout." end
-    if e.r == "left" then lines[#lines + 1] = "Your character survived your absence and came back." end
-    lines[#lines + 1] = string.format("Time in the world: %d:%02d", math.floor((e.time or 0) / 60), (e.time or 0) % 60)
-    lines[#lines + 1] = string.format("Players killed: %d   Monsters killed: %d", e.kills or 0, e.monsters or 0)
-    for k, line in ipairs(lines) do
-        Kit.text(line, 16, W / 2 - 270, H / 2 - 80 + (k - 1) * 30, Kit.INK, 0.8, "center", 540)
+    local colors = { extracted = Kit.ALLY, died = Kit.RED, left = Kit.INK }
+    local cw, ch = 620, 380
+    local cx, cy = W / 2 - cw / 2, H / 2 - ch / 2 + (1 - a) * 16
+    Kit.card(cx, cy, cw, ch, a, 18)
+    Kit.text(titles[e.r] or "Raid over", 34, cx, cy + 28, colors[e.r] or Kit.INK, a, "center", cw)
+    local line
+    if e.r == "died" then line = "Killed by " .. tostring(e.k or "the wilds") .. ". Everything you carried is lost." end
+    if e.r == "extracted" then line = "You made it out with " .. (e.v or 0) .. " items. They are in your loadout." end
+    if e.r == "left" then line = "Your character survived your absence and came back." end
+    if line then Kit.text(line, 15, cx, cy + 82, Kit.INK, 0.65 * a, "center", cw) end
+    -- stat tiles like the end of a duel match
+    local tiles = {
+        { string.format("%d:%02d", math.floor((e.time or 0) / 60), (e.time or 0) % 60), "Time in the world" },
+        { tostring(e.r == "extracted" and (e.v or 0) or 0), "Items brought back" },
+        { tostring(e.kills or 0), "Players killed" },
+        { tostring(e.monsters or 0), "Monsters killed" }
+    }
+    local gap = 10
+    local tw = (cw - 64 - 3 * gap) / 4
+    for k, tile in ipairs(tiles) do
+        local f = Kit.easeOutCubic(math.min(1, math.max(0, (t - 0.1 * k) / 0.35))) * a
+        local tx, ty = cx + 32 + (k - 1) * (tw + gap), cy + 130 + (1 - f) * 8
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.045 * f)
+        lg.rectangle("fill", tx, ty, tw, 92, 12, 12)
+        Kit.text(tile[1], 30, tx + 16, ty + 10, Kit.INK, f)
+        Kit.text(tile[2], 12, tx + 16, ty + 68, Kit.INK, 0.5 * f)
     end
-    Kit.button("ext:summary", W / 2 - 130, H / 2 + 100, 260, 52, "Back to the hub", { primary = true, align = "center", hint = "Enter" })
+    Kit.button("ext:summary", W / 2 - 130, cy + ch - 96, 260, 52, "Back to the hub", { primary = true, align = "center", hint = "Enter", alpha = a })
 end
 
 function GM.Extraction:Draw()
