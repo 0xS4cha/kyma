@@ -1203,6 +1203,30 @@ function Hud:drawNoises(session)
     end
 end
 
+--- The health (and armor) the player who killed us had left.
+--- @param killer table { name, hp, armor }
+--- @param x number
+--- @param y number
+--- @param w number
+--- @param a number alpha
+function Hud:drawKillerHealth(killer, x, y, w, a)
+    local hp = clamp(killer.hp / Config.health, 0, 1)
+    local low = killer.hp <= 34
+    text("Their health", 13, x, y, INK, 0.5 * a)
+    text(tostring(killer.hp), 22, x + w, y - 6, low and RED or INK, a, "right")
+    bar(x, y + 24, w, 8, hp, low and RED or INK, a)
+    local armor = killer.armor or 0
+    if armor > 0 then
+        local shield = Config.shield
+        local gap = 4
+        local pw = (w - gap * (shield.plates - 1)) / shield.plates
+        for i = 1, shield.plates do
+            local f = clamp((armor - (i - 1) * shield.plateHp) / shield.plateHp, 0, 1)
+            bar(x + (i - 1) * (pw + gap), y + 38, pw, 4, f, require("src.modules.session.shield").COLOR, a)
+        end
+    end
+end
+
 function Hud:drawKillcam(session, cam)
     local W, H = love.graphics.getDimensions()
     local lg = love.graphics
@@ -1223,6 +1247,11 @@ function Hud:drawKillcam(session, cam)
     local nw = text(name, 22, x + 20, y + 40, RED, 1)
     text("with " .. weapon, 15, x + 30 + nw, y + 46, INK, 0.6)
     bar(x + 20, y + 80, w - 40, 4, cam.progress, RED, 0.8)
+    local killer = self.killer
+    if killer and killer.hp then
+        card(x, y - 76, w, 64, 1, 16)
+        self:drawKillerHealth(killer, x + 20, y - 62, w - 40, 1)
+    end
 end
 
 function Hud:drawDeath(session)
@@ -1240,6 +1269,15 @@ function Hud:drawDeath(session)
     local t = easeOutBack(a)
     local y = H * 0.3 + (1 - t) * 20
     text("Eliminated", 48, 0, y, RED, a, "center", W)
+    local killer = self.killer
+    if killer and killer.hp then
+        local w = 320
+        local kx, ky = (W - w) / 2, y + 190
+        card(kx, ky, w, 92, a, 16)
+        local nw = text("Killed by", 13, kx + 20, ky + 14, INK, 0.5 * a)
+        text(killer.name, 15, kx + 28 + nw, ky + 12, RED, a)
+        self:drawKillerHealth(killer, kx + 20, ky + 40, w - 40, a)
+    end
     local seconds = me.dead / Config.tickRate
     local progress = 1 - me.dead / Config.respawnTicks
     if session.world.round and session.world.phase == "playing" then
