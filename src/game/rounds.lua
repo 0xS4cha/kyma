@@ -83,8 +83,7 @@ function Rounds.next(world)
     end
     for _, p in pairs(world.players) do
         p.out = nil
-        require("src.game.player").respawn(p, world:spawnPoint(p))
-        world:loadout(p)
+        world:respawn(p)
     end
     event(world, { kind = "roundstart", n = round.number, a = round.attackers })
 end

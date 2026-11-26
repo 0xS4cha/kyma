@@ -186,5 +186,32 @@ return {
             end
             assert(shots > 0 and shots <= math.ceil(60 / Weapons.stat(p, "fireTicks")), "shots " .. shots)
         end
+    },
+    {
+        name = "everyone spawns with the match's starting shield, one plate by default",
+        run = function()
+            local Config = require("src.config.game")
+            local Combat = require("src.game.combat")
+            local plate = Config.shield.plateHp
+            assert(Settings.matchRules(Settings.parse(nil)).ss == Loadout.startArmor and Loadout.startArmor == 1, "one plate from the menu")
+            local world = World.new(Arena.new(Maps.get("crossroads")), "duel", false)
+            local a = world:add(1, "A")
+            assert(a.armor == 0, "a match that doesn't say starts without")
+            world = World.new(Arena.new(Maps.get("crossroads")), "duel", false, { ss = 3 })
+            a = world:add(1, "A")
+            assert(a.armor == 3 * plate)
+            a.armor = 0
+            Combat.kill(world, a)
+            a.dead = 0
+            Combat.update(world)
+            assert(a.hp > 0 and a.armor == 3 * plate, "full shield again after a respawn: " .. a.armor)
+            world = World.new(Arena.new(Maps.get("crossroads")), "duel", false, { ss = 0 })
+            assert(world:add(1, "A").armor == 0, "none")
+            assert(Loadout.rules({ ss = 9 }).armor == Config.shield.plates and Loadout.rules({ ss = -2 }).armor == 0, "clamped")
+            assert(Loadout.rules(Loadout.pack(Loadout.rules({ ss = 2 }))).armor == 2, "sent to the server and back")
+            local values = Settings.parse("startArmor=2\n")
+            assert(values.startArmor == 2 and Settings.matchRules(values).ss == 2)
+            assert(Settings.parse("startArmor=12\n").startArmor == Config.shield.plates)
+        end
     }
 }
