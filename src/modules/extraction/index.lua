@@ -676,8 +676,6 @@ function GM.Extraction:WheelMoved(_, y)
             self.raidUI:wheelmoved(y)
         elseif self.showMap then
             self.mapZoom = math.max(1, math.min(10, (self.mapZoom or 1) * (y > 0 and 1.25 or 0.8)))
-        elseif y ~= 0 then
-            self.camera:zoom(y > 0 and 1.1 or 1 / 1.1)
         end
     end
 end
