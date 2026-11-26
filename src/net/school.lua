@@ -73,4 +73,18 @@ function School.login()
     return claim and claim.login or nil
 end
 
+--- The games this player may see: 42-only games are listed on 42 computers only.
+--- @param games table[]
+--- @param login string? the player's 42 login, School.login() by default
+--- @return table[]
+function School.visible(games, login)
+    if login == nil then login = School.login() end
+    if login then return games end
+    local out = {}
+    for _, game in ipairs(games) do
+        if not game.school then out[#out + 1] = game end
+    end
+    return out
+end
+
 return School

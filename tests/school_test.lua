@@ -22,5 +22,13 @@ return {
             assert(not School.verify({ login = string.rep("a", 40), host = "z4r11p1.42lyon.fr" }), "too long")
             assert(not School.verify("habretag"), "not a claim")
         end
+    },
+    {
+        name = "42-only games are listed on 42 computers only",
+        run = function()
+            local games = { { name = "open" }, { name = "school", school = true } }
+            assert(#School.visible(games, false) == 1 and School.visible(games, false)[1].name == "open", "hidden elsewhere")
+            assert(#School.visible(games, "habretag") == 2, "shown at 42")
+        end
     }
 }
