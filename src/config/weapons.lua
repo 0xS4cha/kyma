@@ -196,6 +196,9 @@ local WEAPONS = {
     healAmount = 50,
     pickupRadius = 34,
     itemLifetime = 45 * 60,
+    -- a weapon a player throws or drops vanishes after 20 s, blinking for the last 3
+    dropLifetime = 20 * 60,
+    dropBlink = 3 * 60,
     padRespawn = 600,
     maxItems = 24
 }

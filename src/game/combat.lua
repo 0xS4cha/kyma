@@ -127,6 +127,7 @@ function Combat.drop(world, p, x, y)
     end
     local item = Combat.spawnItem(world, p.weapon, p.ammo, p.reserve, x or p.x, y or p.y)
     item.angle = p.angle
+    item.life = WeaponConfig.dropLifetime
     Weapons.give(p, nil)
     return item
 end
@@ -492,7 +493,7 @@ function Combat.update(world)
     end
     for k = #world.items, 1, -1 do
         local item = world.items[k]
-        if not item.pad and not item.flying and item.age > WeaponConfig.itemLifetime then
+        if not item.pad and not item.flying and item.age > (item.life or WeaponConfig.itemLifetime) then
             table.remove(world.items, k)
         end
     end

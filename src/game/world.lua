@@ -445,7 +445,9 @@ function World:snapshot(viewer)
     for _, item in ipairs(self.items) do
         items[#items + 1] = {
             i = item.id, k = Weapons.pack(item.kind), x = item.x, y = item.y,
-            a = item.angle, f = item.flying and 1 or 0
+            a = item.angle, f = item.flying and 1 or 0,
+            -- ticks left before a dropped weapon vanishes
+            t = item.life and math.max(0, item.life - item.age) or nil
         }
     end
 
