@@ -67,6 +67,39 @@ return {
         end
     },
     {
+        name = "a door closing over a dead player's body is not a violation",
+        run = function()
+            local w = World.new(Arena.new({
+                width = 4000, height = 4000, walls = {},
+                doors = { { x = 990, y = 900, w = 24, h = 200 } },
+                spawns = { { x = 3000, y = 3000, angle = 0 } }
+            }))
+            w:add(1, "a")
+            local p = w.players[1]
+            p.x, p.y, p.hp, p.dead = 1020, 1000, 0, 2
+            assert(not w.arena.doors[1].open)
+            assert(tick(w) == nil, "a corpse in a doorway is not a collision")
+            assert(p.dead == 1 and not w.arena.doors[1].open)
+            -- the command that ends the death timer still runs at the body
+            assert(tick(w) == nil, "respawning from a doorway is not a collision")
+        end
+    },
+    {
+        name = "a living player inside a closed door is still a violation",
+        run = function()
+            local w = World.new(Arena.new({
+                width = 4000, height = 4000, walls = {},
+                doors = { { x = 990, y = 900, w = 24, h = 200 } },
+                spawns = { { x = 3000, y = 3000, angle = 0 } }
+            }))
+            w:add(1, "a")
+            local p = w.players[1]
+            p.x, p.y = 1002, 1000
+            local violation = AntiCheat.validate(p, { x = p.x, y = p.y }, w)
+            assert(violation and violation.field == "collision")
+        end
+    },
+    {
         name = "excessive displacement causes a server violation",
         run = function()
             local w, p = world()

@@ -16,7 +16,7 @@ end
 
 --- Validate the state produced by one client command.
 --- @param player table
---- @param previous table position before the command ({ x, y })
+--- @param previous table state before the command ({ x, y, dead })
 --- @param world table
 --- @return table?
 function AntiCheat.validate(player, previous, world)
@@ -31,9 +31,15 @@ function AntiCheat.validate(player, previous, world)
         return invalid("position", player.x .. "," .. player.y)
     end
 
-    local resolvedX, resolvedY = arena:resolve(player.x, player.y, radius)
-    if abs(resolvedX - player.x) > EPSILON or abs(resolvedY - player.y) > EPSILON then
-        return invalid("collision", player.x .. "," .. player.y)
+    -- A dead player stays frozen where they fell until the respawn, and doors
+    -- and windows close over bodies (they only wait for living players), so a
+    -- body in a doorway overlaps the door without the client doing anything.
+    -- The command that ends the death timer still runs at the body.
+    if player.dead == 0 and not previous.dead then
+        local resolvedX, resolvedY = arena:resolve(player.x, player.y, radius)
+        if abs(resolvedX - player.x) > EPSILON or abs(resolvedY - player.y) > EPSILON then
+            return invalid("collision", player.x .. "," .. player.y)
+        end
     end
 
     local dx, dy = player.x - previous.x, player.y - previous.y
