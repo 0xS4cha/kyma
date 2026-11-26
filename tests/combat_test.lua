@@ -360,5 +360,28 @@ return {
                 if e.kind == "kill" then assert(e.kh == nil and e.ka == nil, "no killer, nothing to show") end
             end
         end
+    },
+    {
+        name = "a weapon a player drops vanishes after its despawn time, map loot lasts longer",
+        run = function()
+            local world, a = duel()
+            local Combat = require("src.game.combat")
+            Weapons.give(a, "rifle")
+            local dropped = Combat.drop(world, a)
+            local loot = Combat.spawnItem(world, "shotgun", nil, nil, 2000, 2000)
+            assert(dropped.life == WeaponConfig.dropLifetime and WeaponConfig.dropLifetime < WeaponConfig.itemLifetime)
+            local left
+            for _, item in ipairs(world:snapshot(1).items) do
+                if item.i == dropped.id then left = item.t end
+            end
+            assert(left == WeaponConfig.dropLifetime, "the client is told the time left")
+            for _ = 1, WeaponConfig.dropLifetime + 1 do Combat.update(world) end
+            local still, gone = false, true
+            for _, item in ipairs(world.items) do
+                if item == dropped then gone = false end
+                if item == loot then still = true end
+            end
+            assert(gone and still, "the dropped weapon is gone, the other one stays")
+        end
     }
 }

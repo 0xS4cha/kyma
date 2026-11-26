@@ -4,6 +4,7 @@ local Character = require("src.modules.session.character")
 local Kit = require("src.ui.kit")
 local Camera = require("src.core.camera")
 local Weapons = require("src.game.weapons")
+local WeaponConfig = require("src.config.weapons")
 local Player = require("src.game.player")
 local Vision = require("src.game.vision")
 local Shaders = require("src.modules.session.shaders")
@@ -473,11 +474,25 @@ local function drawItems(world)
     for _, item in ipairs(world.items) do
         local kind = Weapons.unpack(item.k)
         if kind then
-            if item.f == 0 then
-                lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.35 + 0.35 * pulse)
-                lg.circle("fill", item.x, item.y, 16)
+            local left = tonumber(item.t)
+            -- blinks faster and faster in its last seconds before vanishing
+            local fade = 1
+            if left and left < WeaponConfig.dropBlink then
+                local rate = 4 + 8 * (1 - left / WeaponConfig.dropBlink)
+                fade = 0.25 + 0.75 * (0.5 + 0.5 * cos(love.timer.getTime() * rate * math.pi))
             end
-            Character.drawWeapon(kind, item.x, item.y, item.a or 0)
+            if item.f == 0 then
+                lg.setColor(T.halo[1], T.halo[2], T.halo[3], (0.35 + 0.35 * pulse) * fade)
+                lg.circle("fill", item.x, item.y, 16)
+                if left then
+                    -- a ring that drains as the weapon's time runs out
+                    local share = Kit.clamp(left / WeaponConfig.dropLifetime, 0, 1)
+                    lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.7 * fade)
+                    lg.setLineWidth(2)
+                    lg.arc("line", "open", item.x, item.y, 21, -math.pi / 2, -math.pi / 2 + share * 2 * math.pi, 32)
+                end
+            end
+            Character.drawWeapon(kind, item.x, item.y, item.a or 0, fade)
         elseif item.k == -1 then
             lg.setColor(T.halo[1], T.halo[2], T.halo[3], 0.3 + 0.3 * pulse)
             lg.circle("fill", item.x, item.y, 15)
