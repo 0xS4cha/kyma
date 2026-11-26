@@ -59,6 +59,16 @@
             "field_type": "text"
         },
         {
+            "name": "Official server",
+            "description": "1 to run the persistent Extraction world, which only the official server plays. Leave 0 for a casual server.",
+            "env_variable": "OFFICIAL",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:0,1",
+            "field_type": "text"
+        },
+        {
             "name": "Branch",
             "description": "Branch of the Kyma repository to install. Reinstall the server to update it.",
             "env_variable": "REPO_BRANCH",
