@@ -7,11 +7,13 @@ local Maps = require("src.maps.index")
 local Address = require("src.net.address")
 local School = require("src.net.school")
 local Rules = require("src.modules.menu.screens.rules")
+local Loadout = require("src.config.loadout")
 local GM = require("src.core.index")
 
 local Play = {}
 
 local COLS = math.ceil(#Maps.order / 2)
+local RULE_ROW, RULES_TOP = 54, 50
 local WHERE = { "Your network", "Official server" }
 
 local function layout()
@@ -29,9 +31,35 @@ local function layout()
         modeY = 136,
         gridY = 236,
         tileW = tileW, tileH = tileH,
-        detailY = 236 + 2 * (tileH + 12) + 6
+        rulesY = 236 + 2 * (tileH + 12) + 6,
+        rulesH = RULES_TOP + 3 * RULE_ROW + 8,
+        detailY = 236 + 2 * (tileH + 12) + 6 + RULES_TOP + 3 * RULE_ROW + 8 + 12
     }
 end
+
+--- The match rules sit under the maps, in two columns of three.
+--- @param l table
+--- @return number x1, number x2, number colW
+local function ruleColumns(l)
+    local colW = math.floor((l.left.w - 40 - 32) / 2)
+    return l.left.x + 20, l.left.x + 20 + colW + 32, colW
+end
+
+--- @param colW number
+--- @return number
+local function segmentWidth(colW)
+    return math.min(270, colW - 170)
+end
+
+local ARMOR_LABELS = { "None", "1", "2", "3" }
+
+local RULE_TEXT = {
+    floorWeapons = { "Weapons on the floor", "On their spots, back after a while" },
+    killHeal = { "Heal on kill", "+" .. Loadout.killHeal .. " HP for each kill" },
+    shields = { "Shield plates on the map", "Plates to pick up next to the health" },
+    startArmor = { "Starting shield", "Plates everyone has at each spawn" },
+    spawnWith = { "Players start with", "The weapon at each spawn" }
+}
 
 local function names(list, source)
     local out = {}
@@ -46,6 +74,36 @@ end
 
 function Play.enter(menu)
     menu.lanAddress = Address.lan()
+    menu.loadoutTarget = nil
+end
+
+--- A row that switches a rule on and off.
+local function toggleRule(menu, id, x, y, w)
+    return {
+        id = id, rule = "toggle", x = x, y = y, w = w, h = RULE_ROW - 6,
+        press = function() menu:setOption(id, not menu.settings[id]) end,
+        left = function() menu:setOption(id, false) end,
+        right = function() menu:setOption(id, true) end
+    }
+end
+
+--- A row with a choice among a few values, from first to last.
+local function choiceRule(menu, id, x, y, w, labels, first)
+    local count = #labels
+    local segW = segmentWidth(w)
+    local segX = x + w - segW
+    return {
+        id = id, rule = "choice", labels = labels, first = first, x = x, y = y, w = w, h = RULE_ROW - 6,
+        press = function(_, mx)
+            if mx and mx >= segX then
+                menu:setOption(id, Kit.clamp(math.floor((mx - segX) / (segW / count)), 0, count - 1) + first)
+            elseif not mx then
+                menu:setOption(id, (menu.settings[id] - first + 1) % count + first)
+            end
+        end,
+        left = function() menu:setOption(id, math.max(first, menu.settings[id] - 1)) end,
+        right = function() menu:setOption(id, math.min(first + count - 1, menu.settings[id] + 1)) end
+    }
 end
 
 function Play.build(menu)
@@ -65,10 +123,6 @@ function Play.build(menu)
         left = function() menu:setOption("mode", math.max(1, menu.settings.mode - 1)) end,
         right = function() menu:setOption("mode", math.min(modes, menu.settings.mode + 1)) end
     }
-    list[#list + 1] = {
-        id = "rules", x = l.left.x, y = l.modeY + 50, w = math.min(560, l.left.w), h = 26,
-        press = function() menu:switch("rules", 1) end
-    }
     for k, id in ipairs(Maps.order) do
         local col, row = (k - 1) % COLS, math.floor((k - 1) / COLS)
         list[#list + 1] = {
@@ -77,6 +131,21 @@ function Play.build(menu)
             press = function() menu:setOption("map", id) end
         }
     end
+    local x1, x2, colW = ruleColumns(l)
+    local ry = l.rulesY + RULES_TOP
+    list[#list + 1] = toggleRule(menu, "floorWeapons", x1, ry, colW)
+    list[#list + 1] = choiceRule(menu, "startArmor", x2, ry, colW, ARMOR_LABELS, 0)
+    list[#list + 1] = toggleRule(menu, "killHeal", x1, ry + RULE_ROW, colW)
+    list[#list + 1] = choiceRule(menu, "spawnWith", x2, ry + RULE_ROW, colW, Loadout.spawnLabels, 1)
+    list[#list + 1] = toggleRule(menu, "shields", x1, ry + 2 * RULE_ROW, colW)
+    list[#list + 1] = {
+        id = "preset", rule = "preset", x = x2, y = ry + 2 * RULE_ROW, w = colW, h = RULE_ROW - 6,
+        press = function()
+            if menu.settings.spawnWith ~= 3 then return end
+            menu.loadoutTarget = "preset"
+            menu:switch("loadout", 1)
+        end
+    }
     local rx, rw = l.right.x, l.right.w
     list[#list + 1] = {
         id = "name", x = rx, y = l.modeY, w = rw, h = 44,
@@ -200,16 +269,6 @@ function Play.draw(menu, elements, p)
     local summary = rules.ladder and (rules.text .. ", win with your fists.") or (rules.text .. ", first to " .. rules.scoreLimit .. ".")
     Common.paragraph(summary, 13, mode.x + mode.w + 18, mode.y + 2, l.left.w - mode.w - 18, Kit.INK, 0.55 * a)
 
-    local chip = find(elements, "rules")
-    local rhot = Kit.ease("rules:chip", menu.focus == "rules")
-    local label = Rules.summary(menu.settings)
-    local rw = Kit.text("Rules", 12, chip.x, chip.y + 6, Kit.RED, (0.8 + 0.2 * rhot) * a)
-    local tw = Kit.text(label, 13, chip.x + rw + 10, chip.y + 5, Kit.INK, (0.55 + 0.35 * rhot) * a)
-    Kit.color(Kit.INK, (0.3 + 0.5 * rhot) * a)
-    love.graphics.setLineWidth(1.5)
-    local ax = chip.x + rw + tw + 22 + rhot * 3
-    love.graphics.line(ax - 3, chip.y + 9, ax + 1, chip.y + 13, ax - 3, chip.y + 17)
-    love.graphics.setLineWidth(1)
     Kit.text("Map", 12, l.left.x, l.gridY - 20, Kit.INK, 0.5 * a)
     local k = 0
     for _, element in ipairs(elements) do
@@ -220,10 +279,13 @@ function Play.draw(menu, elements, p)
         end
     end
 
+    Play.drawRules(menu, elements, l, menu:stagger(p, 7))
+
     local e = menu:stagger(p, 8)
     local def = selectedMap(menu)
     local dy = l.detailY + (1 - e) * 16
-    local dh = math.max(120, l.H - dy - l.M)
+    local dh = l.H - l.detailY - l.M
+    if dh < 110 then return Play.drawSide(menu, elements, p, l, rules) end
     Kit.card(l.left.x, dy, l.left.w, dh, e, 16)
     local pw = math.min(320, math.floor(l.left.w * 0.36))
     Minimap.draw(def, l.left.x + 16, dy + 16, pw, dh - 32, e)
@@ -242,7 +304,59 @@ function Play.draw(menu, elements, p)
         Kit.dot(fx + 5, dy + dh - 30, 5, feature[1], e)
         fx = fx + 18 + Kit.text(feature[2], 13, fx + 16, dy + dh - 38, Kit.INK, 0.7 * e) + 18
     end
+    Play.drawSide(menu, elements, p, l, rules)
+end
 
+--- The match rules card, right under the maps.
+function Play.drawRules(menu, elements, l, e)
+    local lg = love.graphics
+    local s = menu.settings
+    local y0 = l.rulesY + (1 - e) * 16
+    local dy = y0 - l.rulesY
+    Kit.card(l.left.x, y0, l.left.w, l.rulesH, e, 16)
+    Kit.text("Match rules", 18, l.left.x + 20, y0 + 16, Kit.INK, e)
+    local mode = Settings.gameMode(s)
+    local note, warn = "For practice and the games you host", false
+    if mode == "gungame" then
+        note, warn = "Gun game ignores the weapon rules: everyone climbs the same ladder", true
+    elseif mode == "infiltration" then
+        note, warn = "Infiltration ignores the weapon rules: each side gets its own kit", true
+    end
+    Kit.text(note, 12, l.left.x + l.left.w - 20, y0 + 21, warn and Kit.RED or Kit.INK, (warn and 0.85 or 0.45) * e, "right")
+    for _, element in ipairs(elements) do
+        if element.rule then
+            local enabled = element.rule ~= "preset" or s.spawnWith == 3
+            local x, y, w, h = element.x, element.y + dy, element.w, element.h
+            local hot = Kit.ease("prule:" .. element.id, menu.focus == element.id and enabled)
+            if hot > 0.01 then
+                lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.045 * hot * e)
+                lg.rectangle("fill", x - 10, y, w + 20, h, 10, 10)
+                Kit.color(Kit.RED, hot * e)
+                lg.rectangle("fill", x - 10, y + 12, 3, h - 24, 1.5, 1.5)
+            end
+            local fade = enabled and 1 or 0.4
+            local text = RULE_TEXT[element.id] or { "Set loadout", enabled and Rules.kitName(Settings.kit(s, "preset")) or "Pick Same for all to use it" }
+            Kit.text(text[1], 15, x, y + 5, Kit.INK, e * fade)
+            Kit.text(text[2], 11, x, y + 26, Kit.INK, 0.45 * e * fade)
+            if element.rule == "toggle" then
+                Kit.toggle("prule:" .. element.id, x + w - 46, y + (h - 26) / 2, s[element.id], e)
+            elseif element.rule == "choice" then
+                local segW = segmentWidth(w)
+                Kit.segments("prule:" .. element.id, x + w - segW, y + (h - 32) / 2, segW, 32, element.labels, s[element.id] - element.first + 1, e)
+            else
+                Kit.color(Kit.INK, (0.3 + 0.5 * hot) * e * fade)
+                lg.setLineWidth(2)
+                local ax, ay = x + w - 8 + hot * 4, y + h / 2
+                lg.line(ax - 4, ay - 6, ax + 2, ay, ax - 4, ay + 6)
+                lg.setLineWidth(1)
+            end
+        end
+    end
+end
+
+--- The practice and host cards on the right.
+function Play.drawSide(menu, elements, p, l, rules)
+    local find = menu.find
     local r = l.right
     local ra = menu:stagger(p, 3)
     local name = find(elements, "name")
