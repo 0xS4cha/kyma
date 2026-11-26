@@ -32,12 +32,12 @@ local function layout()
         gridY = 236,
         tileW = tileW, tileH = tileH,
         rulesY = 236 + 2 * (tileH + 12) + 6,
-        rulesH = RULES_TOP + 3 * RULE_ROW + 8,
-        detailY = 236 + 2 * (tileH + 12) + 6 + RULES_TOP + 3 * RULE_ROW + 8 + 12
+        rulesH = RULES_TOP + 4 * RULE_ROW + 8,
+        detailY = 236 + 2 * (tileH + 12) + 6 + RULES_TOP + 4 * RULE_ROW + 8 + 12
     }
 end
 
---- The match rules sit under the maps, in two columns of three.
+--- The match rules sit under the maps, in two columns.
 --- @param l table
 --- @return number x1, number x2, number colW
 local function ruleColumns(l)
@@ -58,7 +58,8 @@ local RULE_TEXT = {
     killHeal = { "Heal on kill", "+" .. Loadout.killHeal .. " HP for each kill" },
     shields = { "Shield plates on the map", "Plates to pick up next to the health" },
     startArmor = { "Starting shield", "Plates everyone has at each spawn" },
-    spawnWith = { "Players start with", "The weapon at each spawn" }
+    spawnWith = { "Players start with", "The weapon at each spawn" },
+    elimination = { "Elimination", "Duel, Teams: no respawn until a side is down" }
 }
 
 local function names(list, source)
@@ -146,6 +147,7 @@ function Play.build(menu)
             menu:switch("loadout", 1)
         end
     }
+    list[#list + 1] = toggleRule(menu, "elimination", x1, ry + 3 * RULE_ROW, colW)
     local rx, rw = l.right.x, l.right.w
     list[#list + 1] = {
         id = "name", x = rx, y = l.modeY, w = rw, h = 44,
@@ -265,7 +267,7 @@ function Play.draw(menu, elements, p)
     local mode = find(elements, "mode")
     Kit.text("Mode", 12, mode.x, mode.y - 20, Kit.INK, 0.5 * a)
     Kit.segments("mode", mode.x, mode.y, mode.w, mode.h, names(Config.modes.order, Config.modes), menu.settings.mode, a)
-    local rules = Config.modes[Settings.gameMode(menu.settings)]
+    local rules = Loadout.modeRules(Config.modes[Settings.gameMode(menu.settings)], { elimination = menu.settings.elimination })
     local summary = rules.ladder and (rules.text .. ", win with your fists.") or (rules.text .. ", first to " .. rules.scoreLimit .. ".")
     Common.paragraph(summary, 13, mode.x + mode.w + 18, mode.y + 2, l.left.w - mode.w - 18, Kit.INK, 0.55 * a)
 
@@ -321,6 +323,9 @@ function Play.drawRules(menu, elements, l, e)
         note, warn = "Gun game ignores the weapon rules: everyone climbs the same ladder", true
     elseif mode == "infiltration" then
         note, warn = "Infiltration ignores the weapon rules: each side gets its own kit", true
+    end
+    if s.elimination and not Config.modes[mode].elimination then
+        note, warn = Config.modes[mode].name .. " ignores Elimination: it only changes Duel and Teams", true
     end
     Kit.text(note, 12, l.left.x + l.left.w - 20, y0 + 21, warn and Kit.RED or Kit.INK, (warn and 0.85 or 0.45) * e, "right")
     for _, element in ipairs(elements) do

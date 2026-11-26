@@ -54,16 +54,34 @@ function LOADOUT.rules(rules)
     if spawn < 1 or spawn > #LOADOUT.spawn then spawn = 1 end
     return {
         loot = rules.f ~= false, spawn = LOADOUT.spawn[spawn], s = spawn, f = rules.f ~= false, preset = LOADOUT.sanitize(rules.p),
-        heal = rules.h == true, shields = rules.sh ~= false, armor = LOADOUT.startPlates(rules.ss)
+        heal = rules.h == true, shields = rules.sh ~= false, armor = LOADOUT.startPlates(rules.ss),
+        elimination = rules.el == true
     }
 end
 
 --- @param rules table
 --- @return table
 function LOADOUT.pack(rules)
-    local packed = { f = rules.loot, s = rules.s, p = rules.preset, h = rules.heal or nil, ss = rules.armor }
+    local packed = { f = rules.loot, s = rules.s, p = rules.preset, h = rules.heal or nil, ss = rules.armor, el = rules.elimination or nil }
     if rules.shields == false then packed.sh = false end -- (x and false or nil) vaut toujours nil en Lua
     return packed
+end
+
+--- The rules of a mode once the match options are applied. With the Elimination
+--- rule on a mode that has it (duel, teams), nobody respawns until their side is
+--- wiped, each wipe is a point and the match is played to fewer points.
+--- @param base table a mode from src.config.game
+--- @param options table? from LOADOUT.rules
+--- @return table
+function LOADOUT.modeRules(base, options)
+    if not (options and options.elimination and base.elimination) then return base end
+    local rules = {}
+    for k, v in pairs(base) do rules[k] = v end
+    rules.elim = true
+    rules.scoreLimit = base.elimination
+    rules.name = base.name .. " elimination"
+    rules.text = base.teams and "Two teams, no respawn until a team is wiped out" or "One on one, one life per round"
+    return rules
 end
 
 return LOADOUT

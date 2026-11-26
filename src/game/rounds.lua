@@ -17,6 +17,7 @@ end
 
 --- @param world table
 function Rounds.setup(world)
+    world.elim = world.rules.elim and { number = 1, over = 0 } or nil
     if not world.rules.rounds then
         world.round = nil
         return
@@ -95,8 +96,75 @@ function Rounds.alive(p)
     return p.hp > 0 and p.dead == 0 and not p.out
 end
 
+--- Starts the next elimination round: everyone comes back at a spawn.
+--- @param world table
+local function nextLife(world)
+    local elim = world.elim
+    elim.number = elim.number + 1
+    elim.over = 0
+    Gadgets.setup(world)
+    for k = #world.items, 1, -1 do
+        if not world.items[k].pad then table.remove(world.items, k) end
+    end
+    for _, p in pairs(world.players) do
+        p.out = nil
+        world:respawn(p)
+    end
+    event(world, { kind = "elimstart", n = elim.number })
+end
+
+--- Gives the round to the side still standing (a team, or a player in a duel), or to
+--- nobody when the last ones died together.
+--- @param world table
+--- @param side number?
+local function eliminated(world, side)
+    local elim, teams = world.elim, world.rules.teams
+    local total
+    if side then
+        local scores = teams and world.teamScore or world.score
+        scores[side] = (scores[side] or 0) + 1
+        total = scores[side]
+    end
+    event(world, { kind = "elim", w = side, tm = teams and 1 or 0, n = elim.number })
+    if total and total >= world.rules.scoreLimit then
+        world:finish(side, teams == true)
+    else
+        elim.over = Config.eliminationEndTicks
+    end
+end
+
+--- Nobody respawns until their whole side is down; then the other side scores.
+--- @param world table
+local function updateElimination(world)
+    local elim = world.elim
+    if world.phase ~= "playing" or world.over then return end
+    if elim.over > 0 then
+        elim.over = elim.over - 1
+        if elim.over == 0 then nextLife(world) end
+        return
+    end
+    local sides, standing = {}, {}
+    local count, left, last = 0, 0, nil
+    for slot, p in pairs(world.players) do
+        local side = world.rules.teams and p.team or slot
+        if side then
+            if not sides[side] then sides[side], count = true, count + 1 end
+            if Rounds.alive(p) and not standing[side] then
+                standing[side], left, last = true, left + 1, side
+            end
+        end
+    end
+    if count < 2 then
+        -- Alone on the map (the others left): nobody to wait for, come back.
+        for _, p in pairs(world.players) do p.out = nil end
+        return
+    end
+    if left <= 1 then eliminated(world, last) end
+end
+
 --- @param world table
 function Rounds.update(world)
+    if world.elim then return updateElimination(world) end
     local round = world.round
     if not round or world.phase ~= "playing" or world.over then return end
     if round.over > 0 then

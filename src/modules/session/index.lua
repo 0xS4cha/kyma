@@ -109,6 +109,36 @@ function GM.Session:Initialize()
         self.hud:banner(world.spectator and (data.w == 1 and "Blue takes the round" or "Red takes the round") or (won and "Round won" or "Round lost"), why, won)
         sound(won and "win" or "lose")
     end)
+    mp:On("elim", function(data)
+        local world = self.world
+        if not world then return end
+        local teams = data.tm == 1
+        local function who(slot)
+            for _, p in ipairs(self.room and self.room.players or {}) do
+                if p.slot == slot then return p.name end
+            end
+            return "Player " .. tostring(slot)
+        end
+        if data.w == nil then
+            self.hud:banner("Draw", "Nobody left standing, no point", false)
+            sound("lose")
+            return
+        end
+        local won = teams and data.w == world.team or not teams and data.w == world.slot
+        local title
+        if world.spectator then
+            title = teams and (data.w == 1 and "Blue takes the round" or "Red takes the round") or (who(data.w) .. " takes the round")
+        else
+            title = won and "Round won" or "Round lost"
+        end
+        self.hud:banner(title, teams and (won and "Enemy team wiped out" or "Your team was wiped out") or (won and "Opponent down" or "You went down"), won or world.spectator)
+        sound(won and "win" or "lose")
+    end)
+    mp:On("elimstart", function(data)
+        if not self.world then return end
+        self.hud:banner("Round " .. tostring(data.n), "One life each, no respawn until the round ends", true)
+        sound("start")
+    end)
     mp:On("roundstart", function(data)
         local world = self.world
         if not world then return end
@@ -255,13 +285,14 @@ function GM.Session:join(data)
     end
     me.team = data.team
     local mode = Config.modes[data.mode or ""] and data.mode or "duel"
+    local options = Loadout.rules(data.ru)
     self.world = {
         arena = arena,
         mode = mode,
         map = data.map,
-        rules = Config.modes[mode],
+        rules = Loadout.modeRules(Config.modes[mode], options),
         match = GM.Session.newMatch(),
-        options = Loadout.rules(data.ru),
+        options = options,
         team = data.team,
         teamScore = { 0, 0 },
         over = nil,

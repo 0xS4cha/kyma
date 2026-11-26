@@ -143,7 +143,7 @@ function Combat.kill(world, victim, killer)
     if not world.rules.ladder then
         Combat.spawnItem(world, "ammo", nil, nil, world.arena:resolve(victim.x + 12, victim.y + 8, WeaponConfig.throw.radius))
     end
-    if world.round and world.phase == "playing" then
+    if (world.round or world.elim) and world.phase == "playing" then
         victim.out = true
     end
     -- What the killer had left when the shot landed, for the victim's death screen.
@@ -155,9 +155,12 @@ function Combat.kill(world, victim, killer)
         winner.hp = math.min(Config.health, winner.hp + Loadout.killHeal)
     end
     if killer and killer ~= victim.slot and world:enemies(killer, victim.slot) and world.phase == "playing" then
-        world.score[killer] = (world.score[killer] or 0) + 1
         local rules = world.rules
-        if rules.rounds then
+        -- In a duel played by elimination the score counts the rounds, not the kills.
+        if not (rules.elim and not rules.teams) then
+            world.score[killer] = (world.score[killer] or 0) + 1
+        end
+        if rules.rounds or rules.elim then
             event(world, { kind = "kill", k = killer, v = victim.slot, kh = kh, ka = ka })
             return
         end

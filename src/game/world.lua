@@ -19,12 +19,13 @@ World.__index = World
 --- @return table
 function World.new(arena, mode, warmup, rules)
     mode = Config.modes[mode or ""] and mode or "duel"
+    local options = Loadout.rules(rules)
     local world = setmetatable({
-        options = Loadout.rules(rules),
+        options = options,
         rounds = Rounds,
         arena = arena or Arena.new(),
         mode = mode,
-        rules = Config.modes[mode],
+        rules = Loadout.modeRules(Config.modes[mode], options),
         tick = 0,
         dt = 1 / NetConfig.tickRate,
         players = {},
@@ -206,6 +207,7 @@ function World:restart(phase)
         if not self.items[k].pad then table.remove(self.items, k) end
     end
     for _, p in pairs(self.players) do
+        p.out = nil
         self:respawn(p)
         p.scanCooldown, p.scanTicks, p.scanDots = Config.scan.start, 0, nil
     end

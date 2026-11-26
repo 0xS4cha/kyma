@@ -32,7 +32,7 @@ Settings.STATS = {
     { key = "statUp", stat = "up", label = "Bandwidth out", hint = "Data sent to the server, in KB/s" }
 }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "debris", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "minimapPings", "dmgNumbers", "dmgSize", "shields", "startArmor", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal", "statFps", "statFrame", "statTick", "statRtt", "statJitter", "statLoss", "statDown", "statUp" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "debris", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "minimapPings", "dmgNumbers", "dmgSize", "shields", "startArmor", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal", "elimination", "statFps", "statFrame", "statTick", "statRtt", "statJitter", "statLoss", "statDown", "statUp" }
 
 --- @return table
 function Settings.defaults()
@@ -88,6 +88,7 @@ function Settings.defaults()
         hostWhere = 1,
         host42 = false,
         killHeal = false,
+        elimination = false,
         statFps = 1,
         statFrame = 1,
         statTick = 1,
@@ -244,7 +245,7 @@ end
 --- @param values table
 --- @return table
 function Settings.matchRules(values)
-    local rules = { f = values.floorWeapons, s = values.spawnWith, p = Settings.kit(values, "preset"), h = values.killHeal or nil, ss = values.startArmor }
+    local rules = { f = values.floorWeapons, s = values.spawnWith, p = Settings.kit(values, "preset"), h = values.killHeal or nil, ss = values.startArmor, el = values.elimination or nil }
     if values.shields == false then rules.sh = false end
     return rules
 end

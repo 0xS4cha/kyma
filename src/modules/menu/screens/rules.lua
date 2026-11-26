@@ -32,6 +32,7 @@ function Screen.summary(values)
     local start = spawn == 1 and "start with a pistol" or spawn == 2 and "start with your loadout"
         or ("everyone starts with " .. Screen.kitName(Settings.kit(values, "preset")):lower())
     return (values.floorWeapons and "Weapons on the floor" or "No weapons on the floor") .. ", " .. start
+        .. (values.elimination and ", elimination rounds" or "")
         .. (values.killHeal and (", +" .. Loadout.killHeal .. " HP per kill") or "")
         .. (values.shields == false and ", no shields" or "")
         .. ((values.startArmor or 0) > 0 and (", spawn with " .. Loadout.armorLabels[values.startArmor + 1]:lower()) or "")

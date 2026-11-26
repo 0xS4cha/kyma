@@ -60,9 +60,9 @@ local CONFIG = {
 
     modes = {
         order = { "duel", "ffa", "teams", "gungame", "infiltration" },
-        duel = { name = "Duel", players = 2, max = 2, scoreLimit = 10, teams = false, text = "One on one" },
+        duel = { name = "Duel", players = 2, max = 2, scoreLimit = 10, teams = false, text = "One on one", elimination = 5 },
         ffa = { name = "Free for all", players = 6, scoreLimit = 15, teams = false, text = "Everyone for themselves, no player limit" },
-        teams = { name = "Teams", players = 8, scoreLimit = 25, teams = true, text = "Two teams, no player limit" },
+        teams = { name = "Teams", players = 8, scoreLimit = 25, teams = true, text = "Two teams, no player limit", elimination = 7 },
         gungame = {
             name = "Gun game", players = 6, scoreLimit = 7, teams = false, text = "Every kill gives you the next weapon",
             ladder = { "pistol", "silencer", "shotgun", "rifle", "lmg", "sniper", "fists" }
@@ -77,6 +77,8 @@ local CONFIG = {
             }
         }
     },
+    -- Elimination rule: rounds a mode with an `elimination` limit plays to, and the pause between them.
+    eliminationEndTicks = 60 * 3,
     matchEndTicks = 60 * 8,
     countdownTicks = 60 * 5,
     killcamTicks = 120,
