@@ -19,11 +19,28 @@ local lg = love.graphics
 local cos, sin, floor, min, max, pi = math.cos, math.sin, math.floor, math.min, math.max, math.pi
 local T = Theme.colors
 
-local CONTAINER_COLORS = {
-    crate = { 0.6, 0.46, 0.3 }, locker = { 0.46, 0.5, 0.56 }, cabinet = { 0.56, 0.44, 0.34 }, fridge = { 0.82, 0.84, 0.86 },
-    drawer = { 0.5, 0.4, 0.32 }, medbox = { 0.9, 0.9, 0.9 }, toolbox = { 0.78, 0.3, 0.2 }, weapon_case = { 0.3, 0.34, 0.3 },
-    ammo_crate = { 0.4, 0.44, 0.3 }, stash = { 0.42, 0.36, 0.26 }
+local function mix(a, b, t)
+    return { a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t }
+end
+
+--- The world uses the arenas' palette: cool greys from the theme (light or dark),
+--- white tops, blue-grey shadows, and red only as an accent.
+--- @param t number 0 is the light top of a block, 1 its dark side, past 1 darker still
+local function grey(t)
+    if t <= 1 then return mix(T.coverTop, T.coverSide, t) end
+    return mix(T.coverSide, T.pitRim, min(1, t - 1))
+end
+
+--- How dark a loot container is (see grey), red for the few that matter.
+local CONTAINER_SHADES = {
+    crate = 0.55, locker = 0.8, cabinet = 0.65, fridge = 0.05, drawer = 0.7, medbox = 0, weapon_case = 1.4,
+    ammo_crate = 1.15, stash = 1.25
 }
+
+local function containerColor(kind)
+    if kind == "toolbox" then return Kit.RED end
+    return grey(CONTAINER_SHADES[kind] or 0.55)
+end
 
 --- The world box that covers the screen around the camera.
 --- @return number, number, number, number
@@ -33,35 +50,32 @@ function Render.bounds(camera)
     return camera.x - reach, camera.y - reach, camera.x + reach, camera.y + reach
 end
 
-local function mix(a, b, t)
-    return { a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t }
-end
-
 --- The colour of every corner of the biome grid: the average of the cells around
 --- it, so the ground fades from one biome to the next instead of showing squares.
 local corners = setmetatable({}, { __mode = "k" })
 
 local function cornerColors(def)
-    if corners[def] then return corners[def] end
+    local cached = corners[def]
+    if cached and cached.version == Theme.version then return cached end
     local n = def.count
     local colors = {}
     local function cell(cx, cy)
         cx, cy = max(0, min(n - 1, cx)), max(0, min(n - 1, cy))
         local info = def.chunks[cy * n + cx + 1]
-        return Worldgen.BIOMES[info.biome].color, info.tier
+        return Worldgen.BIOMES[info.biome].shade or 0, info.tier
     end
     for gy = 0, n do
         for gx = 0, n do
-            local r, g, b = 0, 0, 0
+            local shade = 0
             for _, o in ipairs({ { -1, -1 }, { 0, -1 }, { -1, 0 }, { 0, 0 } }) do
-                local c, tier = cell(gx + o[1], gy + o[2])
-                local dark = (tier - 1) * 0.025
-                r, g, b = r + c[1] - dark, g + c[2] - dark, b + c[3] - dark
+                local s, tier = cell(gx + o[1], gy + o[2])
+                shade = shade + s + (tier - 1) * 0.12
             end
-            local tint = mix(T.floor, { r / 4, g / 4, b / 4 }, 0.42)
-            colors[gy * (n + 1) + gx + 1] = tint
+            -- the arena floor, a touch darker in dense or dangerous areas
+            colors[gy * (n + 1) + gx + 1] = mix(T.floor, T.pitRim, shade / 4 * 0.22)
         end
     end
+    colors.version = Theme.version
     corners[def] = colors
     return colors
 end
@@ -110,30 +124,30 @@ local function drawFloor(raid, x0, y0, x1, y1)
     for y = floor(y0 / step) * step, y1, step do lg.line(max(0, x0), y, min(def.width, x1), y) end
     -- Lakes: a sandy shore, then the water.
     raid.terrain:query("pits", x0 - 30, y0 - 30, x1 + 30, y1 + 30, function(pit)
-        lg.setColor(0.84, 0.8, 0.66)
+        lg.setColor(mix(T.floor, T.wallTop, 0.55))
         lg.rectangle("fill", pit.x - 24, pit.y - 24, pit.w + 48, pit.h + 48, 30, 30)
     end)
     raid.terrain:query("pits", x0, y0, x1, y1, function(pit)
-        lg.setColor(0.46, 0.62, 0.76)
+        lg.setColor(mix(mix(T.floor, T.glassSide, 0.7), T.pitRim, 0.25))
         lg.rectangle("fill", pit.x - 6, pit.y - 6, pit.w + 12, pit.h + 12, 18, 18)
     end)
     -- Roads: a shoulder, the asphalt, a dashed centre line.
     local roads = {}
     Worldgen.roadsNear(def, x0, y0, x1, y1, function(r) roads[#roads + 1] = r end)
-    lg.setColor(0.6, 0.58, 0.52)
+    lg.setColor(mix(T.floor, T.wallSide, 0.8))
     for _, r in ipairs(roads) do
         lg.setLineWidth(r[5] + 22)
         lg.line(r[1], r[2], r[3], r[4])
         lg.circle("fill", r[1], r[2], (r[5] + 22) / 2)
     end
-    lg.setColor(0.36, 0.37, 0.4)
+    lg.setColor(mix(T.floor, T.pitRim, 0.4))
     for _, r in ipairs(roads) do
         lg.setLineWidth(r[5])
         lg.line(r[1], r[2], r[3], r[4])
         lg.circle("fill", r[1], r[2], r[5] / 2)
         lg.circle("fill", r[3], r[4], r[5] / 2)
     end
-    lg.setColor(0.95, 0.82, 0.3, 0.75)
+    lg.setColor(T.wallTop[1], T.wallTop[2], T.wallTop[3], 0.7)
     lg.setLineWidth(5)
     for _, r in ipairs(roads) do
         local dx, dy = r[3] - r[1], r[4] - r[2]
@@ -169,9 +183,15 @@ local function hash(rect)
     return floor(rect.x * 7 + rect.y * 13) % 997
 end
 
-local TREE_COLORS = { { 0.36, 0.56, 0.34 }, { 0.3, 0.5, 0.32 }, { 0.42, 0.6, 0.3 }, { 0.6, 0.52, 0.26 } }
-local CAR_COLORS = { { 0.85, 0.24, 0.2 }, { 0.2, 0.45, 0.8 }, { 0.92, 0.78, 0.2 }, { 0.3, 0.62, 0.38 }, { 0.85, 0.86, 0.88 }, { 0.25, 0.26, 0.3 } }
-local CONTAINER_TINTS = { { 0.8, 0.36, 0.18 }, { 0.2, 0.46, 0.62 }, { 0.36, 0.52, 0.3 }, { 0.7, 0.18, 0.16 } }
+-- shades for grey(): trees and the like vary a little, cars and shipping
+-- containers are mostly white and grey with now and then a red one
+local TREE_SHADES = { 0.55, 0.65, 0.75, 0.6 }
+local CAR_SHADES = { 0, 0.5, 1.3, 0.2, "red", 0.9 }
+local CONTAINER_TINTS = { 0.4, 0.8, 1.2, "red" }
+
+local function tint(shade)
+    return shade == "red" and Kit.RED or grey(shade)
+end
 
 local function blob(cx, cy, r, sides, seed, jitter)
     local points = {}
@@ -188,14 +208,14 @@ local function tree(rect)
     local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
     local r = math.max(rect.w, rect.h) * 0.95
     local h = hash(rect)
-    local c = TREE_COLORS[h % #TREE_COLORS + 1]
-    lg.setColor(0, 0, 0, 0.14)
+    local s = TREE_SHADES[h % #TREE_SHADES + 1]
+    lg.setColor(T.wallShadow)
     lg.circle("fill", cx + 9, cy + 11, r)
-    lg.setColor(c[1] * 0.78, c[2] * 0.78, c[3] * 0.78)
+    lg.setColor(grey(s + 0.45))
     lg.polygon("fill", blob(cx, cy, r, 9, h, 0.18))
-    lg.setColor(c)
+    lg.setColor(grey(s))
     lg.polygon("fill", blob(cx - r * 0.12, cy - r * 0.14, r * 0.72, 8, h + 3, 0.2))
-    lg.setColor(c[1] * 1.15, c[2] * 1.15, c[3] * 1.15)
+    lg.setColor(grey(s * 0.3))
     lg.circle("fill", cx - r * 0.28, cy - r * 0.3, r * 0.28)
 end
 
@@ -203,27 +223,28 @@ local function rock(rect, big)
     local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
     local r = math.max(rect.w, rect.h) * (big and 0.62 or 0.6)
     local h = hash(rect)
-    lg.setColor(0, 0, 0, 0.16)
+    lg.setColor(T.wallShadow)
     lg.polygon("fill", blob(cx + 6, cy + 8, r, 7, h, 0.3))
-    local shade = 0.55 + (h % 5) * 0.03
-    lg.setColor(shade, shade * 0.98, shade * 0.94)
+    local shade = 0.7 + (h % 5) * 0.1
+    lg.setColor(grey(shade))
     lg.polygon("fill", blob(cx, cy, r, 7, h, 0.3))
-    lg.setColor(shade * 1.15, shade * 1.13, shade * 1.1)
+    lg.setColor(grey(shade - 0.6))
     lg.polygon("fill", blob(cx - r * 0.18, cy - r * 0.2, r * 0.55, 6, h + 1, 0.25))
 end
 
 local function car(rect)
     local horizontal = rect.w >= rect.h
-    local col = CAR_COLORS[hash(rect) % #CAR_COLORS + 1]
+    local col = tint(CAR_SHADES[hash(rect) % #CAR_SHADES + 1])
     lg.push()
     lg.translate(rect.x + rect.w / 2, rect.y + rect.h / 2)
     if not horizontal then lg.rotate(pi / 2) end
     local l, w = math.max(rect.w, rect.h), math.min(rect.w, rect.h)
-    lg.setColor(0, 0, 0, 0.2)
+    lg.setColor(T.wallShadow)
     lg.rectangle("fill", -l / 2 + 4, -w / 2 + 5, l, w, 10, 10)
     lg.setColor(col)
     lg.rectangle("fill", -l / 2, -w / 2, l, w, 10, 10)
-    lg.setColor(0.2, 0.26, 0.32, 0.9)
+    local glass = mix(T.glassSide, T.pitRim, 0.55)
+    lg.setColor(glass[1], glass[2], glass[3], 0.9)
     lg.rectangle("fill", -l * 0.18, -w / 2 + 4, l * 0.42, w - 8, 6, 6)
     lg.setColor(col[1] * 0.85, col[2] * 0.85, col[3] * 0.85)
     lg.rectangle("fill", -l * 0.08, -w / 2 + 6, l * 0.24, w - 12, 4, 4)
@@ -231,8 +252,8 @@ local function car(rect)
 end
 
 local function container(rect)
-    local col = CONTAINER_TINTS[hash(rect) % #CONTAINER_TINTS + 1]
-    lg.setColor(0, 0, 0, 0.22)
+    local col = tint(CONTAINER_TINTS[hash(rect) % #CONTAINER_TINTS + 1])
+    lg.setColor(T.wallShadow)
     lg.rectangle("fill", rect.x + 6, rect.y + 8, rect.w, rect.h)
     lg.setColor(col)
     lg.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
@@ -272,11 +293,11 @@ local function drawDecor(proxy)
         elseif deco == "container" then
             container(rect)
         elseif deco == "bale" then
-            strip(rect, { 0.86, 0.74, 0.36 }, { 0.72, 0.6, 0.26 }, rect.w / 4)
+            strip(rect, grey(0.2), grey(0.7), rect.w / 4)
         elseif deco == "sandbag" then
-            strip(rect, { 0.68, 0.62, 0.46 }, { 0.56, 0.5, 0.34 }, 24)
+            strip(rect, grey(0.6), grey(1.1), 24)
         elseif deco == "shelf" then
-            strip(rect, { 0.55, 0.42, 0.3 }, { 0.42, 0.32, 0.22 }, 40)
+            strip(rect, grey(0.9), grey(1.5), 40)
         else
             strip(rect, T.coverTop, T.coverSide, 1e9)
         end
@@ -297,7 +318,7 @@ end
 local function drawContainers(raid, x0, y0, x1, y1)
     local cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     raid:eachContainer(cx, cy, (x1 - x0) / 2, function(c)
-        local color = CONTAINER_COLORS[c.kind] or CONTAINER_COLORS.crate
+        local color = containerColor(c.kind)
         local empty = raid.empty[c.id]
         local w, h = c.kind == "weapon_case" and 44 or 32, c.kind == "locker" and 36 or 24
         lg.setColor(0, 0, 0, 0.12)
@@ -328,7 +349,8 @@ local function drawDrops(raid)
             local pulse = 0.5 + 0.5 * sin(now * 4)
             Kit.color(Kit.AMBER, (0.15 + 0.15 * pulse) * alpha)
             lg.circle("fill", drop.x, drop.y, 60)
-            lg.setColor(0.36, 0.42, 0.3, alpha)
+            local box = grey(1.2)
+            lg.setColor(box[1], box[2], box[3], alpha)
             lg.rectangle("fill", drop.x - 28, drop.y - 22, 56, 44, 5, 5)
             Kit.color(Kit.AMBER, alpha)
             lg.rectangle("fill", drop.x - 28, drop.y - 4, 56, 8)

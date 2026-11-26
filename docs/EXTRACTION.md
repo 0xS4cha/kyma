@@ -131,7 +131,7 @@ Command line flags for testing: `--extraction` joins the mode (with `--connect h
 
 ## Art
 
-The world, the characters and the monsters use the game's own drawing style. Most item icons come from Kenney's [Generic Items](https://kenney.nl/assets/generic-items) pack, CC0 (`assets/kenney/items`, license alongside); weapons use the gun models of the rest of the game (each of the 36 weapons borrows the model, sound and recoil of the closest of the 11 game guns), and attachments, armor and the rest are drawn in the same flat style by `src/modules/extraction/icons.lua`.
+The world, the characters and the monsters use the game's own drawing style, and the land uses the arenas' palette: cool greys from the theme (light or dark), white tops and blue-grey shadows. Areas are only a little lighter or darker, water is a pale blue-grey, roads are grey with white dashes, and trees, rocks, cars and shipping containers are greys with now and then a red one. Most item icons come from Kenney's [Generic Items](https://kenney.nl/assets/generic-items) pack, CC0 (`assets/kenney/items`, license alongside); weapons use the gun models of the rest of the game (each of the 36 weapons borrows the model, sound and recoil of the closest of the 11 game guns), and attachments, armor and the rest are drawn in the same flat style by `src/modules/extraction/icons.lua`.
 
 ## How it works
 

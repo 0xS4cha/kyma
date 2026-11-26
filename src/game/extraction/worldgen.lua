@@ -15,15 +15,17 @@ local Worldgen = {}
 
 local floor, sqrt, min, max, abs, cos, sin, pi = math.floor, math.sqrt, math.min, math.max, math.abs, math.cos, math.sin, math.pi
 
+-- In the arenas' cool greys: each area is only a little lighter or darker
+-- (shade, 0 to 1), with a faint hue on the map so the legend still reads.
 Worldgen.BIOMES = {
-    forest = { name = "Forest", color = { 0.55, 0.66, 0.5 } },
-    field = { name = "Fields", color = { 0.78, 0.76, 0.58 } },
-    highlands = { name = "Highlands", color = { 0.66, 0.64, 0.6 } },
-    lake = { name = "Lake", color = { 0.5, 0.64, 0.76 } },
-    town = { name = "Town", color = { 0.74, 0.7, 0.66 } },
-    industrial = { name = "Industrial", color = { 0.62, 0.6, 0.6 } },
-    military = { name = "Military", color = { 0.58, 0.6, 0.48 } },
-    citadel = { name = "Citadel", color = { 0.56, 0.44, 0.44 } }
+    forest = { name = "Forest", color = { 0.66, 0.71, 0.72 }, shade = 0.42 },
+    field = { name = "Fields", color = { 0.86, 0.87, 0.88 }, shade = 0.0 },
+    highlands = { name = "Highlands", color = { 0.75, 0.76, 0.79 }, shade = 0.25 },
+    lake = { name = "Lake", color = { 0.62, 0.7, 0.8 }, shade = 0.2 },
+    town = { name = "Town", color = { 0.9, 0.91, 0.93 }, shade = 0.05 },
+    industrial = { name = "Industrial", color = { 0.72, 0.74, 0.78 }, shade = 0.3 },
+    military = { name = "Military", color = { 0.66, 0.68, 0.7 }, shade = 0.38 },
+    citadel = { name = "Citadel", color = { 0.6, 0.6, 0.64 }, shade = 0.55 }
 }
 
 local EXTRACT_NAMES = {
