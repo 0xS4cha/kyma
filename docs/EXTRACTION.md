@@ -60,7 +60,7 @@ The land is shaped by noise rather than a grid. Elevation makes lakes in the hol
 | Military | Fenced camps with bunkers, weapon cases and ammo crates (tiers 3 and 4) |
 | Citadel | The fortress in the very centre, where the Warden may appear |
 
-You can tell the danger by sight: the deeper you go, the darker and redder the ground (and the map), a red dashed line with chevrons marks where it goes up, and a banner tells you when you cross into an easier or a harder area. Street lamps stand along the roads, alternating sides, each with a pool of light; they are only drawn, worked out from the roads, so they block nothing.
+You can tell the danger by sight: the deeper you go, the darker and redder the ground (and the map), a red dashed line with chevrons marks where it goes up, and a banner tells you when you cross into an easier or a harder area. Street lamps stand along the roads, alternating sides. Their warm light is drawn over the fog, so a lit street shows from afar even where you can't see, though the fog still hides who stands in it; each lamp breathes a little and now and then one flickers. They are only drawn, worked out from the roads, so they block nothing.
 
 Players arrive at the gates on the map edges or on roads near them; extraction points sit at gates and on a few roads further in. The world is generated from a seed: the server sends only the seed, and every client rebuilds the same map.
 

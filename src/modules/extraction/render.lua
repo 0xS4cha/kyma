@@ -183,6 +183,32 @@ lampPool = function(lamp)
     lg.draw(poolMesh, cx, cy, 0, 140, 140)
 end
 
+-- The warm white of a lamp, a little warmer than the arenas' cool greys.
+local LAMP_LIGHT = { 1, 0.94, 0.8 }
+
+--- The light of the lamps, drawn over the fog and added to what is under it:
+--- a lit street shows from afar, even where you can't see, but the fog still
+--- hides who stands in it. Each lamp breathes a little, and now and then one
+--- flickers.
+local function drawLampLights(lamps)
+    if #lamps == 0 then return end
+    lampPool({ x = 0, y = 0, ax = 0, ay = 0 }) -- builds the mesh on first use
+    local now = love.timer.getTime()
+    local mode, alphaMode = lg.getBlendMode()
+    lg.setBlendMode("add")
+    for _, lamp in ipairs(lamps) do
+        local seed = (lamp.x * 0.37 + lamp.y * 0.11) % 100
+        local glow = 0.92 + 0.08 * sin(now * 1.3 + seed)
+        if seed < 6 and sin(now * 23 + seed) > 0.55 then glow = glow * 0.35 end
+        local cx, cy = lamp.x + lamp.ax * 34, lamp.y + lamp.ay * 34
+        lg.setColor(LAMP_LIGHT[1], LAMP_LIGHT[2], LAMP_LIGHT[3], 0.22 * glow)
+        lg.draw(poolMesh, cx, cy, 0, 190, 190)
+        lg.setColor(LAMP_LIGHT[1], LAMP_LIGHT[2], LAMP_LIGHT[3], 0.18 * glow)
+        lg.draw(poolMesh, cx, cy, 0, 70, 70)
+    end
+    lg.setBlendMode(mode, alphaMode)
+end
+
 --- The lamp itself, above the fog like the trees: a pole, an arm and a head.
 local function lampPost(lamp)
     local hx, hy = lamp.x + lamp.ax * 34, lamp.y + lamp.ay * 34
@@ -197,6 +223,14 @@ local function lampPost(lamp)
     lg.circle("fill", hx, hy, 8)
     lg.setColor(T.coverSide)
     lg.circle("line", hx, hy, 8)
+    -- the bulb shines
+    local mode, alphaMode = lg.getBlendMode()
+    lg.setBlendMode("add")
+    lg.setColor(LAMP_LIGHT[1], LAMP_LIGHT[2], LAMP_LIGHT[3], 0.5)
+    lg.circle("fill", hx, hy, 5)
+    lg.setColor(LAMP_LIGHT[1], LAMP_LIGHT[2], LAMP_LIGHT[3], 0.15)
+    lg.circle("fill", hx, hy, 14)
+    lg.setBlendMode(mode, alphaMode)
 end
 
 local groundMesh
@@ -708,6 +742,7 @@ function Render.draw(ext)
     end
     for _, m in ipairs(monsters) do Render.monster(m) end
     drawFog(raid, me, x0, y0, x1, y1)
+    drawLampLights(proxy.lamps)
     for _, p in ipairs(players) do
         if p.marked then
             Kit.color(Kit.RED, 0.8)
