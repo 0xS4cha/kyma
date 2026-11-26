@@ -296,7 +296,7 @@ function Combat.fire(world, shooter, command)
             end
         end
         if victim then
-            hits[victim] = (hits[victim] or 0) + def.damage
+            hits[victim] = (hits[victim] or 0) + Weapons.stat(shooter, "damage")
         end
         local hit = victim and 2 or (length < ray.range - 1e-6 and 1 or 0)
         if not victim and obstacle and obstacle.kind == "glass" then

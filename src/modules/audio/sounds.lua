@@ -191,4 +191,69 @@ Sounds.whoosh = {
     layers = { { wave = "noise", from = 800, to = 6000, length = 0.4, attack = 0.15, volume = 0.4, cutoff = 600, cutoffTo = 4000, curve = 1.5 } }
 }
 
+-- The scan family keeps the game's dry retro style (like ping, hit, level):
+-- a sonar sweep, one square blip per enemy found (pitched up the scale by
+-- the session), then a short jingle that is longer for three or more.
+Sounds.scan = {
+    volume = 0.45, cooldown = 0.5, voices = 2,
+    layers = merge(
+        { { wave = "noise", from = 1500, to = 5000, length = 0.18, attack = 0.04, volume = 0.35, cutoff = 900, cutoffTo = 3000 } },
+        { { wave = "sine", from = 660, to = 1320, length = 0.12, volume = 0.45 },
+          { wave = "sine", from = 1320, to = 1980, length = 0.16, volume = 0.3, start = 0.1 } }
+    )
+}
+Sounds.scanBlip = {
+    volume = 0.4, cooldown = 0.015, voices = 8,
+    layers = {
+        { wave = "square", duty = 0.25, from = 1318.51, length = 0.05, volume = 0.35 },
+        { wave = "sine", from = 2637.02, length = 0.06, volume = 0.25, start = 0.025 }
+    }
+}
+Sounds.scanReward = {
+    volume = 0.4, cooldown = 0.4,
+    layers = merge(Synth.melody({ { "e6", 0.05 }, { "g#6", 0.05 }, { "b6", 0.14 } }, { wave = "square", duty = 0.25, volume = 0.35 }))
+}
+Sounds.scanJackpot = {
+    volume = 0.5, cooldown = 0.4,
+    layers = merge(
+        Synth.melody({ { "b5", 0.05 }, { "e6", 0.05 }, { "g#6", 0.05 }, { "b6", 0.05 }, { "e7", 0.26 } }, { wave = "square", duty = 0.25, volume = 0.35 }),
+        Synth.melody({ { "e3", 0.46 } }, { wave = "triangle", volume = 0.4, start = 0.2 })
+    )
+}
+Sounds.scanEmpty = {
+    volume = 0.3, cooldown = 0.5,
+    layers = merge(Synth.melody({ { "b5", 0.06 }, { "e5", 0.12 } }, { wave = "triangle", volume = 0.45 }))
+}
+Sounds.scanReady = {
+    volume = 0.3, cooldown = 1,
+    layers = merge(Synth.melody({ { "b5", 0.04 }, { "e6", 0.08 } }, { wave = "square", duty = 0.25, volume = 0.3 }))
+}
+Sounds.scanned = {
+    volume = 0.5, cooldown = 0.8,
+    layers = merge(
+        { { wave = "square", duty = 0.3, from = 587.33, length = 0.09, volume = 0.28, curve = 1.2 },
+          { wave = "square", duty = 0.3, from = 587.33, start = 0.13, length = 0.09, volume = 0.28, curve = 1.2 },
+          { wave = "square", duty = 0.3, from = 554.37, start = 0.26, length = 0.3, volume = 0.26, vibrato = 7, vibratoDepth = 0.02, curve = 1.6 } },
+        { { wave = "triangle", from = 110, to = 82, start = 0.26, length = 0.35, volume = 0.35 } }
+    )
+}
+-- Stim: a quick rising heal jingle, a step above the heal pickup.
+Sounds.stim = {
+    volume = 0.4, cooldown = 0.3,
+    layers = merge(
+        { { wave = "noise", from = 2000, to = 6000, length = 0.15, attack = 0.04, volume = 0.3, cutoff = 1200, cutoffTo = 4000 } },
+        Synth.melody({ { "e5", 0.05 }, { "g#5", 0.05 }, { "b5", 0.05 }, { "e6", 0.16 } }, { wave = "sine", volume = 0.45 })
+    )
+}
+-- Shock: a sharp crack, a buzzing square dropping in pitch and a low thump.
+Sounds.shock = {
+    volume = 0.55, cooldown = 0.05, voices = 3,
+    layers = {
+        { wave = "noise", from = 9000, to = 2500, length = 0.12, volume = 0.5, cutoff = 8000, cutoffTo = 1500, curve = 2 },
+        { wave = "square", duty = 0.25, from = 2400, to = 160, length = 0.14, volume = 0.3, curve = 1.6 },
+        { wave = "square", duty = 0.15, from = 140, to = 90, length = 0.3, volume = 0.22, vibrato = 40, vibratoDepth = 0.3, start = 0.03 },
+        { wave = "sine", from = 120, to = 45, length = 0.22, volume = 0.6, curve = 2 }
+    }
+}
+
 return Sounds

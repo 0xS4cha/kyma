@@ -108,5 +108,65 @@ return {
             assert(Inputs.sanitize({ s = 1, a = 0, x = 1 }).x == 1)
             assert(Loadout.sanitize({ g = 9 }).g == 1)
         end
+    },
+    {
+        name = "a stim heals over time, never past full, and is kept at full health",
+        run = function()
+            local world, a = duel()
+            Gadgets.give(a, "stim")
+            assert(not Gadgets.use(world, a) and a.gadgets == 1, "not wasted at full health")
+            a.hp = 30
+            assert(Gadgets.use(world, a) and a.gadgets == 0)
+            run(world, 10)
+            assert(a.hp > 30 and a.hp < 70, "heals gradually: " .. a.hp)
+            run(world, GadgetConfig.stim.heal * GadgetConfig.stim.every)
+            assert(a.hp == 70, a.hp)
+            a.hp = 90
+            a.stim = 40
+            run(world, 100)
+            assert(a.hp == Config.health and a.stim == 0)
+        end
+    },
+    {
+        name = "a shock stuns everyone in reach with a clear line, its thrower too",
+        run = function()
+            local world, a, b = duel()
+            local gadget = throw(world, a, "shock")
+            assert(gadget)
+            run(world, GadgetConfig.fuse)
+            assert(a.stun > 0 and b.stun == 0, "only those near the blast")
+            local world2, c, d = duel()
+            d.x = 1100
+            Gadgets.shock(world2, 1050, 1000)
+            assert(c.stun == GadgetConfig.shock.stun and d.stun == GadgetConfig.shock.stun)
+        end
+    },
+    {
+        name = "a scan marks enemies in range for you, has a cooldown and is heard",
+        run = function()
+            local world = World.new(open(), "duel", false)
+            local a, b = world:add(1, "A"), world:add(2, "B")
+            a.x, a.y, b.x, b.y = 500, 500, 1200, 500
+            assert(not Gadgets.scan(world, a), "starts on cooldown")
+            a.scanCooldown = 0
+            assert(Gadgets.scan(world, a))
+            assert(#a.scanDots == 1 and a.scanDots[1].x == 1200)
+            assert(not Gadgets.scan(world, a), "cooldown")
+            local view = world:snapshot(1)
+            assert(#view.scans == 1 and view.players[1].sc == Config.scan.cooldown)
+            assert(#world:snapshot(2).scans == 0, "the enemy doesn't get the dots")
+            local heard = false
+            for _, noise in ipairs(world.noises) do
+                if noise.kind == "scan" and world:hears(2, noise) then heard = true end
+            end
+            assert(heard, "the scanned enemy hears it")
+            run(world, Config.scan.reveal)
+            assert(a.scanDots == nil and #world:snapshot(1).scans == 0)
+            b.x = 500 + Config.scan.radius + 50
+            a.scanCooldown = 0
+            Gadgets.scan(world, a)
+            assert(#a.scanDots == 0, "out of range")
+            assert(Inputs.sanitize({ s = 1, a = 0, y = 1 }).y == 1)
+        end
     }
 }

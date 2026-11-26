@@ -62,6 +62,7 @@ function Player.respawn(p, spawn)
     p.vx, p.vy, p.dash, p.cooldown, p.slide = 0, 0, 0, 0, 0
     p.hp, p.dead, p.stun, p.meleeCooldown = Config.health, 0, 0, 0
     p.armor = 0
+    p.stim = 0
     Weapons.give(p, "pistol")
 end
 

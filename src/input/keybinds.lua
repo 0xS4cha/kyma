@@ -14,6 +14,7 @@ Keybinds.actions = {
     { id = "reload", label = "Reload", keys = { "r" } },
     { id = "throw", label = "Throw weapon", keys = { "g" } },
     { id = "gadget", label = "Use gadget", keys = { "q" } },
+    { id = "scan", label = "Scan for enemies", keys = { "x" } },
     { id = "pickup", label = "Pick up / open", keys = { "e" } },
     { id = "ready", label = "Ready up", keys = { "f" } },
     { id = "scoreboard", label = "Scoreboard", keys = { "tab" } },

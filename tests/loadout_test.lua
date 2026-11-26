@@ -149,5 +149,42 @@ return {
             assert(p.weapon == "sniper" and p.ammo == math.floor(WeaponConfig.sniper.magazine * 1.5 + 0.5),
                 "the new loadout: " .. tostring(p.weapon) .. " " .. tostring(p.ammo))
         end
+    },
+    {
+        name = "trade-off mods give something and cost something",
+        run = function()
+            local rifle = WeaponConfig.rifle
+            local drum = { weapon = "rifle", mod = mod("drum"), modWeapon = "rifle" }
+            assert(Weapons.stat(drum, "magazine") == rifle.magazine * 2)
+            assert(Weapons.stat(drum, "reloadTicks") > rifle.reloadTicks)
+            local hair = { weapon = "rifle", mod = mod("hair"), modWeapon = "rifle" }
+            assert(Weapons.stat(hair, "fireTicks") < rifle.fireTicks and Weapons.stat(hair, "spread") > rifle.spread)
+            local heavy = { weapon = "rifle", mod = mod("heavy"), modWeapon = "rifle" }
+            assert(Weapons.stat(heavy, "damage") > rifle.damage and Weapons.stat(heavy, "fireTicks") > rifle.fireTicks)
+            -- Damage per second stays close: more per shot, fewer shots.
+            local dps = rifle.damage / rifle.fireTicks
+            local heavyDps = Weapons.stat(heavy, "damage") / Weapons.stat(heavy, "fireTicks")
+            assert(math.abs(heavyDps - dps) / dps < 0.15, dps .. " vs " .. heavyDps)
+            for _, kind in ipairs(WeaponConfig.order) do
+                local p = { weapon = kind, mod = mod("hair"), modWeapon = kind }
+                assert(Weapons.stat(p, "fireTicks") >= 1)
+            end
+        end
+    },
+    {
+        name = "a heavy rounds rifle fires at its own pace without tripping the anticheat",
+        run = function()
+            local w = world({ s = 2 })
+            local p = w:add(1, "A", nil, { w = index("rifle"), m = mod("heavy") })
+            p.ammo = Weapons.stat(p, "magazine")
+            local AntiCheat = require("src.game.anticheat")
+            local shots = 0
+            for k = 1, 60 do
+                local previous = { x = p.x, y = p.y }
+                if require("src.game.player").step(p, { s = k, f = 0, r = 0, a = 0, d = 0, b = 1, l = 0, t = 0, e = 0, k = 0, x = 0, y = 0 }, w.arena, w.dt) then shots = shots + 1 end
+                assert(not AntiCheat.validate(p, previous, w), "tick " .. k)
+            end
+            assert(shots > 0 and shots <= math.ceil(60 / Weapons.stat(p, "fireTicks")), "shots " .. shots)
+        end
     }
 }

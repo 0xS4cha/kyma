@@ -87,7 +87,8 @@ Out of ammo? **Throw your weapon** for 45 damage, or rush in with your fists: a 
 | **Noise** | Shots, dashes, running steps, thrown weapons and doors leave an echo on the floor for whoever can't see you. Hold <kbd>C</kbd> to walk quietly. |
 | **Traces** | Every bullet leaves a smoke trail and a hole in the wall. Follow it back and you find the shooter. |
 | **Map elements** | Doors that open as you come close, glass you see through but must break to shoot, low cover, chasms you can shoot across. |
-| **Gadgets** | Smoke that blinds players, bots and the server alike, flashbangs, and decoys that fake your gunfire. |
+| **Gadgets** | Smoke that blinds players, bots and the server alike, flashbangs, decoys that fake your gunfire, stims that heal you and shock grenades that stun. |
+| **Scan** | A sonar on the minimap: red dots pop up with a blip where nearby enemies stand, on a 25 s cooldown. The enemies you scan are warned. |
 
 ### Five modes
 
@@ -137,7 +138,7 @@ From the open hall of **Atrium** to the glass cases of **Gallery** and the stree
 </tr>
 </table>
 
-- **Mods**: Extended mag, Fast hands, Steady aim or Ammo pouch, one per weapon, and visible on the gun for everyone.
+- **Mods**: Extended mag, Fast hands, Steady aim, Ammo pouch, or a trade-off: Drum mag, Hair trigger, Heavy rounds; one per weapon, and visible on the gun for everyone.
 - **Match rules**: weapons on the floor or not, start with a pistol, your own loadout or the same set for everyone.
 - **Rebindable keys**, stored by position so the defaults work on QWERTY and AZERTY alike.
 
@@ -209,7 +210,8 @@ Every other flag is listed in the [technical guide](docs/TECHNICAL.md#command-li
 | <kbd>R</kbd> | Reload |
 | <kbd>G</kbd> / <kbd>Middle click</kbd> | Throw your weapon |
 | <kbd>E</kbd> | Pick up or swap a weapon |
-| <kbd>Q</kbd> | Throw your gadget |
+| <kbd>Q</kbd> | Use your gadget |
+| <kbd>X</kbd> | Scan for nearby enemies |
 | <kbd>F</kbd> | Ready up during the warmup |
 | <kbd>Tab</kbd> | Scoreboard |
 | <kbd>Enter</kbd> | Chat |

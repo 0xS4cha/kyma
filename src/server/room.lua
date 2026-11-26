@@ -356,7 +356,7 @@ function Room:sendState()
             t = tick, k = self.world:ack(member.slot),
             p = view.players, d = view.items, sc = view.score, s = seen, n = heard, l = view.aims,
             dd = view.doors, gg = view.glass, ts = view.teams, ov = view.over, ph = view.phase, rd = view.ready,
-            gd = view.gadgets, sm = view.smokes, ro = view.round
+            gd = view.gadgets, sm = view.smokes, ro = view.round, sn = #view.scans > 0 and view.scans or nil
         })
     end
 end

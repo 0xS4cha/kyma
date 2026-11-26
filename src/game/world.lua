@@ -106,6 +106,7 @@ function World:add(slot, name, team, kit)
     self.score[slot] = 0
     Player.respawn(player, self:spawnPoint(player))
     self:loadout(player)
+    player.scanCooldown = Config.scan.start
     self.inputs[slot] = { queue = {}, last = 0, acked = 0, credit = 0 }
     return player
 end
@@ -200,6 +201,7 @@ function World:restart(phase)
     for _, p in pairs(self.players) do
         Player.respawn(p, self:spawnPoint(p))
         self:loadout(p)
+        p.scanCooldown, p.scanTicks, p.scanDots = Config.scan.start, 0, nil
     end
     self.events[#self.events + 1] = { kind = "restart" }
 end
@@ -234,6 +236,9 @@ function World:apply(player, command)
     self:footsteps(player, command)
     if command.x == 1 then
         Gadgets.use(self, player)
+    end
+    if command.y == 1 then
+        Gadgets.scan(self, player)
     end
     if command.t == 1 then
         Combat.throw(self, player)
@@ -410,6 +415,7 @@ function World:snapshot(viewer)
                 if p.mod then entry.md, entry.mw = p.mod, Weapons.pack(p.modWeapon) end
                 entry.gk, entry.gn = GadgetConfig.pack(p.gadget), p.gadgets or 0
                 if (p.blind or 0) > 0 then entry.bl = p.blind end
+                if (p.scanCooldown or 0) > 0 then entry.sc = p.scanCooldown end
                 entry.z = p.trigger and 1 or 0
             end
             players[#players + 1] = entry
@@ -422,6 +428,16 @@ function World:snapshot(viewer)
         local def = Weapons.def(p.weapon)
         if viewer and slot ~= viewer and def and def.exposed and p.dead == 0 and not self:visible(viewer, slot) then
             aims[#aims + 1] = { i = slot, x = p.x, y = p.y, a = Player.packAngle(p.angle), g = Weapons.pack(p.weapon) }
+        end
+    end
+
+    -- Scans of the viewer and of its team, each dot where an enemy stood.
+    local scans = {}
+    for slot, p in pairs(self.players) do
+        if viewer and p.scanDots and (slot == viewer or (self.rules.teams and not self:enemies(viewer, slot))) then
+            for _, d in ipairs(p.scanDots) do
+                scans[#scans + 1] = { x = d.x, y = d.y, t = p.scanTicks }
+            end
         end
     end
 
@@ -455,7 +471,7 @@ function World:snapshot(viewer)
         players = players, items = items, score = score, aims = aims, doors = doors, glass = glass,
         teams = self.rules.teams and self.teamScore or nil, over = over,
         phase = { p = self.phase, c = self.countdown }, ready = readyList,
-        gadgets = gadgets, smokes = smokes, round = Rounds.snapshot(self)
+        gadgets = gadgets, smokes = smokes, round = Rounds.snapshot(self), scans = scans
     }
 end
 

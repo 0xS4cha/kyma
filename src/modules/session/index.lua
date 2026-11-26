@@ -24,15 +24,15 @@ local TournamentView = require("src.modules.session.tournament")
 local CHAT_LOG = 40
 local CHAT_INPUT = { limit = 200 }
 
-local function sound(name, gain, pan)
-    if GM.Audio then GM.Audio:Play(name, gain, pan) end
+local function sound(name, gain, pan, pitch)
+    if GM.Audio then GM.Audio:Play(name, gain, pan, pitch) end
 end
 
 local function soundAt(name, x, y, gain)
     if GM.Audio then GM.Audio:PlayAt(name, x, y, gain) end
 end
 
-local NOISE_SOUNDS = { step = "step", dash = "dash", slide = "slide", throw = "throw", clank = "clank", melee = "swing" }
+local NOISE_SOUNDS = { step = "step", dash = "dash", slide = "slide", throw = "throw", clank = "clank", melee = "swing", scan = "scanned" }
 local NetConfig = require("src.net.config")
 local Renderer = require("src.modules.session.renderer")
 
@@ -84,6 +84,8 @@ function GM.Session:Initialize()
     mp:On("kill", function(data) self:onKill(data) end)
     mp:On("melee", function(data) self:onMelee(data) end)
     mp:On("flash", function(data) self:onFlash(data) end)
+    mp:On("shock", function(data) self:onShock(data) end)
+    mp:On("stim", function(data) self:onStim(data) end)
     mp:On("chat", function(data) self:onChat(data, true) end)
     mp:On("ping", function(data) self:onPing(data) end)
     mp:On("chatlog", function(data)
@@ -343,7 +345,8 @@ function GM.Session:sample()
         t = requests.throw and 1 or 0,
         e = requests.pickup and 1 or 0,
         k = quiet and 1 or 0,
-        x = requests.gadget and 1 or 0
+        x = requests.gadget and 1 or 0,
+        y = requests.scan and 1 or 0
     }
     world.quiet = quiet
     if fire then
@@ -666,6 +669,55 @@ function GM.Session:onFlash(data)
 end
 
 --- @param data table
+function GM.Session:onShock(data)
+    local world = self.world
+    if not world or type(data.x) ~= "number" or type(data.y) ~= "number" then return end
+    local r = GadgetConfig.shock.radius
+    self.effects:glow(data.x, data.y, r * 2.2, { 0.35, 0.75, 1 }, 0.45)
+    self.postfx:wave(data.x, data.y, 0.6, r * 3)
+    soundAt("shock", data.x, data.y)
+    local d = math.sqrt((data.x - world.me.x) ^ 2 + (data.y - world.me.y) ^ 2)
+    if d < r then self:shake(0.25 * (1 - d / r)) end
+end
+
+--- @param data table
+function GM.Session:onStim(data)
+    if not self.world or type(data.x) ~= "number" or type(data.y) ~= "number" then return end
+    self.effects:glow(data.x, data.y, 90, { 0.35, 0.95, 0.5 }, 0.5)
+    if data.o == self.world.slot then sound("stim") else soundAt("stim", data.x, data.y, 0.7) end
+end
+
+-- E major pentatonic: each enemy the scan finds rings one step higher.
+local BLIP_STEPS = { 0, 2, 4, 7, 9, 12, 14, 16 }
+
+--- Blips for the scan dots as the sweep reaches them, or a low note when it found no one.
+--- @param world table
+function GM.Session:scanSounds(world)
+    if not world.scanAt then return end
+    local now = love.timer.getTime()
+    local due = {}
+    for _, dot in pairs(world.scans or {}) do
+        if not dot.blipped and now >= dot.born then due[#due + 1] = dot end
+    end
+    table.sort(due, function(a, b) return a.born < b.born end)
+    for _, dot in ipairs(due) do
+        dot.blipped = true
+        world.scanFound = (world.scanFound or 0) + 1
+        local step = BLIP_STEPS[math.min(#BLIP_STEPS, world.scanFound)]
+        sound("scanBlip", 1, nil, 2 ^ (step / 12))
+    end
+    if not world.scanChecked and now - world.scanAt > Config.scan.sweep + 0.15 then
+        world.scanChecked = true
+        local found = world.scanFound or 0
+        if found == 0 then
+            sound("scanEmpty")
+        else
+            sound(found >= 3 and "scanJackpot" or "scanReward")
+        end
+    end
+end
+
+--- @param data table
 function GM.Session:onMelee(data)
     local world = self.world
     if not world or not data.o then return end
@@ -767,6 +819,24 @@ function GM.Session:receive(data)
         end
     end
     world.aims = type(data.l) == "table" and data.l or {}
+    local now = love.timer.getTime()
+    world.scans = world.scans or {}
+    for _, dot in ipairs(type(data.sn) == "table" and data.sn or {}) do
+        if type(dot.x) == "number" and type(dot.y) == "number" and type(dot.t) == "number" then
+            local key = dot.x .. ":" .. dot.y
+            if not world.scans[key] then
+                local born = now
+                if world.scanAt and now - world.scanAt < 0.5 and world.me then
+                    local d = math.sqrt((dot.x - world.me.x) ^ 2 + (dot.y - world.me.y) ^ 2)
+                    born = world.scanAt + Config.scan.sweep * math.min(1, d / Config.scan.radius)
+                end
+                world.scans[key] = { x = dot.x, y = dot.y, born = born, ends = now + dot.t / Config.tickRate }
+            end
+        end
+    end
+    for key, dot in pairs(world.scans) do
+        if now > dot.ends then world.scans[key] = nil end
+    end
     for _, entry in ipairs(data.sc or {}) do
         world.score[entry.i] = entry.k
     end
@@ -855,6 +925,22 @@ function GM.Session:receive(data)
         self.postfx:freeze()
     elseif me.blind <= 0 then
         self.blindPeak = nil
+    end
+    local scanBefore = me.scanCooldown or 0
+    me.scanCooldown = own.sc or 0
+    if me.scanCooldown >= Config.scan.cooldown - 30 and scanBefore < Config.scan.cooldown - 30 and me.dead == 0 then
+        local now = love.timer.getTime()
+        world.scanAt, world.scanFound, world.scanChecked = now, 0, false
+        -- The dots of this scan came in the same snapshot: they show up as the ring reaches them.
+        for _, dot in pairs(world.scans or {}) do
+            if now - dot.born < 0.05 then
+                local d = math.sqrt((dot.x - me.x) ^ 2 + (dot.y - me.y) ^ 2)
+                dot.born = now + Config.scan.sweep * math.min(1, d / Config.scan.radius)
+            end
+        end
+        sound("scan")
+    elseif scanBefore > 0 and me.scanCooldown == 0 and me.dead == 0 and world.phase ~= "warmup" then
+        sound("scanReady")
     end
     me.trigger = own.z == 1
     if me.dead == 0 and beforeDead == 0 then
@@ -1139,6 +1225,7 @@ function GM.Session:Think(dt)
     if not self.active then return end
     self.hud:update(self, dt)
     local world = self.world
+    if world then self:scanSounds(world) end
     if not world then
         local mp = GM.Multiplayer
         self.status = mp.error and "error" or (mp.state == "online" and "queued" or "connecting")
@@ -1315,6 +1402,8 @@ function GM.Session:KeyPressed(key, scancode)
         self:request("throw")
     elseif Keys.is("gadget", scancode) then
         self:request("gadget")
+    elseif Keys.is("scan", scancode) then
+        self:request("scan")
     elseif Keys.is("pickup", scancode) then
         self:request("pickup")
     elseif Keys.is("help", scancode) then

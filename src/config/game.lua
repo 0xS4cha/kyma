@@ -15,6 +15,15 @@ local CONFIG = {
     respawnTicks = 120,
     rewindTicks = 20,
 
+    
+    scan = {
+        radius = 1000,
+        reveal = 150,
+        cooldown = 1500,
+        start = 600,
+        sweep = 0.8
+    },
+
     vision = {
         halfAngle = 0.95,
         nearRadius = 90,
@@ -35,6 +44,7 @@ local CONFIG = {
         melee = 300,
         glass = 650,
         hack = 900,
+        scan = 1000,
         stepTicks = 20,
         stepSpeed = 110,
         quietSpeed = 0.45
