@@ -74,8 +74,20 @@ end
 --- @param menu table
 --- @return table[]
 local function games(menu)
-    if menu.settings.browseSource == 3 then return GM.Multiplayer:LanGames() end
-    return GM.Multiplayer:ServerGames()
+    local list = menu.settings.browseSource == 3 and GM.Multiplayer:LanGames() or GM.Multiplayer:ServerGames()
+    -- 42-only games stay hidden away from 42 computers
+    return School.visible(list)
+end
+
+--- Shortcut to the host card of Play, hosting where the browser looks: the
+--- official server, or your network.
+--- @param menu table
+local function host(menu)
+    local source = menu.settings.browseSource
+    if source == 1 then menu:setOption("hostWhere", 2) elseif source == 3 then menu:setOption("hostWhere", 1) end
+    menu:saveSettings()
+    menu:switch("play", 1)
+    menu.focus = "host"
 end
 
 local function join(menu, address, label, options)
@@ -134,6 +146,10 @@ function Multiplayer.build(menu)
         end,
         left = function() menu:setOption("browseSource", math.max(1, menu.settings.browseSource - 1)) end,
         right = function() menu:setOption("browseSource", math.min(#SOURCES, menu.settings.browseSource + 1)) end
+    }
+    list[#list + 1] = {
+        id = "hostGame", x = box.x + box.w - 22 - 150, y = box.y + 12, w = 150, h = 32,
+        press = function() host(menu) end
     }
     for k, game in ipairs(games(menu)) do
         if 108 + k * ROW > box.h then break end
@@ -258,7 +274,11 @@ function Multiplayer.draw(menu, elements, p)
     Kit.card(bx, box.y, box.w, box.h, e, 18)
     Kit.text("Games", 18, bx + 22, box.y + 18, Kit.INK, e)
     local address = sourceAddress(menu)
-    if address then Kit.text(address, 12, bx + box.w - 22, box.y + 22, Kit.INK, 0.45 * e, "right") end
+    local hostGame = menu.find(elements, "hostGame")
+    Kit.button("hostGame", hostGame.x + dx, hostGame.y, hostGame.w, hostGame.h, "Host a game", {
+        hot = menu.focus == "hostGame", primary = true, size = 13, hint = "H", alpha = e
+    })
+    if address then Kit.text(address, 12, hostGame.x + dx - 14, box.y + 22, Kit.INK, 0.45 * e, "right") end
     local source = menu.find(elements, "source")
     Kit.segments("mp:source", source.x + dx, source.y, source.w, source.h, SOURCES, menu.settings.browseSource, e)
 
@@ -339,6 +359,10 @@ end
 function Multiplayer.keyPressed(menu, key)
     if (key == "return" or key == "kpenter") and menu.editing == "server" then
         join(menu, menu.settings.server, "Connecting to " .. menu.settings.server)
+        return true
+    end
+    if key == "h" and not menu.editing then
+        host(menu)
         return true
     end
     return false
