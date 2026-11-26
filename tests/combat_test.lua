@@ -340,5 +340,25 @@ return {
             assert(plain.players[1].hp == 30, "off by default")
             assert(require("src.config.loadout").pack(world.options).h == true, "the rule travels to clients")
         end
+    },
+    {
+        name = "the kill tells the victim how much health and armor the killer had left",
+        run = function()
+            local Combat = require("src.game.combat")
+            local world, a, b = duel()
+            a.hp, a.armor = 37.4, 20
+            world.events = {}
+            Combat.kill(world, b, 1)
+            local kill
+            for _, e in ipairs(world.events) do if e.kind == "kill" then kill = e end end
+            assert(kill and kill.kh == 38 and kill.ka == 20, tostring(kill and kill.kh) .. " " .. tostring(kill and kill.ka))
+            Player.respawn(b, world:spawnPoint(b))
+            a.armor = 0
+            world.events = {}
+            Combat.kill(world, b, nil)
+            for _, e in ipairs(world.events) do
+                if e.kind == "kill" then assert(e.kh == nil and e.ka == nil, "no killer, nothing to show") end
+            end
+        end
     }
 }

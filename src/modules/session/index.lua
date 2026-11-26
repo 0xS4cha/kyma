@@ -506,6 +506,11 @@ function GM.Session:onKill(data)
         end
     end
     if victim == world.slot then
+        -- Shown on the death screen: who got us and what they had left.
+        local by = data.k and data.k ~= victim and data.k or nil
+        self.hud.killer = by and {
+            name = self:nameOf(by), hp = tonumber(data.kh), armor = tonumber(data.ka) or 0
+        } or nil
         sound("death")
         self:shatter(world.me.x, world.me.y, Theme.lifted(SELF_COLOR))
         self.postfx:wave(world.me.x, world.me.y, 1, 420)

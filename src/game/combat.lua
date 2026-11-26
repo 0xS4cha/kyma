@@ -145,6 +145,10 @@ function Combat.kill(world, victim, killer)
     if world.round and world.phase == "playing" then
         victim.out = true
     end
+    -- What the killer had left when the shot landed, for the victim's death screen.
+    local by = killer and killer ~= victim.slot and world.players[killer]
+    local kh = by and math.max(0, math.ceil(by.hp)) or nil
+    local ka = by and (by.armor or 0) > 0 and math.floor(by.armor + 0.5) or nil
     local winner = killer and killer ~= victim.slot and world:enemies(killer, victim.slot) and world.players[killer]
     if winner and world.options and world.options.heal and winner.hp > 0 then
         winner.hp = math.min(Config.health, winner.hp + Loadout.killHeal)
@@ -153,14 +157,14 @@ function Combat.kill(world, victim, killer)
         world.score[killer] = (world.score[killer] or 0) + 1
         local rules = world.rules
         if rules.rounds then
-            event(world, { kind = "kill", k = killer, v = victim.slot })
+            event(world, { kind = "kill", k = killer, v = victim.slot, kh = kh, ka = ka })
             return
         end
         local team = rules.teams and world.players[killer] and world.players[killer].team
         if team then
             world.teamScore[team] = world.teamScore[team] + 1
         end
-        event(world, { kind = "kill", k = killer, v = victim.slot })
+        event(world, { kind = "kill", k = killer, v = victim.slot, kh = kh, ka = ka })
         if rules.ladder and world.score[killer] < #rules.ladder then
             world:loadout(world.players[killer])
             event(world, { kind = "level", p = killer, l = world.score[killer] + 1 })
@@ -174,7 +178,7 @@ function Combat.kill(world, victim, killer)
         end
         return
     end
-    event(world, { kind = "kill", k = killer, v = victim.slot })
+    event(world, { kind = "kill", k = killer, v = victim.slot, kh = kh, ka = ka })
 end
 
 --- @param world table
