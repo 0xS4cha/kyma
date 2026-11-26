@@ -55,6 +55,11 @@ publish.
 3. Set **Server name**, **Message of the day** and **Max players** on the
    server's Startup page. 256 MB of memory and one CPU core are plenty for a few
    rooms.
+4. For the official server, set **Official server** to `1` on the same page and
+   restart. Only then does it run the persistent Extraction world; without it,
+   players who open Extraction are told it is only played on the official
+   server. A server made before this variable existed gets it once the egg is
+   updated with the new file (**Admin > Nests**, open the egg, **Update Egg**).
 
 The install script downloads LÖVE 11.5 as an AppImage and extracts it to
 `love/`, then copies the server files of the `main` branch to `game/`.
