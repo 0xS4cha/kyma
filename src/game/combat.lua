@@ -509,8 +509,7 @@ function Combat.update(world)
     end
     for slot, p in pairs(world.players) do
         if p.hp <= 0 and p.dead == 0 then
-            Player.respawn(p, world:spawnPoint(p))
-            world:loadout(p)
+            world:respawn(p)
         elseif not p.weapon and p.dead == 0 then
             Combat.pickup(world, p)
             if not p.weapon and not world.rules.ladder then

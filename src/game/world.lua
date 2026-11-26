@@ -104,11 +104,18 @@ function World:add(slot, name, team, kit)
     player.kit = kit and Loadout.sanitize(kit) or nil
     self.players[slot] = player
     self.score[slot] = 0
-    Player.respawn(player, self:spawnPoint(player))
-    self:loadout(player)
+    self:respawn(player)
     player.scanCooldown = Config.scan.start
     self.inputs[slot] = { queue = {}, last = 0, acked = 0, credit = 0 }
     return player
+end
+
+--- Brings a player back at a spawn point with their kit and the match's starting shield.
+--- @param player table
+function World:respawn(player)
+    Player.respawn(player, self:spawnPoint(player))
+    self:loadout(player)
+    player.armor = self.options.armor * Config.shield.plateHp
 end
 
 --- @param player table
@@ -199,8 +206,7 @@ function World:restart(phase)
         if not self.items[k].pad then table.remove(self.items, k) end
     end
     for _, p in pairs(self.players) do
-        Player.respawn(p, self:spawnPoint(p))
-        self:loadout(p)
+        self:respawn(p)
         p.scanCooldown, p.scanTicks, p.scanDots = Config.scan.start, 0, nil
     end
     self.events[#self.events + 1] = { kind = "restart" }

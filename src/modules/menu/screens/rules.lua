@@ -34,6 +34,7 @@ function Screen.summary(values)
     return (values.floorWeapons and "Weapons on the floor" or "No weapons on the floor") .. ", " .. start
         .. (values.killHeal and (", +" .. Loadout.killHeal .. " HP per kill") or "")
         .. (values.shields == false and ", no shields" or "")
+        .. ((values.startArmor or 0) > 0 and (", spawn with " .. Loadout.armorLabels[values.startArmor + 1]:lower()) or "")
 end
 
 function Screen.enter(menu)
@@ -64,6 +65,21 @@ function Screen.build(menu)
         press = function() menu:setOption("shields", not menu.settings.shields) end,
         left = function() menu:setOption("shields", false) end,
         right = function() menu:setOption("shields", true) end
+    }
+    y = y + ROW
+    local plates = #Loadout.armorLabels
+    local armorX, armorW = x + w - 380, 360
+    list[#list + 1] = {
+        id = "startArmor", x = x, y = y, w = w, h = ROW - 8,
+        press = function(_, mx)
+            if mx and mx >= armorX then
+                menu:setOption("startArmor", Kit.clamp(math.floor((mx - armorX) / (armorW / plates)), 0, plates - 1))
+            elseif not mx then
+                menu:setOption("startArmor", (menu.settings.startArmor + 1) % plates)
+            end
+        end,
+        left = function() menu:setOption("startArmor", math.max(0, menu.settings.startArmor - 1)) end,
+        right = function() menu:setOption("startArmor", math.min(plates - 1, menu.settings.startArmor + 1)) end
     }
     y = y + ROW
     local count = #Loadout.spawn
@@ -97,12 +113,13 @@ function Screen.draw(menu, elements, p)
     Common.header(menu, elements, p, "Match rules", "For the games you start: practice and hosted games.")
     local s = menu.settings
     local e = menu:stagger(p, 2)
-    Kit.card(l.x, l.y + (1 - e) * 20, l.w, 5 * ROW + 36, e, 18)
+    Kit.card(l.x, l.y + (1 - e) * 20, l.w, 6 * ROW + 36, e, 18)
     local lg = love.graphics
     local rows = {
         floorWeapons = { "Weapons on the floor", "Weapons wait on their spots and come back after a while" },
         killHeal = { "Heal on kill", "Each kill gives back " .. Loadout.killHeal .. " HP, up to full health" },
         shields = { "Shield plates", "Plates spawn next to the health packs and absorb damage before your health" },
+        startArmor = { "Starting shield", "Plates everyone has each time they spawn" },
         spawnWith = { "Players start with", "A pistol, their loadout, or one for all" },
         preset = { "Set loadout", s.spawnWith == 3 and Screen.kitName(Settings.kit(s, "preset")) or "Pick Same for all to use it" }
     }
@@ -124,6 +141,8 @@ function Screen.draw(menu, elements, p)
         Kit.text(text[2], 12, x + 18, y + 35, Kit.INK, 0.5 * a * fade)
         if element.id == "floorWeapons" or element.id == "killHeal" or element.id == "shields" then
             Kit.toggle(element.id, x + w - 66, y + (h - 26) / 2, s[element.id], a)
+        elseif element.id == "startArmor" then
+            Kit.segments(element.id, x + w - 380, y + (h - 36) / 2, 360, 36, Loadout.armorLabels, s.startArmor + 1, a)
         elseif element.id == "spawnWith" then
             Kit.segments(element.id, x + w - 380, y + (h - 36) / 2, 360, 36, Loadout.spawnLabels, s.spawnWith, a)
         else
@@ -136,9 +155,9 @@ function Screen.draw(menu, elements, p)
     end
     local mode = Settings.gameMode(s)
     if mode == "gungame" then
-        Kit.text("Gun game ignores the weapon rules: everyone climbs the same weapon ladder.", 13, l.x, l.y + 5 * ROW + 56, Kit.RED, 0.8 * e)
+        Kit.text("Gun game ignores the weapon rules: everyone climbs the same weapon ladder.", 13, l.x, l.y + 6 * ROW + 56, Kit.RED, 0.8 * e)
     elseif mode == "infiltration" then
-        Kit.text("Infiltration ignores the weapon rules: attackers get a silencer and a smoke, defenders a rifle or an LMG.", 13, l.x, l.y + 5 * ROW + 56, Kit.RED, 0.8 * e)
+        Kit.text("Infiltration ignores the weapon rules: attackers get a silencer and a smoke, defenders a rifle or an LMG.", 13, l.x, l.y + 6 * ROW + 56, Kit.RED, 0.8 * e)
     end
 end
 

@@ -32,7 +32,7 @@ Settings.STATS = {
     { key = "statUp", stat = "up", label = "Bandwidth out", hint = "Data sent to the server, in KB/s" }
 }
 
-Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "debris", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "minimapPings", "dmgNumbers", "dmgSize", "shields", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal", "statFps", "statFrame", "statTick", "statRtt", "statJitter", "statLoss", "statDown", "statUp" }
+Settings.KEYS = { "name", "server", "sensitivity", "zoom", "fullscreen", "vsync", "background", "showHelp", "bot", "mode", "map", "volume", "body", "accent", "head", "shake", "debris", "theme", "minimap", "minimapPos", "minimapSize", "minimapOpacity", "minimapView", "minimapZoom", "minimapRotate", "minimapVision", "minimapAllies", "minimapEnemies", "minimapLoot", "minimapPings", "dmgNumbers", "dmgSize", "shields", "startArmor", "kitWeapon", "kitMods", "floorWeapons", "spawnWith", "presetWeapon", "presetMods", "kitGadget", "presetGadget", "tournamentName", "tournamentSize", "tournamentBestOf", "tournamentServer", "browseSource", "hostWhere", "killHeal", "statFps", "statFrame", "statTick", "statRtt", "statJitter", "statLoss", "statDown", "statUp" }
 
 --- @return table
 function Settings.defaults()
@@ -71,6 +71,7 @@ function Settings.defaults()
         dmgNumbers = true,
         dmgSize = 2,
         shields = true,
+        startArmor = require("src.config.loadout").startArmor,
         kitWeapon = 1,
         kitMods = Settings.cleanMods(""),
         floorWeapons = true,
@@ -141,6 +142,7 @@ function Settings.parse(text)
     values.kitMods = Settings.cleanMods(values.kitMods)
     values.presetMods = Settings.cleanMods(values.presetMods)
     values.spawnWith = Loadout.rules({ s = values.spawnWith }).s
+    values.startArmor = Loadout.startPlates(values.startArmor)
     values.map = require("src.maps.index").valid(values.map)
     local Bracket = require("src.game.bracket")
     values.tournamentSize = math.max(1, math.min(#Bracket.SIZES, math.floor(values.tournamentSize)))
@@ -242,7 +244,7 @@ end
 --- @param values table
 --- @return table
 function Settings.matchRules(values)
-    local rules = { f = values.floorWeapons, s = values.spawnWith, p = Settings.kit(values, "preset"), h = values.killHeal or nil }
+    local rules = { f = values.floorWeapons, s = values.spawnWith, p = Settings.kit(values, "preset"), h = values.killHeal or nil, ss = values.startArmor }
     if values.shields == false then rules.sh = false end
     return rules
 end
