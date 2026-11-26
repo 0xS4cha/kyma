@@ -364,7 +364,7 @@ drawLaser = function(p, arena)
     lg.setLineWidth(1)
 end
 
-local GADGET_COLORS = { { 0.62, 0.65, 0.7 }, { 0.98, 0.95, 0.75 }, { 0.88, 0.14, 0.12 } }
+local GADGET_COLORS = { { 0.62, 0.65, 0.7 }, { 0.98, 0.95, 0.75 }, { 0.88, 0.14, 0.12 }, { 0.35, 0.95, 0.5 }, { 0.35, 0.75, 1 } }
 
 local function drawGadgets(world, session)
     local lg = love.graphics

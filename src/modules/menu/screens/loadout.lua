@@ -10,9 +10,12 @@ local Screen = {}
 
 local COLS, TILE_H, MOD_H = 4, 84, 44
 local ROWS = math.ceil(#WeaponConfig.order / COLS)
+-- Mods sit in two columns, name over description.
+local MOD_COLS = 2
+local MOD_ROWS = math.ceil(#Loadout.mods / MOD_COLS)
 
 local STATS = {
-    { label = "Damage", value = function(p, def) return def.damage * def.pellets end, max = 100, text = function(v) return tostring(v) end },
+    { label = "Damage", value = function(p, def) return Weapons.stat(p, "damage") * def.pellets end, max = 100, text = function(v) return tostring(v) end },
     { label = "Fire rate", value = function(p) return 60 / Weapons.stat(p, "fireTicks") end, max = 12, text = function(v) return string.format("%.1f / s", v) end },
     { label = "Accuracy", value = function(p) return 1 - math.min(1, Weapons.stat(p, "spread") / 0.25) end, max = 1, text = function(v) return math.floor(v * 100 + 0.5) .. "%" end },
     { label = "Range", value = function(p) return Weapons.stat(p, "range") end, max = 3000, text = function(v) return tostring(v) end },
@@ -52,17 +55,19 @@ function Screen.build(menu)
         }
     end
     local my = l.y + 50 + ROWS * (TILE_H + 10) + 44
+    local modW = math.floor((l.w - 44 - 8 * (MOD_COLS - 1)) / MOD_COLS)
     for k, mod in ipairs(Loadout.mods) do
+        local col, row = (k - 1) % MOD_COLS, math.floor((k - 1) / MOD_COLS)
         list[#list + 1] = {
             id = "mod:" .. mod.id, mod = mod, value = k,
-            x = l.x + 22, y = my + (k - 1) * (MOD_H + 6), w = l.w - 44, h = MOD_H,
+            x = l.x + 22 + col * (modW + 8), y = my + row * (MOD_H + 6), w = modW, h = MOD_H,
             press = function()
                 local values = menu.settings
                 menu:setOption(modKey, Settings.withMod(values[modKey], values[weaponKey], k))
             end
         }
     end
-    local gy = my + #Loadout.mods * (MOD_H + 6) + 34
+    local gy = my + MOD_ROWS * (MOD_H + 6) + 34
     local count = #Loadout.gadgets
     local gw = l.w - 44
     list[#list + 1] = {
@@ -109,8 +114,7 @@ function Screen.draw(menu, elements, p)
     local s = menu.settings
     local current = Settings.modAt(s[modKey], s[weaponKey])
     local e = menu:stagger(p, 2)
-    local mods = #Loadout.mods
-    local panelH = 50 + ROWS * (TILE_H + 10) + 44 + mods * (MOD_H + 6) + 12 + 80
+    local panelH = 50 + ROWS * (TILE_H + 10) + 44 + MOD_ROWS * (MOD_H + 6) + 12 + 80
     Kit.card(l.x, l.y + (1 - e) * 20, l.w, panelH, e, 18)
     Kit.text("Weapon", 12, l.x + 22, l.y + 22, Kit.INK, 0.5 * e)
     Kit.text("Mod", 12, l.x + 22, l.y + 50 + ROWS * (TILE_H + 10) + 18, Kit.INK, 0.5 * e)
@@ -145,8 +149,8 @@ function Screen.draw(menu, elements, p)
                 Kit.color(Kit.RED, pick * a)
                 lg.rectangle("fill", element.x, element.y + 10, 3, element.h - 20, 1.5, 1.5)
             end
-            Kit.text(element.mod.name, 15, element.x + 16, element.y + 12, Kit.INK, a)
-            Kit.text(element.mod.text, 13, element.x + element.w - 16, element.y + 14, Kit.INK, 0.5 * a, "right")
+            Kit.text(element.mod.name, 14, element.x + 14, element.y + 6, Kit.INK, a)
+            Kit.text(element.mod.text, 12, element.x + 14, element.y + 25, Kit.INK, 0.5 * a)
         end
     end
 
@@ -175,13 +179,16 @@ function Screen.draw(menu, elements, p)
         local ghost = Kit.clamp(plain / stat.max, 0, 1)
         if stat.invert then fill, ghost = 1 - fill, 1 - ghost end
         local better = (stat.invert and value < plain) or (not stat.invert and value > plain)
-        Kit.text(stat.label, 13, pv.x + 26, sy, Kit.INK, 0.6 * pe)
-        Kit.bar(barX, sy + 6, barW, 6, Kit.ease("stat:" .. stat.label, fill), better and Kit.GREEN or Kit.INK, pe)
-        if better then
+        local worse = math.abs(value - plain) > 1e-6 and not better
+        -- green when the mod improves the stat, red when it makes it worse
+        local tint = better and Kit.GREEN or (worse and Kit.RED or Kit.INK)
+        Kit.text(stat.label, 13, pv.x + 26, sy, worse and Kit.RED or Kit.INK, worse and 0.9 * pe or 0.6 * pe)
+        Kit.bar(barX, sy + 6, barW, 6, Kit.ease("stat:" .. stat.label, fill), tint, pe)
+        if better or worse then
             lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.5 * pe)
             lg.rectangle("fill", barX + barW * ghost - 1, sy + 3, 2, 12)
         end
-        Kit.text(stat.text(type(value) == "number" and value % 1 ~= 0 and value or math.floor(value), player), 13, pv.x + pv.w - 26, sy, better and Kit.GREEN or Kit.INK, 0.8 * pe, "right")
+        Kit.text(stat.text(type(value) == "number" and value % 1 ~= 0 and value or math.floor(value), player), 13, pv.x + pv.w - 26, sy, tint, 0.8 * pe, "right")
         sy = sy + 30
     end
 end

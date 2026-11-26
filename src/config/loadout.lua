@@ -6,10 +6,14 @@ local LOADOUT = {
         { id = "extended", name = "Extended mag", text = "+50% magazine", magazine = 1.5 },
         { id = "hands", name = "Fast hands", text = "Reload 35% faster", reloadTicks = 0.65 },
         { id = "steady", name = "Steady aim", text = "Half the spread", spread = 0.5 },
-        { id = "pouch", name = "Ammo pouch", text = "+50% spare ammo", reserve = 1.5 }
+        { id = "pouch", name = "Ammo pouch", text = "+50% spare ammo", reserve = 1.5 },
+        -- Trade-offs: each of these gives something and costs something.
+        { id = "drum", name = "Drum mag", text = "Double mag, 50% slower reload", magazine = 2, reloadTicks = 1.5 },
+        { id = "hair", name = "Hair trigger", text = "+25% fire rate, more spread", fireTicks = 0.8, spread = 1.35 },
+        { id = "heavy", name = "Heavy rounds", text = "+25% damage, fires slower", damage = 1.25, fireTicks = 1.25 }
     },
-    gadgets = { "none", "smoke", "flash", "decoy" },
-    gadgetLabels = { "None", "Smoke", "Flash", "Decoy" },
+    gadgets = { "none", "smoke", "flash", "decoy", "stim", "shock" },
+    gadgetLabels = { "None", "Smoke", "Flash", "Decoy", "Stim", "Shock" },
     spawn = { "pistol", "own", "preset" },
     spawnLabels = { "Pistol", "Own loadout", "Same for all" }
 }

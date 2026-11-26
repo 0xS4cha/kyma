@@ -198,6 +198,9 @@ function Bot:command(world)
         if self.seenFor == skill.reaction and (me.gadgets or 0) > 0 and (me.gadget == "smoke" or me.gadget == "flash") and self.rng:random() < 0.6 then
             command.x = 1
         end
+        if self.seenFor == skill.reaction and (me.gadgets or 0) > 0 and me.gadget == "shock" and range < 260 and self.rng:random() < 0.6 then
+            command.x = 1
+        end
     elseif self.lastSeen then
         if distance(me.x, me.y, self.lastSeen.x, self.lastSeen.y) < 40 then
             self.lastSeen = nil
@@ -205,6 +208,10 @@ function Bot:command(world)
             desired = self:steer(world, me, self.lastSeen.x, self.lastSeen.y)
             command.f = 1
         end
+    end
+
+    if not sees and me.gadget == "stim" and (me.gadgets or 0) > 0 and me.hp <= 55 then
+        command.x = 1
     end
 
     if not desired then

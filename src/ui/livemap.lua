@@ -14,6 +14,18 @@ local PAD = 8
 local MARGIN = 24
 local CARD_H = 112      -- hauteur des cartes du bas (vie / arme)
 local GADGET_H = 40 + 12
+local SCAN_H = 40 + 10  -- carte du scan, au-dessus de la carte gadget
+local GameConfig = require("src.config.game")
+
+--- Un scan est en cours : la mini-map s'affiche même si elle est désactivée.
+--- @param session table
+--- @return boolean
+function Livemap.scanning(session)
+    local world = session.world
+    if not world then return false end
+    if world.scanAt and love.timer.getTime() - world.scanAt < GameConfig.scan.sweep + 0.3 then return true end
+    return world.scans ~= nil and next(world.scans) ~= nil
+end
 
 --- @return table
 local function options()
@@ -52,7 +64,7 @@ end
 --- @return number? x, number? y, number? w, number? h
 function Livemap.box(session)
     local opt = options()
-    if not Livemap.enabled(opt) or not session.world then return nil end
+    if not session.world or (not Livemap.enabled(opt) and not Livemap.scanning(session)) then return nil end
     local w, h = Livemap.size(session)
     local W, H = love.graphics.getDimensions()
     local pos = opt.minimapPos or 1
@@ -65,7 +77,7 @@ function Livemap.box(session)
     else
         y = H - MARGIN - CARD_H - 12 - h
         -- à droite, la carte se place au-dessus de la carte gadget
-        if not left then y = y - GADGET_H end
+        if not left then y = y - GADGET_H - SCAN_H end
     end
     return x, y, w, h
 end
@@ -157,6 +169,47 @@ function Livemap.draw(session, x, y)
                 if opt.minimapAllies then arrow(p.x * scale, p.y * scale, p.angle, 5, Kit.ALLY, alpha) end
             elseif opt.minimapEnemies and (p.spotted or world.spectator) then
                 Kit.dot(p.x * scale, p.y * scale, 4, Kit.RED, alpha)
+            end
+        end
+    end
+
+    -- scan : un anneau part du joueur, et chaque ennemi apparaît en point rouge
+    -- quand l'anneau l'atteint (le son "blip" part au même moment).
+    local now = love.timer.getTime()
+    local sweep = GameConfig.scan.sweep
+    if world.scanAt and me and now - world.scanAt < sweep + 0.3 then
+        local t = math.min(1, (now - world.scanAt) / sweep)
+        local r = GameConfig.scan.radius * scale * (1 - (1 - t) ^ 2)
+        local fade = 1 - math.max(0, (now - world.scanAt - sweep) / 0.3)
+        lg.setColor(Kit.RED[1], Kit.RED[2], Kit.RED[3], 0.12 * fade * alpha)
+        lg.circle("fill", me.x * scale, me.y * scale, r)
+        lg.setLineWidth(2)
+        lg.setColor(Kit.RED[1], Kit.RED[2], Kit.RED[3], 0.85 * fade * alpha)
+        lg.circle("line", me.x * scale, me.y * scale, r)
+        lg.setLineWidth(1)
+    end
+    if world.scans then
+        local pulse = 0.7 + 0.3 * math.sin(now * 10)
+        -- en mode "Follow me", les points hors du cadre restent collés au bord
+        local edgeR = follow and (math.min(mw, mh) / 2 - 5) or nil
+        for _, dot in pairs(world.scans) do
+            if now >= dot.born then
+                local fade = math.max(0, math.min(1, (dot.ends - now) / 0.6))
+                local age = now - dot.born
+                local grow = Kit.easeOutBack(math.min(1, age / 0.22))
+                local px, py = dot.x * scale, dot.y * scale
+                if edgeR and me then
+                    local dx, dy = px - me.x * scale, py - me.y * scale
+                    local d = math.sqrt(dx * dx + dy * dy)
+                    if d > edgeR then px, py = me.x * scale + dx / d * edgeR, me.y * scale + dy / d * edgeR end
+                end
+                if age < 0.4 then
+                    local k = age / 0.4
+                    lg.setColor(Kit.RED[1], Kit.RED[2], Kit.RED[3], (1 - k) * alpha)
+                    lg.circle("line", px, py, 4 + 10 * k)
+                end
+                Kit.dot(px, py, 7 * grow, Kit.RED, 0.25 * fade * alpha)
+                Kit.dot(px, py, 4 * grow, Kit.RED, pulse * fade * alpha)
             end
         end
     end

@@ -27,7 +27,8 @@ function Inputs.sanitize(raw)
         t = raw.t == 1 and 1 or 0,
         e = raw.e == 1 and 1 or 0,
         k = raw.k == 1 and 1 or 0,
-        x = raw.x == 1 and 1 or 0
+        x = raw.x == 1 and 1 or 0,
+        y = raw.y == 1 and 1 or 0
     }
 end
 

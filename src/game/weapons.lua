@@ -49,7 +49,7 @@ function Weapons.unpack(value)
     return value and Config.order[value] or nil
 end
 
-local INTEGER = { magazine = true, reserve = true, reloadTicks = true }
+local INTEGER = { magazine = true, reserve = true, reloadTicks = true, fireTicks = true, damage = true }
 
 --- @param p table
 --- @param key string
@@ -64,7 +64,7 @@ function Weapons.stat(p, key)
         local factor = mod and mod[key]
         if factor and value then
             value = value * factor
-            if INTEGER[key] then value = math.floor(value + 0.5) end
+            if INTEGER[key] then value = math.max(1, math.floor(value + 0.5)) end
         end
     end
     return value
@@ -154,7 +154,7 @@ function Weapons.update(p, input)
         return false
     end
     p.ammo = p.ammo - 1
-    p.fireCooldown = def.fireTicks
+    p.fireCooldown = Weapons.stat(p, "fireTicks")
     if p.ammo == 0 and p.reserve > 0 then
         p.reload = Weapons.stat(p, "reloadTicks")
     end
@@ -180,7 +180,7 @@ function Weapons.rays(p, sequence)
     local list = {}
     for k = 1, def.pellets do
         local angle = p.angle + Weapons.stat(p, "spread") * noise(p.slot, sequence, k)
-        list[k] = { x = mx, y = my, dx = cos(angle), dy = sin(angle), range = def.range }
+        list[k] = { x = mx, y = my, dx = cos(angle), dy = sin(angle), range = Weapons.stat(p, "range") }
     end
     return list
 end

@@ -59,7 +59,8 @@ end
 --- @param name string
 --- @param gain number?
 --- @param pan number?
-function GM.Audio:Play(name, gain, pan)
+--- @param pitch number?
+function GM.Audio:Play(name, gain, pan, pitch)
     if not self.enabled then return end
     local master = self:Master()
     if master <= 0 or (gain or 1) <= 0.01 then return end
@@ -71,7 +72,7 @@ function GM.Audio:Play(name, gain, pan)
     if not voice then return end
     self.lastPlayed[name] = now
     local jitter = entry.recipe.jitter or 0
-    voice:setPitch(1 + (love.math.random() * 2 - 1) * jitter)
+    voice:setPitch((pitch or 1) * (1 + (love.math.random() * 2 - 1) * jitter))
     voice:setVolume(math.min(1, (entry.recipe.volume or 1) * (gain or 1) * master))
     voice:setRelative(true)
     voice:setPosition(math.max(-1, math.min(1, pan or 0)), 0, 0)

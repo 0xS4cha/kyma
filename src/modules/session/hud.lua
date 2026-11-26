@@ -92,6 +92,7 @@ end
 --- @param y number
 --- @param kind string
 function Hud:noise(x, y, kind)
+    if kind == "scan" then self.scannedAt = love.timer.getTime() end
     self.noises[#self.noises + 1] = { x = x, y = y, kind = kind, time = love.timer.getTime() }
     if #self.noises > 12 then table.remove(self.noises, 1) end
 end
@@ -806,6 +807,54 @@ function Hud:drawGadget(session)
     return kw
 end
 
+local function edge(session, x, y)
+    local W, H = love.graphics.getDimensions()
+    local camera = session.camera
+    local ax, ay = camera:anchor()
+    local inset = 56
+    local sx, sy = camera:toScreen(x, y)
+    if sx >= inset and sx <= W - inset and sy >= inset and sy <= H - inset then return nil end
+    local dx, dy = sx - ax, sy - ay
+    local scale = math.huge
+    if dx > 0 then scale = min(scale, (W - inset - ax) / dx) end
+    if dx < 0 then scale = min(scale, (inset - ax) / dx) end
+    if dy > 0 then scale = min(scale, (H - inset - ay) / dy) end
+    if dy < 0 then scale = min(scale, (inset - ay) / dy) end
+    return ax + dx * scale, ay + dy * scale, math.atan2(dy, dx)
+end
+
+--- The scan button: its key, and how long until it is ready again.
+--- @param session table
+function Hud:drawScan(session)
+    local me = session.world.me
+    if me.dead > 0 then return end
+    local W, H = love.graphics.getDimensions()
+    local w, h = 300, 40
+    local x, y = W - MARGIN - w, H - MARGIN - 112 - 12 - h
+    if me.gadget then y = y - h - 10 end
+    local left = (me.scanCooldown or 0) / Config.tickRate
+    local ready = left <= 0
+    card(x, y, w, h, 1, 12)
+    hint(Keys.label("scan"), "Scan", x + 14, y + 8, ready and 1 or 0.35, 14)
+    if ready then
+        text("ready", 13, x + w - 16, y + 12, GREEN, 0.9, "right")
+    else
+        local fill = 1 - (me.scanCooldown or 0) / Config.scan.cooldown
+        bar(x + w - 120, y + h / 2 - 2, 60, 4, clamp(fill, 0, 1), INK, 0.8)
+        text(math.ceil(left) .. " s", 13, x + w - 16, y + 12, INK, 0.6, "right")
+    end
+end
+
+--- Tells us an enemy just scanned us.
+function Hud:drawScannedWarning()
+    if not self.scannedAt then return end
+    local age = love.timer.getTime() - self.scannedAt
+    if age > 2 then return end
+    local W = love.graphics.getWidth()
+    local a = clamp(min(age / 0.15, (2 - age) / 0.4), 0, 1)
+    text("You were scanned", 16, 0, 118, RED, a * (0.75 + 0.25 * sin(age * 14)), "center", W)
+end
+
 function Hud:drawWeapon(session)
     local me = session.world.me
     local W, H = love.graphics.getDimensions()
@@ -1081,22 +1130,6 @@ function Hud:drawDamage(session)
     lg.setLineWidth(1)
 end
 
-local function edge(session, x, y)
-    local W, H = love.graphics.getDimensions()
-    local camera = session.camera
-    local ax, ay = camera:anchor()
-    local inset = 56
-    local sx, sy = camera:toScreen(x, y)
-    if sx >= inset and sx <= W - inset and sy >= inset and sy <= H - inset then return nil end
-    local dx, dy = sx - ax, sy - ay
-    local scale = math.huge
-    if dx > 0 then scale = min(scale, (W - inset - ax) / dx) end
-    if dx < 0 then scale = min(scale, (inset - ax) / dx) end
-    if dy > 0 then scale = min(scale, (H - inset - ay) / dy) end
-    if dy < 0 then scale = min(scale, (inset - ay) / dy) end
-    return ax + dx * scale, ay + dy * scale, math.atan2(dy, dx)
-end
-
 function Hud:drawSpotted(session)
     local lg = love.graphics
     local pulse = 0.6 + 0.4 * sin(love.timer.getTime() * 6)
@@ -1157,8 +1190,9 @@ function Hud:drawNoises(session)
         local px, py, angle = edge(session, noise.x, noise.y)
         if px then
             local t = (now - noise.time) / NOISE_LIFE
-            local c = noise.kind == "shot" and RED or INK
-            local size = noise.kind == "shot" and 12 or 9
+            local loud = noise.kind == "shot" or noise.kind == "scan"
+            local c = loud and RED or INK
+            local size = loud and 12 or 9
             lg.push()
             lg.translate(px, py)
             lg.rotate(angle)
@@ -1237,6 +1271,7 @@ function Hud:drawHelp(session)
         { Keys.label("throw"), "Throw your weapon" },
         { Keys.label("ping"), "Ping, also middle click" },
         { Keys.label("gadget"), "Use your gadget" },
+        { Keys.label("scan"), "Scan for nearby enemies" },
         { Keys.label("pickup"), "Swap with a weapon on the floor" },
         { Keys.label("scoreboard"), "Hold for the scoreboard" },
         { Keys.label("ready"), "Ready up during the warmup" },
@@ -1417,6 +1452,8 @@ function Hud:draw(session)
         self:drawMinimap(session)
         self:drawWeapon(session)
         self:drawGadget(session)
+        self:drawScan(session)
+        self:drawScannedWarning()
         self:drawPrompt()
         self:drawFeed(session, self:drawStats(session))
         self:drawDeath(session)

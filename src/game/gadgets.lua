@@ -28,6 +28,15 @@ end
 --- @return table?
 function Gadgets.use(world, p)
     if not p.gadget or (p.gadgets or 0) <= 0 or p.dead > 0 or p.hp <= 0 or p.dash > 0 then return nil end
+    local def = Config[p.gadget]
+    if def.self then
+        if p.gadget == "stim" and p.hp >= GameConfig.health then return nil end
+        p.gadgets = p.gadgets - 1
+        p.stim = def.heal * def.every
+        Combat.noise(world, "throw", p.x, p.y, p.slot)
+        world.events[#world.events + 1] = { kind = "stim", o = p.slot, x = math.floor(p.x), y = math.floor(p.y) }
+        return { kind = p.gadget, owner = p.slot, self = true }
+    end
     p.gadgets = p.gadgets - 1
     local ca, sa = cos(p.angle), sin(p.angle)
     local x, y = world.arena:resolve(p.x + ca * 16, p.y + sa * 16, Config.radius)
@@ -70,6 +79,44 @@ function Gadgets.flash(world, x, y)
     end
 end
 
+--- @param world table
+--- @param x number
+--- @param y number
+function Gadgets.shock(world, x, y)
+    local def = Config.shock
+    for _, p in pairs(world.players) do
+        if p.dead == 0 and p.hp > 0 then
+            local dx, dy = x - p.x, y - p.y
+            if dx * dx + dy * dy < def.radius * def.radius and clear(world.arena, p.x, p.y, x, y) then
+                p.stun = max(p.stun or 0, def.stun)
+            end
+        end
+    end
+end
+
+--- Scan the enemies around `p`: their positions at this moment are kept for a
+--- few seconds and shown to `p` and its team.
+--- @param world table
+--- @param p table
+--- @return boolean
+function Gadgets.scan(world, p)
+    local def = GameConfig.scan
+    if p.dead > 0 or p.hp <= 0 or (p.scanCooldown or 0) > 0 then return false end
+    local dots = {}
+    for slot, other in pairs(world.players) do
+        if other.dead == 0 and other.hp > 0 and world:enemies(p.slot, slot) then
+            local dx, dy = other.x - p.x, other.y - p.y
+            if dx * dx + dy * dy <= def.radius * def.radius then
+                dots[#dots + 1] = { x = math.floor(other.x), y = math.floor(other.y) }
+            end
+        end
+    end
+    p.scanCooldown = def.cooldown
+    p.scanDots, p.scanTicks = dots, def.reveal
+    Combat.noise(world, "scan", p.x, p.y, p.slot)
+    return true
+end
+
 local function detonate(world, gadget)
     if gadget.kind == "smoke" then
         world.smokes[#world.smokes + 1] = { x = gadget.x, y = gadget.y, r = 0, ticks = Config.smoke.ticks }
@@ -83,6 +130,10 @@ local function detonate(world, gadget)
             x = gadget.x, y = gadget.y, owner = gadget.owner, weapon = gadget.weapon or "pistol",
             ticks = Config.decoy.ticks, timer = 0, seed = gadget.id
         }
+    elseif gadget.kind == "shock" then
+        Gadgets.shock(world, gadget.x, gadget.y)
+        world.events[#world.events + 1] = { kind = "shock", x = math.floor(gadget.x), y = math.floor(gadget.y) }
+        Combat.noise(world, "throw", gadget.x, gadget.y, gadget.owner)
     end
 end
 
@@ -139,6 +190,20 @@ function Gadgets.update(world)
     for _, p in pairs(world.players) do
         if (p.blind or 0) > 0 then p.blind = p.blind - 1 end
         if p.dead > 0 then p.blind = 0 end
+        if (p.stim or 0) > 0 then
+            if p.dead > 0 or p.hp <= 0 then
+                p.stim = 0
+            else
+                p.stim = p.stim - 1
+                if p.stim % Config.stim.every == 0 then p.hp = math.min(GameConfig.health, p.hp + 1) end
+                if p.hp >= GameConfig.health then p.stim = 0 end
+            end
+        end
+        if (p.scanCooldown or 0) > 0 then p.scanCooldown = p.scanCooldown - 1 end
+        if (p.scanTicks or 0) > 0 then
+            p.scanTicks = p.scanTicks - 1
+            if p.scanTicks <= 0 then p.scanDots = nil end
+        end
     end
 end
 

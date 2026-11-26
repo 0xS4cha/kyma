@@ -69,7 +69,7 @@ function AntiCheat.validate(player, previous, world)
             return invalid("reload", player.reload)
         end
         if not finite(player.fireCooldown) or player.fireCooldown ~= math.floor(player.fireCooldown)
-            or player.fireCooldown < 0 or player.fireCooldown > def.fireTicks then
+            or player.fireCooldown < 0 or player.fireCooldown > Weapons.stat(player, "fireTicks") then
             return invalid("fireCooldown", player.fireCooldown)
         end
     end

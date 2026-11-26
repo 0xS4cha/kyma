@@ -273,10 +273,20 @@ local function drawMod(gun, mod, angle)
         for k = -1, 1 do
             segment(BRASS, px + k * 2.4, py - 1.6, px + k * 2.4, py - 3.4, 1.3, 1, angle)
         end
+    elseif mod == "heavy" then
+        segment(BRASS, b[2] - 2, LINE, b[2] - 0.4, LINE, b[3] * 1.5, b[4] * 1.5, angle)
+    elseif mod == "hair" then
+        local gx = gun.left[1] + 1
+        segment({ 0.88, 0.14, 0.12 }, gx, LINE + 1.2, gx + 0.4, LINE + 3.6, 1.4, 1.2, angle)
     end
 end
 
 local function drawMag(m, mod, angle)
+    if mod == "drum" then
+        local dx, dy = m[3] - m[1], m[4] - m[2]
+        segment(GUN, m[1], m[2], m[1] + dx * 1.25, m[2] + dy * 1.25, m[5] * 2.3, m[6] * 2.3, angle)
+        return
+    end
     if mod == "extended" then
         local dx, dy = m[3] - m[1], m[4] - m[2]
         segment(GUN, m[1], m[2], m[1] + dx * 1.9, m[2] + dy * 1.9, m[5], m[6] * 1.1, angle)
