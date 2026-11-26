@@ -60,6 +60,8 @@ The land is shaped by noise rather than a grid. Elevation makes lakes in the hol
 | Military | Fenced camps with bunkers, weapon cases and ammo crates (tiers 3 and 4) |
 | Citadel | The fortress in the very centre, where the Warden may appear |
 
+You can tell the danger by sight: the deeper you go, the darker and redder the ground (and the map), a red dashed line with chevrons marks where it goes up, and a banner tells you when you cross into an easier or a harder area. Street lamps stand along the roads, alternating sides, each with a pool of light; they are only drawn, worked out from the roads, so they block nothing.
+
 Players arrive at the gates on the map edges or on roads near them; extraction points sit at gates and on a few roads further in. The world is generated from a seed: the server sends only the seed, and every client rebuilds the same map.
 
 ## Items and rarities
@@ -106,7 +108,7 @@ Nests across the map wake up when a player comes within 2 600 units and go back 
 | Sentinel | Armored machine that fires bursts (industrial and military areas) |
 | The Warden | Event boss: armored, fires long bursts, summons crawlers, drops mythic loot |
 
-Monsters see all around them, hear gunshots, footsteps and explosions, and find their way around walls. Doors open for them too.
+Monsters are drawn like the players, with the same faceted body, head and feet, each in its own colour and size, with coloured eyes; sentinels carry a rifle and the Warden a machine gun. Monsters see all around them, hear gunshots, footsteps and explosions, and find their way around walls. Doors open for them too.
 
 ## Random events
 
@@ -131,7 +133,7 @@ Command line flags for testing: `--extraction` joins the mode (with `--connect h
 
 ## Art
 
-The world, the characters and the monsters use the game's own drawing style. Most item icons come from Kenney's [Generic Items](https://kenney.nl/assets/generic-items) pack, CC0 (`assets/kenney/items`, license alongside); weapons use the gun models of the rest of the game (each of the 36 weapons borrows the model, sound and recoil of the closest of the 11 game guns), and attachments, armor and the rest are drawn in the same flat style by `src/modules/extraction/icons.lua`.
+The world, the characters and the monsters use the game's own drawing style, and the land uses the arenas' palette: cool greys from the theme (light or dark), white tops and blue-grey shadows. Areas are only a little lighter or darker, water is a pale blue-grey, roads are grey with white dashes, and trees, rocks, cars and shipping containers are greys with now and then a red one. Most item icons come from Kenney's [Generic Items](https://kenney.nl/assets/generic-items) pack, CC0 (`assets/kenney/items`, license alongside); weapons use the gun models of the rest of the game (each of the 36 weapons borrows the model, sound and recoil of the closest of the 11 game guns), and attachments, armor and the rest are drawn in the same flat style by `src/modules/extraction/icons.lua`.
 
 ## How it works
 

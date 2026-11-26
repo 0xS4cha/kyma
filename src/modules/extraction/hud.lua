@@ -35,22 +35,24 @@ function Hud.mapCanvas(def)
     for k, chunk in ipairs(def.chunks) do
         local cx, cy = (k - 1) % def.count, floor((k - 1) / def.count)
         local c = Worldgen.BIOMES[chunk.biome].color
-        local danger = (chunk.tier - 1) * 0.04
-        lg.setColor(c[1] - danger, c[2] - danger * 1.4, c[3] - danger * 1.4)
+        -- darker and redder the deeper the danger, like the ground in the world
+        local d = (chunk.tier - 1) / 3
+        local red = Kit.RED
+        lg.setColor(c[1] * (1 - 0.3 * d) + red[1] * 0.2 * d, c[2] * (1 - 0.3 * d) + red[2] * 0.2 * d, c[3] * (1 - 0.3 * d) + red[3] * 0.2 * d)
         lg.rectangle("fill", cx * def.chunk, cy * def.chunk, def.chunk + 1, def.chunk + 1)
     end
-    lg.setColor(0.42, 0.42, 0.44)
+    lg.setColor(0.6, 0.63, 0.68)
     lg.setLineWidth(260)
     for _, r in ipairs(def.roads) do
         lg.line(r[1], r[2], r[3], r[4])
         lg.circle("fill", r[1], r[2], 130)
     end
     lg.setLineWidth(1)
-    lg.setColor(0.3, 0.42, 0.56)
+    lg.setColor(0.5, 0.6, 0.72)
     for _, pit in ipairs(def.pits) do lg.rectangle("fill", pit.x, pit.y, pit.w, pit.h) end
     lg.setColor(0.24, 0.25, 0.28)
     for _, wall in ipairs(def.walls) do lg.rectangle("fill", wall.x, wall.y, max(wall.w, 30), max(wall.h, 30)) end
-    lg.setColor(0.42, 0.4, 0.38)
+    lg.setColor(0.5, 0.53, 0.58)
     for _, cover in ipairs(def.cover) do lg.rectangle("fill", cover.x, cover.y, max(cover.w, 30), max(cover.h, 30)) end
     lg.pop()
     maps[def.seed] = canvas
