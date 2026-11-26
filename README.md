@@ -159,6 +159,23 @@ Settings > Appearance turns the whole game around, from the floor and the fog to
 - **Dedicated servers**: `love . --server`, a Docker image or a Pterodactyl egg.
 - **Spectating**: watch any game, or fill a map with bots and watch them play.
 - **Chat**, team chat, and a pause that really pauses when you practice alone.
+- **42 games**: on a 42 school computer, the host can tick **42 only** next to the password in Play > Host a game. Only 42 students can join or watch, and everyone plays under their 42 login. See [42 games](#42-games).
+
+### 42 games
+
+The game recognizes a 42 computer from its hostname (`src/net/school.lua`):
+
+- **Hostname**: read from LuaSocket's `socket.dns.gethostname()` (resolved to the full name when it has no domain), then `$HOSTNAME`, then `/etc/hostname`. It counts as 42 when it ends with a school domain (`.42.fr`, `.42lyon.fr`, `.42madrid.com`...) or looks like a cluster computer (`z4r11p1`, `e1r2p3`).
+- **Login**: the session user, `$USER` (or `$LOGNAME`), which on the school computers is the 42 login. It must be 2 to 24 characters of lowercase letters, digits, `-` and `_`.
+
+On a 42 computer, the client sends `{ login, host }` in its `hello`. The server checks both again and remembers the login. A game hosted with **42 only**:
+
+- can only be opened by a 42 student;
+- turns away anyone else, players and spectators, with "This game is only for 42 students";
+- renames every player to their login while they are in it, and gives them their own name back when they leave;
+- is never picked by a quick join or a random spectate, and shows a **42 only** badge in the server browser and on the LAN.
+
+The client declares where it runs, so a modified client could pass for a 42 computer: it keeps a game among 42 students, it does not authenticate them.
 
 ### Extraction
 

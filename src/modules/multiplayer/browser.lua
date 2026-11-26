@@ -93,7 +93,7 @@ function Browser:receive(data)
             games[#games + 1] = {
                 address = self.address, room = tonumber(game.id),
                 name = type(game.t) == "string" and game.t or ("Game " .. game.id),
-                mode = game.m, map = game.map, locked = game.lk == true, phase = game.ph,
+                mode = game.m, map = game.map, locked = game.lk == true, school = game.s42 == true, phase = game.ph,
                 players = tonumber(game.p) or 0, max = tonumber(game.x) or 0, watchers = tonumber(game.w) or 0
             }
         end

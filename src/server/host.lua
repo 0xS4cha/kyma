@@ -5,6 +5,7 @@ local Config = require("src.net.config")
 local Profile = require("src.config.profile")
 local GameConfig = require("src.config.game")
 local Identity = require("src.net.identity")
+local School = require("src.net.school")
 local Text = require("src.core.text")
 local Maps = require("src.maps.index")
 local Ratings = require("src.server.ratings")
@@ -140,11 +141,19 @@ function Host:RoomCount()
     return count
 end
 
+--- Players of a 42 game play under their login, everywhere else under the name they picked.
+--- @param client table
+--- @param room table?
+function Host.nameIn(client, room)
+    client.name = room and room.school and client.login or client.nick or client.name
+end
+
 function Host:leaveRoom(client)
     self.matchmaker:Remove(client)
     local room = client.room
     if not room then return end
     room:Remove(client)
+    Host.nameIn(client, nil)
     if room:Empty() then
         self.rooms[room.id] = nil
         if room.tournament then room.closing = 0 end
@@ -168,12 +177,18 @@ end
 function Host:hostRoom(client, options)
     local mode = GameConfig.modes[options.mode or ""] and options.mode or "duel"
     local map = type(options.map) == "string" and options.map or nil
+    local school = options.school == true
+    if school and not client.login then
+        client:Send("error", { message = "Only 42 students can open a 42 game", fatal = true })
+        return
+    end
     local title = Text.clean(options.title, Config.titleLength) or ""
-    if title == "" then title = client.name .. "'s game" end
+    if title == "" then title = (school and client.login or client.name) .. "'s game" end
     local password = Text.clean(options.password, Config.passwordLength)
     if password == "" then password = nil end
-    local room = self:CreateRoom({ mode = mode, map = map, rules = options.rules, hosted = true, title = title, password = password })
-    Logger:info("server", string.format("%s hosts room %d (%s)%s", client.name, room.id, mode, password and " with a password" or ""))
+    local room = self:CreateRoom({ mode = mode, map = map, rules = options.rules, hosted = true, title = title, password = password, school = school })
+    Logger:info("server", string.format("%s hosts room %d (%s)%s%s", client.name, room.id, mode, password and " with a password" or "", school and " for 42 students" or ""))
+    Host.nameIn(client, room)
     local ok, err = room:Add(client)
     if not ok then client:Send("error", { message = err }) end
 end
@@ -187,17 +202,25 @@ function Host:joinRoom(client, options)
         client:Send("error", { message = "This game is over" })
         return
     end
+    if room.school and not client.login then
+        client:Send("error", { message = "This game is only for 42 students", school = true })
+        return
+    end
     local password = Text.clean(options.password, Config.passwordLength)
     if not room:Opens(password) then
         client:Send("error", { message = password and password ~= "" and "Wrong password" or "This game needs a password", password = true })
         return
     end
+    Host.nameIn(client, room)
     if options.spectate == true or room:Full() then
         room:Watch(client)
         return
     end
     local ok, err = room:Add(client)
-    if not ok then client:Send("error", { message = err }) end
+    if not ok then
+        Host.nameIn(client, nil)
+        client:Send("error", { message = err })
+    end
 end
 
 function Host:matchmake(client, options)
@@ -213,7 +236,7 @@ function Host:matchmake(client, options)
         local watched
         for _, room in pairs(self.rooms) do
             local fits = (not mode or room.mode == mode) and (not map or room.map == map)
-            if fits and not room.practice and not room:Locked() and room:Count() > 0 and (not watched or room.id < watched.id) then
+            if fits and not room.practice and not room:Locked() and not room.school and room:Count() > 0 and (not watched or room.id < watched.id) then
                 watched = room
             end
         end
@@ -230,7 +253,7 @@ function Host:matchmake(client, options)
     local best
     for _, room in pairs(self.rooms) do
         local fits = (not mode or room.mode == mode) and (not map or room.map == map)
-        if not practice and not room.practice and not room.matched and not room.tournament and not room:Locked() and fits and not room:Full() and (not best or room.id < best.id) then
+        if not practice and not room.practice and not room.matched and not room.tournament and not room:Locked() and not room.school and fits and not room:Full() and (not best or room.id < best.id) then
             best = room
         end
     end
@@ -254,11 +277,13 @@ function Host:bind()
             return
         end
         local name = type(data.name) == "string" and data.name:gsub("[%c]", ""):sub(1, 24) or ""
-        client.name = name ~= "" and name or "Player"
+        client.nick = name ~= "" and name or "Player"
+        client.login = School.verify(data.school)
+        Host.nameIn(client, client.room)
         client.look = Profile.sanitize(data.look)
         client.loadout = require("src.config.loadout").sanitize(data.kit)
         client.key = Identity.key(data.token)
-        local welcome = { id = client.id, server = self:Info() }
+        local welcome = { id = client.id, server = self:Info(), login = client.login }
         if client.key then welcome.rating = self.ratings:Get(client.key) end
         client:Send("welcome", welcome)
     end)

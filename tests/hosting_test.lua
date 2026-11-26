@@ -94,5 +94,50 @@ return {
                 assert(list[1].p == 2 and list[1].ph == "playing")
             end)
         end
+    },
+    {
+        name = "a 42 game only lets in 42 students, under their login",
+        run = function()
+            local port = 6884
+            local server = Host({ address = "127.0.0.1", port = port, maxPeers = 8 })
+            assert(server:Start())
+            local a = NetKit.client(port, "Alice", { school = { login = "alogin", host = "z4r11p1.42lyon.fr" } })
+            local b = NetKit.client(port, "Bob", { school = { login = "bob", host = "bobs-laptop" } })
+            local c = NetKit.client(port, "Carol", { school = { login = "clogin", host = "e1r2p3.42.fr" } })
+            local d = NetKit.client(port, "Dan")
+            local e = NetKit.client(port, "Eve")
+            a.queue = { host = true, mode = "ffa", school = true }
+            e.queue = { host = true, mode = "ffa", school = true }
+            NetKit.run(server, { a, b, c, d, e }, function()
+                NetKit.pump(server, { a, e }, 0.3)
+                local room = server.rooms[a.room]
+                assert(room and room.school and room.title == "alogin's game", "a 42 game named after the host's login")
+                assert(not e.room and NetKit.last(e, "error"), "only 42 students can open one")
+                b.queue = { room = room.id }
+                c.queue = { room = room.id }
+                d.queue = { mode = "ffa" }
+                NetKit.pump(server, { a, b, c, d }, 0.4)
+                assert(not b.room and NetKit.last(b, "error").school, "a computer outside 42 is turned away")
+                assert(c.room == room.id, "a 42 student joins")
+                assert(d.room and d.room ~= room.id, "a quick join never lands in a 42 game")
+                local names = {}
+                for _, member in ipairs(room.members) do names[member.name] = true end
+                assert(names.alogin and names.clogin and not names.Alice and not names.Carol, "everyone plays under their login")
+                NetKit.send(d, "rooms", { v = NetConfig.version })
+                NetKit.pump(server, { a, c, d }, 0.2)
+                local listed
+                for _, game in ipairs(NetKit.last(d, "rooms").list) do
+                    if game.id == room.id then listed = game end
+                end
+                assert(listed and listed.s42, "the browser shows it as a 42 game")
+                NetKit.send(c, "leave")
+                NetKit.pump(server, { a, c }, 0.2)
+                local carol
+                for _, client in pairs(server.server.clients) do
+                    if client.nick == "Carol" then carol = client end
+                end
+                assert(carol and carol.name == "Carol", "back to the picked name after leaving")
+            end)
+        end
     }
 }
