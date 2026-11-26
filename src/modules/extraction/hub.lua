@@ -15,6 +15,8 @@ local lg = love.graphics
 local floor, min, max = math.floor, math.min, math.max
 
 local TABS = { "Workbench", "Record" }
+local KIND_NAMES = { weapon = "Weapon", mod = "Attachment", utility = "Utility", armor = "Armor", backpack = "Backpack", ammo = "Ammunition" }
+local RARITY_LETTERS = { "C", "U", "R", "E", "L", "M" }
 local CRAFT_FILTERS = { { "All" }, { "Weapons", "weapon" }, { "Mods", "mod" }, { "Utilities", "utility" }, { "Gear", "armor", "backpack" }, { "Ammo", "ammo" } }
 
 --- "3 screws, 1 circuit board" for a list of materials.
@@ -93,19 +95,34 @@ function Hub.places(data)
     return Inventory.places(data.g, { st = { kind = "grid", w = Config.stash.w, h = Config.stash.h, list = data.stash } })
 end
 
+--- The share of raids you came back from, nil before the first one.
+local function survival(s)
+    local raids = s.raids or 0
+    if raids == 0 then return nil end
+    return floor((s.extracts or 0) / raids * 100 + 0.5)
+end
+
 local function stats(data, x, y, w)
     Kit.text("Your record on this server", 13, x, y - 30, Kit.INK, 0.55)
     local s = data.stats or {}
-    local lines = {
-        { "Raids", s.raids }, { "Extracted", s.extracts }, { "Deaths", s.deaths }, { "Players killed", s.kills },
-        { "Monsters killed", s.monsters }, { "Crafted", s.crafted }, { "Recycled", s.recycled }
+    local rate = survival(s)
+    local tiles = {
+        { rate and (rate .. "%") or "-", "Survival rate", rate and (rate >= 50 and Kit.GREEN or Kit.RED) or Kit.INK },
+        { s.raids, "Raids" }, { s.extracts, "Extracted", Kit.GREEN }, { s.deaths, "Deaths", Kit.RED },
+        { s.kills, "Players killed" }, { s.monsters, "Monsters killed" }, { s.crafted, "Crafted" }, { s.recycled, "Recycled" }
     }
-    for k, line in ipairs(lines) do
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], k % 2 == 0 and 0.03 or 0)
-        lg.rectangle("fill", x - 8, y + (k - 1) * 34 - 6, w + 16, 32, 6, 6)
-        Kit.text(line[1], 15, x, y + (k - 1) * 34, Kit.INK, 0.65)
-        Kit.text(tostring(line[2] or 0), 16, (x) + (w), y + (k - 1) * 34, Kit.INK, 0.95, "right")
+    local cols = 4
+    local gap = 10
+    local tw = (w - gap * (cols - 1)) / cols
+    for k, tile in ipairs(tiles) do
+        local tx = x + ((k - 1) % cols) * (tw + gap)
+        local ty = y + floor((k - 1) / cols) * (96 + gap)
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
+        lg.rectangle("fill", tx, ty, tw, 96, 12, 12)
+        Kit.text(tostring(tile[1] or 0), 30, tx, ty + 18, tile[3] or Kit.INK, 1, "center", tw)
+        Kit.text(tile[2], 12, tx, ty + 62, Kit.INK, 0.5, "center", tw)
     end
+    return 2 * (96 + gap)
 end
 
 local function workbench(state, ext, x, y, w, h)
@@ -113,9 +130,22 @@ local function workbench(state, ext, x, y, w, h)
     local zoneH = 64
     state.ui:zone("recycle", x, y + h - zoneH, w, zoneH, "Drop here to recycle into materials")
     if not state.ui.drag then
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
-        lg.rectangle("fill", x, y + h - zoneH, w, zoneH, 10, 10)
-        Kit.text("Recycle: drag an item here, or right click it. You get part of its recipe back, at its rarity.", 13, x, y + h - zoneH + 22, Kit.INK, 0.55, "center", w)
+        local zy = y + h - zoneH
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.03)
+        lg.rectangle("fill", x, zy, w, zoneH, 10, 10)
+        -- a dashed edge: a place to drop things on
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.25)
+        local dash = 10
+        for dx = x + 12, x + w - 12 - dash, dash * 2 do
+            lg.rectangle("fill", dx, zy, dash, 1.5)
+            lg.rectangle("fill", dx, zy + zoneH - 1.5, dash, 1.5)
+        end
+        for dy = zy + 12, zy + zoneH - 12 - dash, dash * 2 do
+            lg.rectangle("fill", x, dy, 1.5, dash)
+            lg.rectangle("fill", x + w - 1.5, dy, 1.5, dash)
+        end
+        Kit.text("RECYCLE", 12, x, zy + 14, Kit.RED, 0.9, "center", w)
+        Kit.text("Drag an item here, or right click it: you get part of its recipe back, at its rarity.", 12, x, zy + 34, Kit.INK, 0.55, "center", w)
     end
     h = h - zoneH - 12
     local names = {}
@@ -132,7 +162,7 @@ local function workbench(state, ext, x, y, w, h)
     local counts = {}
     for _, inst in ipairs(data.stash) do counts[inst.d] = (counts[inst.d] or 0) + (inst.n or 1) end
     local listW = floor(w * 0.45)
-    local rowH = 36
+    local rowH = 46
     local top = y + 50
     local visible = floor((h - 60) / rowH)
     state.craftScroll = max(0, min(state.craftScroll, #list - visible))
@@ -144,12 +174,21 @@ local function workbench(state, ext, x, y, w, h)
         local ry = top + (k - 1) * rowH
         local known = data.known[id]
         local rarity = ItemConfig.rarities[ItemConfig.rarities.order[known]]
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], state.selected == id and 0.1 or 0.03)
-        lg.rectangle("fill", x, ry, listW, rowH - 4, 6, 6)
-        Kit.color(rarity.color, 1)
-        lg.rectangle("fill", x, ry + 6, 4, rowH - 16, 2, 2)
-        Kit.text(def.name, 14, x + 14, ry + 8, Kit.INK, 0.9, "left", listW - 100)
-        if def.kind ~= "ammo" then Kit.text(rarity.name, 11, (x) + (listW - 10), ry + 11, rarity.color, 1, "right") end
+        local selected = state.selected == id
+        local mx, my = love.mouse.getPosition()
+        local hover = mx >= x and mx < x + listW and my >= ry and my < ry + rowH - 4
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], selected and 0.1 or (hover and 0.06 or 0.03))
+        lg.rectangle("fill", x, ry, listW, rowH - 4, 8, 8)
+        if selected then
+            Kit.color(Kit.RED, 1)
+            lg.rectangle("fill", x, ry + 8, 3, rowH - 20, 1.5, 1.5)
+        end
+        local shown = { i = -1, d = id, r = def.kind == "ammo" and 1 or known }
+        local iw = def.kind == "weapon" and 56 or 34
+        Icons.draw(shown, x + 10, ry + 4, iw, rowH - 12, 1)
+        Kit.text(def.name, 14, x + 20 + iw, ry + 5, Kit.INK, 0.9, "left", listW - iw - 110)
+        Kit.text(KIND_NAMES[def.kind] or "", 11, x + 20 + iw, ry + 23, Kit.INK, 0.45)
+        if def.kind ~= "ammo" then Kit.text(rarity.name, 11, (x) + (listW - 12), ry + 15, rarity.color, 1, "right") end
         state.buttons[#state.buttons + 1] = { x = x, y = ry, w = listW, h = rowH - 4, run = function() state.selected = id end }
     end
     if #list == 0 then Kit.text("No plan for this kind yet. Find plans in the world or buy them.", 13, x, top + 10, Kit.INK, 0.5, "left", listW) end
@@ -163,8 +202,13 @@ local function workbench(state, ext, x, y, w, h)
     local inst = { i = -1, d = id, r = r, n = def.kind == "ammo" and ItemConfig.yield(id) or nil }
     if def.kind == "armor" then inst.u = Items.armorStats(inst).durability end
     local size = 56
-    Icons.draw(inst, dx, top, min(dw, def.w * size), def.h * size)
-    local ty = top + def.h * size + 14
+    local rarity = Items.rarity(inst)
+    local boxH = def.h * size + 24
+    lg.setColor(rarity.color[1], rarity.color[2], rarity.color[3], 0.08)
+    lg.rectangle("fill", dx, top, dw, boxH, 12, 12)
+    local iw = min(dw - 24, def.w * size)
+    Icons.draw(inst, dx + (dw - iw) / 2, top + 12, iw, def.h * size)
+    local ty = top + boxH + 14
     local lines = UI.describe(inst)
     for k = 1, min(#lines, 6) do
         local line = lines[k]
@@ -174,12 +218,22 @@ local function workbench(state, ext, x, y, w, h)
     if def.kind ~= "ammo" then
         Kit.text("Rarity (your plan goes up to " .. ItemConfig.rarities[ItemConfig.rarities.order[known]].name:lower() .. ")", 12, dx, ty + 4, Kit.INK, 0.55)
         ty = ty + 24
-        for k = 1, known do
-            local rarity = ItemConfig.rarities[ItemConfig.rarities.order[k]]
+        for k = 1, #ItemConfig.rarities.order do
+            local tier = ItemConfig.rarities[ItemConfig.rarities.order[k]]
             local bx = dx + (k - 1) * 46
-            Kit.color(rarity.color, k == r and 1 or 0.35)
-            lg.rectangle("fill", bx, ty, 40, 24, 6, 6)
-            state.buttons[#state.buttons + 1] = { x = bx, y = ty, w = 40, h = 24, run = function() state.craftRarity[id] = k end }
+            local open = k <= known
+            Kit.color(tier.color, open and (k == r and 1 or 0.4) or 0.1)
+            lg.rectangle("fill", bx, ty, 40, 26, 7, 7)
+            if k == r then
+                Kit.color(Kit.INK, 0.8)
+                lg.setLineWidth(2)
+                lg.rectangle("line", bx - 2, ty - 2, 44, 30, 8, 8)
+                lg.setLineWidth(1)
+            end
+            Kit.text(RARITY_LETTERS[k], 12, bx, ty + 5, open and { 1, 1, 1 } or Kit.INK, open and 1 or 0.3, "center", 40)
+            if open then
+                state.buttons[#state.buttons + 1] = { x = bx, y = ty, w = 40, h = 26, run = function() state.craftRarity[id] = k end }
+            end
         end
         ty = ty + 36
     end
@@ -190,11 +244,17 @@ local function workbench(state, ext, x, y, w, h)
         local have = counts[part.id] or 0
         local ok = have >= part.n
         if not ok then ready = false end
-        Kit.text(ItemConfig.all[part.id].name, 13, dx, ty, Kit.INK, 0.8)
-        Kit.text(have .. " / " .. part.n, 13, (dx) + (dw), ty, ok and Kit.GREEN or Kit.RED, 1, "right")
-        ty = ty + 20
+        Icons.draw({ i = -1, d = part.id }, dx, ty, 24, 24, 1)
+        Kit.text(ItemConfig.all[part.id].name, 13, dx + 32, ty + 1, Kit.INK, 0.8)
+        Kit.text(have .. " / " .. part.n, 13, (dx) + (dw), ty + 1, ok and Kit.GREEN or Kit.RED, 1, "right")
+        local track = dw - 32
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.08)
+        lg.rectangle("fill", dx + 32, ty + 20, track, 3, 1.5, 1.5)
+        Kit.color(ok and Kit.GREEN or Kit.RED, 0.9)
+        lg.rectangle("fill", dx + 32, ty + 20, track * min(1, have / part.n), 3, 1.5, 1.5)
+        ty = ty + 32
     end
-    button(state, "craft", dx, ty + 12, dw, 48, "Craft", function()
+    button(state, "craft", dx, ty + 12, dw, 48, ready and ("Craft " .. def.name:lower()) or "Missing materials", function()
         ext:send("xhub", { o = "craft", d = id, r = r })
     end, { primary = ready, size = 18, disabled = not ready })
 end
@@ -215,6 +275,27 @@ function Hub.draw(ext)
     lg.rectangle("fill", M + 18, M + 18, 6, 40, 3, 3)
     Kit.text("The Wilds", 28, M + 36, M + 12, Kit.INK, 1)
     Kit.text(string.format("Official server  ·  %d / %d in the world", data.players or 0, data.max or 64), 13, M + 37, M + 48, Kit.INK, 0.55)
+    -- the record at a glance
+    local s = data.stats or {}
+    local rate = survival(s)
+    local chips = {
+        { tostring(s.raids or 0), "raids" },
+        { tostring(s.extracts or 0), "extracted", Kit.GREEN },
+        { rate and (rate .. "%") or "-", "survival", rate and (rate >= 50 and Kit.GREEN or Kit.RED) or nil },
+        { tostring(s.kills or 0), "kills" }
+    }
+    local chx = M + 300
+    for _, chip in ipairs(chips) do
+        local vw = Kit.font(20):getWidth(chip[1])
+        local lw2 = Kit.font(11):getWidth(chip[2])
+        local cw2 = max(vw, lw2) + 28
+        if chx + cw2 > W - M - 460 then break end
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
+        lg.rectangle("fill", chx, M + 14, cw2, 48, 10, 10)
+        Kit.text(chip[1], 20, chx, M + 17, chip[3] or Kit.INK, 1, "center", cw2)
+        Kit.text(chip[2], 11, chx, M + 43, Kit.INK, 0.5, "center", cw2)
+        chx = chx + cw2 + 8
+    end
     button(state, "deploy", W - M - 18 - 200, M + 12, 200, 52, "Deploy", function() ext:send("xhub", { o = "deploy" }) end, { primary = true, size = 21, hint = "Enter" })
     local kit = data.kit or 0
     button(state, "kit", W - M - 18 - 200 - 12 - 200, M + 12, 200, 52, kit > 0 and string.format("Free kit  %d:%02d", floor(kit / 60), kit % 60) or "Free kit",
@@ -247,15 +328,16 @@ function Hub.draw(ext)
     if state.tab == 1 then
         workbench(state, ext, cx + 16, contentY, cw - 32, contentH)
     else
-        stats(data, cx + 24, contentY + 40, min(cw - 48, 420))
-        Kit.text("Tips", 13, cx + 24, contentY + 300, Kit.INK, 0.55)
+        local used = stats(data, cx + 24, contentY + 40, min(cw - 48, 640))
+        local tipsY = contentY + 40 + used + 30
+        Kit.text("Tips", 13, cx + 24, tipsY, Kit.INK, 0.55)
         local tips = {
             "Shift click moves an item between your loadout and the stash.",
             "R rotates an item while you drag it.",
             "Drop an attachment on a weapon to fit it; a utility on a quick slot to bind it.",
             "Right click a plan in the stash to learn it, any other item to recycle it."
         }
-        for k, tip in ipairs(tips) do Kit.text("·  " .. tip, 13, cx + 24, contentY + 300 + k * 22, Kit.INK, 0.7) end
+        for k, tip in ipairs(tips) do Kit.text("·  " .. tip, 13, cx + 24, tipsY + k * 22, Kit.INK, 0.7) end
     end
     state.ui:finish()
     state.ui:overlay()
