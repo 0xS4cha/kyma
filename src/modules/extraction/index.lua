@@ -481,39 +481,37 @@ function GM.Extraction:drawSummary()
     local e = self.ending or {}
     love.graphics.clear(Kit.PAPER)
     self.summaryAt = self.summaryAt or love.timer.getTime()
-    local t = math.min(1, (love.timer.getTime() - self.summaryAt) * 2.5)
-    local titles = { extracted = "EXTRACTED", died = "KILLED IN ACTION", left = "BACK FROM THE WILDS" }
-    local colors = { extracted = Kit.GREEN, died = Kit.RED, left = Kit.INK }
-    local color = colors[e.r] or Kit.INK
-    local cw, ch = 640, 400
-    local cx, cy = W / 2 - cw / 2, H / 2 - ch / 2 + (1 - t) * 20
-    Kit.card(cx, cy, cw, ch, t, 18)
-    Kit.color(color, t)
-    lg.rectangle("fill", cx, cy + 28, 5, 64, 2.5, 2.5)
-    Kit.text("Raid over", 13, cx + 36, cy + 30, Kit.INK, 0.5 * t)
-    Kit.text(titles[e.r] or "RAID OVER", 36, cx + 36, cy + 46, color, t)
+    local t = love.timer.getTime() - self.summaryAt
+    local a = Kit.easeOutCubic(math.min(1, t / 0.4))
+    local titles = { extracted = "Extracted", died = "Killed in action", left = "Back from the wilds" }
+    local colors = { extracted = Kit.ALLY, died = Kit.RED, left = Kit.INK }
+    local cw, ch = 620, 380
+    local cx, cy = W / 2 - cw / 2, H / 2 - ch / 2 + (1 - a) * 16
+    Kit.card(cx, cy, cw, ch, a, 18)
+    Kit.text(titles[e.r] or "Raid over", 34, cx, cy + 28, colors[e.r] or Kit.INK, a, "center", cw)
     local line
     if e.r == "died" then line = "Killed by " .. tostring(e.k or "the wilds") .. ". Everything you carried is lost." end
     if e.r == "extracted" then line = "You made it out with " .. (e.v or 0) .. " items. They are in your loadout." end
     if e.r == "left" then line = "Your character survived your absence and came back." end
-    if line then Kit.text(line, 15, cx + 36, cy + 104, Kit.INK, 0.7 * t) end
+    if line then Kit.text(line, 15, cx, cy + 82, Kit.INK, 0.65 * a, "center", cw) end
+    -- stat tiles like the end of a duel match
     local tiles = {
         { string.format("%d:%02d", math.floor((e.time or 0) / 60), (e.time or 0) % 60), "Time in the world" },
-        { tostring(e.v or 0), "Items brought back" },
+        { tostring(e.r == "extracted" and (e.v or 0) or 0), "Items brought back" },
         { tostring(e.kills or 0), "Players killed" },
         { tostring(e.monsters or 0), "Monsters killed" }
     }
-    if e.r ~= "extracted" then tiles[2] = { "0", "Items brought back" } end
-    local tw = (cw - 72 - 3 * 12) / 4
+    local gap = 10
+    local tw = (cw - 64 - 3 * gap) / 4
     for k, tile in ipairs(tiles) do
-        local tx = cx + 36 + (k - 1) * (tw + 12)
-        local a = math.min(1, math.max(0, t * 2 - k * 0.2))
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.05 * a)
-        lg.rectangle("fill", tx, cy + 150, tw, 104, 12, 12)
-        Kit.text(tile[1], 30, tx, cy + 168, Kit.INK, a, "center", tw)
-        Kit.text(tile[2], 12, tx, cy + 216, Kit.INK, 0.5 * a, "center", tw)
+        local f = Kit.easeOutCubic(math.min(1, math.max(0, (t - 0.1 * k) / 0.35))) * a
+        local tx, ty = cx + 32 + (k - 1) * (tw + gap), cy + 130 + (1 - f) * 8
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.045 * f)
+        lg.rectangle("fill", tx, ty, tw, 92, 12, 12)
+        Kit.text(tile[1], 30, tx + 16, ty + 10, Kit.INK, f)
+        Kit.text(tile[2], 12, tx + 16, ty + 68, Kit.INK, 0.5 * f)
     end
-    Kit.button("ext:summary", W / 2 - 130, cy + ch - 92, 260, 52, "Back to the hub", { primary = true, align = "center", hint = "Enter", alpha = t })
+    Kit.button("ext:summary", W / 2 - 130, cy + ch - 96, 260, 52, "Back to the hub", { primary = true, align = "center", hint = "Enter", alpha = a })
 end
 
 function GM.Extraction:Draw()

@@ -137,9 +137,7 @@ end
 function UI.panel(title, x, y, w, h, subtitle)
     Kit.card(x, y, w, h, 0.97, 14)
     if title then
-        Kit.color(Kit.RED, 1)
-        lg.rectangle("fill", x + 16, y + 15, 3, 14, 1.5, 1.5)
-        Kit.text(title:upper(), 13, x + 26, y + 13, Kit.INK, 0.9)
+        Kit.text(title, 15, x + 16, y + 12, Kit.INK, 0.95)
         if subtitle then Kit.text(subtitle, 12, (x + w - 16), y + 14, Kit.INK, 0.5, "right") end
     end
 end

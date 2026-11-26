@@ -107,8 +107,8 @@ local function stats(data, x, y, w)
     local s = data.stats or {}
     local rate = survival(s)
     local tiles = {
-        { rate and (rate .. "%") or "-", "Survival rate", rate and (rate >= 50 and Kit.GREEN or Kit.RED) or Kit.INK },
-        { s.raids, "Raids" }, { s.extracts, "Extracted", Kit.GREEN }, { s.deaths, "Deaths", Kit.RED },
+        { rate and (rate .. "%") or "-", "Survival rate", rate and rate < 50 and Kit.RED or nil },
+        { s.raids, "Raids" }, { s.extracts, "Extracted" }, { s.deaths, "Deaths" },
         { s.kills, "Players killed" }, { s.monsters, "Monsters killed" }, { s.crafted, "Crafted" }, { s.recycled, "Recycled" }
     }
     local cols = 4
@@ -117,10 +117,10 @@ local function stats(data, x, y, w)
     for k, tile in ipairs(tiles) do
         local tx = x + ((k - 1) % cols) * (tw + gap)
         local ty = y + floor((k - 1) / cols) * (96 + gap)
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.045)
         lg.rectangle("fill", tx, ty, tw, 96, 12, 12)
-        Kit.text(tostring(tile[1] or 0), 30, tx, ty + 18, tile[3] or Kit.INK, 1, "center", tw)
-        Kit.text(tile[2], 12, tx, ty + 62, Kit.INK, 0.5, "center", tw)
+        Kit.text(tostring(tile[1] or 0), 30, tx + 16, ty + 12, tile[3] or Kit.INK, 1)
+        Kit.text(tile[2], 12, tx + 16, ty + 70, Kit.INK, 0.5)
     end
     return 2 * (96 + gap)
 end
@@ -131,21 +131,10 @@ local function workbench(state, ext, x, y, w, h)
     state.ui:zone("recycle", x, y + h - zoneH, w, zoneH, "Drop here to recycle into materials")
     if not state.ui.drag then
         local zy = y + h - zoneH
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.03)
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
         lg.rectangle("fill", x, zy, w, zoneH, 10, 10)
-        -- a dashed edge: a place to drop things on
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.25)
-        local dash = 10
-        for dx = x + 12, x + w - 12 - dash, dash * 2 do
-            lg.rectangle("fill", dx, zy, dash, 1.5)
-            lg.rectangle("fill", dx, zy + zoneH - 1.5, dash, 1.5)
-        end
-        for dy = zy + 12, zy + zoneH - 12 - dash, dash * 2 do
-            lg.rectangle("fill", x, dy, 1.5, dash)
-            lg.rectangle("fill", x + w - 1.5, dy, 1.5, dash)
-        end
-        Kit.text("RECYCLE", 12, x, zy + 14, Kit.RED, 0.9, "center", w)
-        Kit.text("Drag an item here, or right click it: you get part of its recipe back, at its rarity.", 12, x, zy + 34, Kit.INK, 0.55, "center", w)
+        Kit.text("Recycle", 13, x, zy + 14, Kit.INK, 0.8, "center", w)
+        Kit.text("Drag an item here, or right click it: you get part of its recipe back, at its rarity.", 12, x, zy + 34, Kit.INK, 0.5, "center", w)
     end
     h = h - zoneH - 12
     local names = {}
@@ -246,11 +235,11 @@ local function workbench(state, ext, x, y, w, h)
         if not ok then ready = false end
         Icons.draw({ i = -1, d = part.id }, dx, ty, 24, 24, 1)
         Kit.text(ItemConfig.all[part.id].name, 13, dx + 32, ty + 1, Kit.INK, 0.8)
-        Kit.text(have .. " / " .. part.n, 13, (dx) + (dw), ty + 1, ok and Kit.GREEN or Kit.RED, 1, "right")
+        Kit.text(have .. " / " .. part.n, 13, (dx) + (dw), ty + 1, ok and Kit.INK or Kit.RED, ok and 0.7 or 1, "right")
         local track = dw - 32
         lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.08)
         lg.rectangle("fill", dx + 32, ty + 20, track, 3, 1.5, 1.5)
-        Kit.color(ok and Kit.GREEN or Kit.RED, 0.9)
+        Kit.color(ok and Kit.INK or Kit.RED, 0.9)
         lg.rectangle("fill", dx + 32, ty + 20, track * min(1, have / part.n), 3, 1.5, 1.5)
         ty = ty + 32
     end
@@ -280,8 +269,8 @@ function Hub.draw(ext)
     local rate = survival(s)
     local chips = {
         { tostring(s.raids or 0), "raids" },
-        { tostring(s.extracts or 0), "extracted", Kit.GREEN },
-        { rate and (rate .. "%") or "-", "survival", rate and (rate >= 50 and Kit.GREEN or Kit.RED) or nil },
+        { tostring(s.extracts or 0), "extracted" },
+        { rate and (rate .. "%") or "-", "survival", rate and rate < 50 and Kit.RED or nil },
         { tostring(s.kills or 0), "kills" }
     }
     local chx = M + 300
@@ -290,8 +279,8 @@ function Hub.draw(ext)
         local lw2 = Kit.font(11):getWidth(chip[2])
         local cw2 = max(vw, lw2) + 28
         if chx + cw2 > W - M - 460 then break end
-        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.04)
-        lg.rectangle("fill", chx, M + 14, cw2, 48, 10, 10)
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.045)
+        lg.rectangle("fill", chx, M + 14, cw2, 48, 12, 12)
         Kit.text(chip[1], 20, chx, M + 17, chip[3] or Kit.INK, 1, "center", cw2)
         Kit.text(chip[2], 11, chx, M + 43, Kit.INK, 0.5, "center", cw2)
         chx = chx + cw2 + 8
