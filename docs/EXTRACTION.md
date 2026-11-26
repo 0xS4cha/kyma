@@ -60,6 +60,8 @@ The land is shaped by noise rather than a grid. Elevation makes lakes in the hol
 | Military | Fenced camps with bunkers, weapon cases and ammo crates (tiers 3 and 4) |
 | Citadel | The fortress in the very centre, where the Warden may appear |
 
+You can tell the danger by sight: the deeper you go, the darker and redder the ground (and the map), a red dashed line with chevrons marks where it goes up, and a banner tells you when you cross into an easier or a harder area. Street lamps stand along the roads, alternating sides, each with a pool of light; they are only drawn, worked out from the roads, so they block nothing.
+
 Players arrive at the gates on the map edges or on roads near them; extraction points sit at gates and on a few roads further in. The world is generated from a seed: the server sends only the seed, and every client rebuilds the same map.
 
 ## Items and rarities
@@ -106,7 +108,7 @@ Nests across the map wake up when a player comes within 2 600 units and go back 
 | Sentinel | Armored machine that fires bursts (industrial and military areas) |
 | The Warden | Event boss: armored, fires long bursts, summons crawlers, drops mythic loot |
 
-Monsters see all around them, hear gunshots, footsteps and explosions, and find their way around walls. Doors open for them too.
+Monsters are drawn like the players, with the same faceted body, head and feet, each in its own colour and size, with coloured eyes; sentinels carry a rifle and the Warden a machine gun. Monsters see all around them, hear gunshots, footsteps and explosions, and find their way around walls. Doors open for them too.
 
 ## Random events
 

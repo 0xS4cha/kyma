@@ -66,18 +66,137 @@ local function cornerColors(def)
     end
     for gy = 0, n do
         for gx = 0, n do
-            local shade = 0
+            local shade, danger = 0, 0
             for _, o in ipairs({ { -1, -1 }, { 0, -1 }, { -1, 0 }, { 0, 0 } }) do
                 local s, tier = cell(gx + o[1], gy + o[2])
-                shade = shade + s + (tier - 1) * 0.12
+                shade = shade + s
+                danger = danger + (tier - 1) / 3
             end
-            -- the arena floor, a touch darker in dense or dangerous areas
-            colors[gy * (n + 1) + gx + 1] = mix(T.floor, T.pitRim, shade / 4 * 0.22)
+            -- the arena floor, a touch darker in dense areas; the deeper the
+            -- danger, the darker and the redder, so you see where it gets hard
+            local base = mix(T.floor, T.pitRim, shade / 4 * 0.14 + danger / 4 * 0.5)
+            colors[gy * (n + 1) + gx + 1] = mix(base, Kit.RED, danger / 4 * 0.24)
         end
     end
     colors.version = Theme.version
     corners[def] = colors
     return colors
+end
+
+local lampsNear, lampPool
+
+--- Where the danger goes up, a red dashed line on the ground, with chevrons
+--- pointing into the harder side.
+local function drawBorders(def, cx0, cy0, cx1, cy1)
+    local n, cell = def.count, def.chunk
+    local function tier(cx, cy)
+        if cx < 0 or cy < 0 or cx >= n or cy >= n then return nil end
+        return def.chunks[cy * n + cx + 1].tier
+    end
+    lg.setLineWidth(10)
+    local dash = 80
+    local function edge(x1, y1, x2, y2, harder, nx, ny)
+        Kit.color(Kit.RED, 0.35 + 0.12 * harder)
+        local len = math.abs(x2 - x1) + math.abs(y2 - y1)
+        local ux, uy = (x2 - x1) / len, (y2 - y1) / len
+        for t = 0, len - dash, dash * 2 do
+            lg.line(x1 + ux * t, y1 + uy * t, x1 + ux * (t + dash), y1 + uy * (t + dash))
+        end
+        for t = dash * 3, len - dash, dash * 6 do
+            local px, py = x1 + ux * t + nx * 40, y1 + uy * t + ny * 40
+            lg.line(px - ux * 18 - nx * 14, py - uy * 18 - ny * 14, px, py, px + ux * 18 - nx * 14, py + uy * 18 - ny * 14)
+        end
+    end
+    for cy = cy0 - 1, cy1 do
+        for cx = cx0 - 1, cx1 do
+            local here = tier(cx, cy)
+            if here then
+                local right, below = tier(cx + 1, cy), tier(cx, cy + 1)
+                local x, y = (cx + 1) * cell, (cy + 1) * cell
+                if right and right ~= here then
+                    local dir = right > here and 1 or -1
+                    edge(x, cy * cell, x, y, max(right, here), dir, 0)
+                end
+                if below and below ~= here then
+                    local dir = below > here and 1 or -1
+                    edge(cx * cell, y, x, y, max(below, here), 0, dir)
+                end
+            end
+        end
+    end
+    lg.setLineWidth(1)
+end
+
+-- Street lamps stand along the roads, alternating sides. They are only drawn,
+-- worked out from the roads, so the server knows nothing of them.
+local LAMP_STEP = 460
+local lampCache = setmetatable({}, { __mode = "k" })
+
+local function roadLamps(r)
+    local list = lampCache[r]
+    if list then return list end
+    list = {}
+    local dx, dy = r[3] - r[1], r[4] - r[2]
+    local len = math.sqrt(dx * dx + dy * dy)
+    if len > 1 then
+        local ux, uy = dx / len, dy / len
+        local seed = floor(r[1] * 7 + r[2] * 13) % 1000
+        local side = (seed % 2 == 0) and 1 or -1
+        local off = r[5] / 2 + 26
+        -- roads are cut in short pieces: a piece shorter than the step gets a
+        -- lamp now and then, in proportion to its length, so they stay evenly spread
+        local start = (seed / 1000) * LAMP_STEP
+        for t = start, len - 1, LAMP_STEP do
+            local x, y = r[1] + ux * t - uy * off * side, r[2] + uy * t + ux * off * side
+            list[#list + 1] = { x = x, y = y, ax = uy * side, ay = -ux * side }
+            side = -side
+        end
+    end
+    lampCache[r] = list
+    return list
+end
+
+lampsNear = function(def, roads, x0, y0, x1, y1)
+    local out = {}
+    for _, r in ipairs(roads) do
+        for _, lamp in ipairs(roadLamps(r)) do
+            if lamp.x > x0 - 200 and lamp.x < x1 + 200 and lamp.y > y0 - 200 and lamp.y < y1 + 200 then out[#out + 1] = lamp end
+        end
+    end
+    return out
+end
+
+--- The pool of light a lamp casts on the ground.
+local poolMesh
+lampPool = function(lamp)
+    if not poolMesh then
+        -- a soft disc: bright in the middle, fading to nothing at the edge
+        local vertices = { { 0, 0, 0, 0, 1, 1, 1, 1 } }
+        for k = 0, 32 do
+            local a = k / 32 * 2 * pi
+            vertices[#vertices + 1] = { cos(a), sin(a), 0, 0, 1, 1, 1, 0 }
+        end
+        poolMesh = lg.newMesh(vertices, "fan", "static")
+    end
+    local cx, cy = lamp.x + lamp.ax * 34, lamp.y + lamp.ay * 34
+    lg.setColor(T.wallTop[1], T.wallTop[2], T.wallTop[3], 0.32)
+    lg.draw(poolMesh, cx, cy, 0, 140, 140)
+end
+
+--- The lamp itself, above the fog like the trees: a pole, an arm and a head.
+local function lampPost(lamp)
+    local hx, hy = lamp.x + lamp.ax * 34, lamp.y + lamp.ay * 34
+    lg.setColor(T.wallShadow)
+    lg.circle("fill", lamp.x + 5, lamp.y + 6, 7)
+    lg.setColor(mix(T.coverSide, T.pitRim, 0.5))
+    lg.setLineWidth(4)
+    lg.line(lamp.x, lamp.y, hx, hy)
+    lg.setLineWidth(1)
+    lg.circle("fill", lamp.x, lamp.y, 6)
+    lg.setColor(T.wallTop)
+    lg.circle("fill", hx, hy, 8)
+    lg.setColor(T.coverSide)
+    lg.circle("line", hx, hy, 8)
 end
 
 local groundMesh
@@ -158,6 +277,8 @@ local function drawFloor(raid, x0, y0, x1, y1)
         end
     end
     lg.setLineWidth(1)
+    drawBorders(def, cx0, cy0, cx1, cy1)
+    for _, lamp in ipairs(lampsNear(def, roads, x0, y0, x1, y1)) do lampPool(lamp) end
 end
 
 local function shadow(rect, ox, oy)
@@ -169,7 +290,10 @@ end
 --- The rectangles near the view: plain ones as a small arena for the session
 --- renderer, decorated ones (trees, rocks, cars...) apart, drawn as shapes.
 local function nearby(raid, x0, y0, x1, y1)
-    local proxy = { walls = {}, doors = {}, glass = {}, cover = {}, decor = {} }
+    local proxy = { walls = {}, doors = {}, glass = {}, cover = {}, decor = {}, lamps = {} }
+    local roads = {}
+    Worldgen.roadsNear(raid.def, x0, y0, x1, y1, function(r) roads[#roads + 1] = r end)
+    proxy.lamps = lampsNear(raid.def, roads, x0, y0, x1, y1)
     for _, list in ipairs({ "walls", "doors", "glass", "cover" }) do
         local out = proxy[list]
         raid.terrain:query(list, x0, y0, x1, y1, function(rect)
@@ -280,6 +404,7 @@ end
 --- Trees, rocks and the like, drawn above the fog like walls: you always see the
 --- land, the fog only hides who is there.
 local function drawDecor(proxy)
+    for _, lamp in ipairs(proxy.lamps) do lampPost(lamp) end
     for _, rect in ipairs(proxy.decor) do
         local deco = rect.deco
         if deco == "tree" then
@@ -402,57 +527,40 @@ local function drawExtracts(raid)
     end
 end
 
-local function bodyPoints(r, spikes, wobble, phase)
-    local points = {}
-    for k = 0, spikes * 2 - 1 do
-        local a = k / (spikes * 2) * 2 * pi
-        local rr = r * ((k % 2 == 0) and 1 or 0.72) * (1 + wobble * sin(phase + k))
-        points[#points + 1] = cos(a) * rr
-        points[#points + 1] = sin(a) * rr
-    end
-    return points
-end
+-- Monsters are drawn like the players: the same faceted body, head and feet,
+-- in their own colour, bigger or smaller, with their eyes as the accent.
+local MONSTER_LOOKS = {
+    crawler = { h = 2, a = 7 }, stalker = { h = 4, a = 8 }, brute = { h = 3, a = 6 },
+    spitter = { h = 2, a = 7 }, sentinel = { h = 4, a = 5 }, warden = { h = 3, a = 2 }
+}
+local MONSTER_GUNS = { sentinel = "rifle", warden = "lmg" }
+local monsterBodies = {}
+local playerRadius = require("src.config.game").player.radius
 
 --- @param m table interpolated monster
 function Render.monster(m)
     local def = MonsterConfig[m.kind]
     if not def then return end
     local now = love.timer.getTime()
-    local c = def.color
     local r = def.radius
-    lg.setColor(0, 0, 0, 0.15)
-    lg.ellipse("fill", m.x + 3, m.y + 4, r, r * 0.8)
+    local body = monsterBodies[m.kind]
+    if not body then
+        -- the Warden in a dark crimson, so it never passes for an enemy player
+        body = { body = m.kind == "warden" and { 0.34, 0.1, 0.14 } or def.color }
+        monsterBodies[m.kind] = body
+    end
+    -- the interpolated monster carries what the character drawing reads
+    local p = m
+    p.slot = "monster" .. m.id
+    p.weapon = MONSTER_GUNS[m.kind]
+    p.look = MONSTER_LOOKS[m.kind]
+    p.punch = m.swing and 0.6 or nil
+    local k = r / playerRadius
     lg.push()
     lg.translate(m.x, m.y)
-    lg.rotate(m.angle)
-    local lunge = m.swing and 6 or 0
-    lg.translate(lunge, 0)
-    if m.kind == "sentinel" or m.kind == "warden" then
-        lg.setColor(c[1] * 0.7, c[2] * 0.7, c[3] * 0.7)
-        lg.rectangle("fill", r * 0.4, -3, r * 1.2, 6, 2, 2)
-        lg.setColor(c)
-        lg.polygon("fill", bodyPoints(r, 4, 0, 0))
-        lg.setColor(c[1] * 1.2, c[2] * 1.2, c[3] * 1.2)
-        lg.polygon("fill", bodyPoints(r * 0.6, 4, 0, 0))
-        if m.kind == "warden" then
-            Kit.color(Kit.AMBER, 1)
-            for k = -1, 1 do lg.polygon("fill", -r * 0.2, k * 9 - 4, -r * 0.2, k * 9 + 4, -r * 0.7, k * 9) end
-        end
-    else
-        local spikes = m.kind == "crawler" and 7 or (m.kind == "brute" and 5 or (m.kind == "spitter" and 9 or 6))
-        lg.setColor(c[1] * 0.75, c[2] * 0.75, c[3] * 0.75)
-        lg.polygon("fill", bodyPoints(r * 1.08, spikes, 0.05, now * 6 + m.id))
-        lg.setColor(c)
-        lg.polygon("fill", bodyPoints(r * 0.92, spikes, 0.04, now * 5 + m.id))
-        if m.kind == "spitter" then
-            lg.setColor(0.7, 0.9, 0.3, 0.9)
-            lg.circle("fill", -r * 0.3, 0, r * 0.45)
-        end
-    end
-    local eye = m.kind == "stalker" and { 0.9, 0.3, 1 } or { 1, 0.85, 0.3 }
-    lg.setColor(eye[1], eye[2], eye[3], 0.95)
-    lg.circle("fill", r * 0.55, -r * 0.28, max(2, r * 0.13))
-    lg.circle("fill", r * 0.55, r * 0.28, max(2, r * 0.13))
+    lg.scale(k, k)
+    lg.translate(-m.x, -m.y)
+    Character.draw(p, body)
     lg.pop()
     if m.burn then
         Kit.color(Kit.AMBER, 0.6 + 0.3 * sin(now * 20))

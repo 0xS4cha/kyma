@@ -4,6 +4,7 @@ local GM = require("src.core.index")
 local Camera = require("src.core.camera")
 local Keys = require("src.input.keybinds")
 local Kit = require("src.ui.kit")
+local Worldgen = require("src.game.extraction.worldgen")
 local Effects = require("src.modules.session.effects")
 local PostFX = require("src.modules.session.postfx")
 local Character = require("src.modules.session.character")
@@ -68,6 +69,7 @@ function GM.Extraction:Initialize()
         self.showInventory, self.showMap, self.paused = false, false, false
         self.killer, self.banner = nil, nil
         self.introAt, self.diedAt = love.timer.getTime(), nil
+        self.tier = nil
         self.effects = Effects.new()
         self.postfx = PostFX.new()
         self.camera.scale = GameConfig.camera.scale
@@ -391,6 +393,15 @@ function GM.Extraction:Think(dt)
     raid.correctionX, raid.correctionY = raid.correctionX * decay, raid.correctionY * decay
     local view = raid:view()
     self.camera:follow(view.x, view.y, view.angle)
+    -- a banner when you cross into an easier or a harder area
+    local chunk = Worldgen.chunkAt(raid.def, view.x, view.y)
+    if self.tier and chunk.tier ~= self.tier and raid.me.dead == 0 then
+        local harder = chunk.tier > self.tier
+        local texts = { "Weak monsters, plain loot", "Tougher monsters, better loot", "Dangerous: strong monsters, rare loot", "The deep wilds: the worst monsters, the best loot" }
+        self.banner = { title = (harder and "Danger " or "Safer: danger ") .. chunk.tier .. " of 4", text = texts[chunk.tier], color = harder and Kit.RED or Kit.INK, time = love.timer.getTime() }
+        sound(harder and "beep" or "click")
+    end
+    self.tier = chunk.tier
     local settings = GM.Menu and GM.Menu.settings
     local strength = Feel.strength[settings and settings.shake or #Feel.strength] or 1
     self.camera:update(dt, strength)

@@ -35,8 +35,10 @@ function Hud.mapCanvas(def)
     for k, chunk in ipairs(def.chunks) do
         local cx, cy = (k - 1) % def.count, floor((k - 1) / def.count)
         local c = Worldgen.BIOMES[chunk.biome].color
-        local danger = (chunk.tier - 1) * 0.035
-        lg.setColor(c[1] - danger, c[2] - danger, c[3] - danger)
+        -- darker and redder the deeper the danger, like the ground in the world
+        local d = (chunk.tier - 1) / 3
+        local red = Kit.RED
+        lg.setColor(c[1] * (1 - 0.3 * d) + red[1] * 0.2 * d, c[2] * (1 - 0.3 * d) + red[2] * 0.2 * d, c[3] * (1 - 0.3 * d) + red[3] * 0.2 * d)
         lg.rectangle("fill", cx * def.chunk, cy * def.chunk, def.chunk + 1, def.chunk + 1)
     end
     lg.setColor(0.6, 0.63, 0.68)
