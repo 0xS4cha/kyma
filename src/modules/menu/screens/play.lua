@@ -5,6 +5,7 @@ local Settings = require("src.modules.menu.settings")
 local Config = require("src.config.game")
 local Maps = require("src.maps.index")
 local Address = require("src.net.address")
+local School = require("src.net.school")
 local Rules = require("src.modules.menu.screens.rules")
 local GM = require("src.core.index")
 
@@ -130,8 +131,16 @@ function Play.build(menu)
         left = function() menu:setOption("hostWhere", 1) end,
         right = function() menu:setOption("hostWhere", #WHERE) end
     }
+    -- on a 42 computer, the host can keep the game for 42 students
+    local schoolW = School.login() and 96 or 0
+    if schoolW > 0 then
+        list[#list + 1] = {
+            id = "host42", x = rx + rw - 20 - schoolW, y = l.gridY + 330, w = schoolW, h = 40,
+            press = function() menu:setOption("host42", not menu.settings.host42) end
+        }
+    end
     list[#list + 1] = {
-        id = "hostPassword", x = rx + 20, y = l.gridY + 330, w = rw - 40, h = 40,
+        id = "hostPassword", x = rx + 20, y = l.gridY + 330, w = rw - 40 - (schoolW > 0 and schoolW + 10 or 0), h = 40,
         press = function() menu.editing = "hostPassword" end,
         text = Common.textHandler(menu, "hostPassword", 24, Common.PASSWORD_PATTERN, true)
     }
@@ -141,7 +150,8 @@ function Play.build(menu)
             local password = menu.settings.hostPassword ~= "" and menu.settings.hostPassword or nil
             local options = {
                 mode = "host", game = Settings.gameMode(menu.settings), map = menu.settings.map,
-                rules = Settings.matchRules(menu.settings), password = password, label = "Opening your game"
+                rules = Settings.matchRules(menu.settings), password = password, label = "Opening your game",
+                school = School.login() and menu.settings.host42 or nil
             }
             if menu.settings.hostWhere == 2 then
                 options.mode = "hostServer"
@@ -258,13 +268,15 @@ function Play.draw(menu, elements, p)
     })
 
     local hy = cy + 222
-    local hostFocus = menu.focus == "host" or menu.focus == "where" or menu.focus == "hostPassword"
+    local hostFocus = menu.focus == "host" or menu.focus == "where" or menu.focus == "hostPassword" or menu.focus == "host42"
     local hostHot = Kit.ease("card:host", hostFocus)
     local lift = hostHot * 3
     local official = menu.settings.hostWhere == 2
+    local school = School.login() and menu.settings.host42
     Kit.card(r.x, hy - lift, r.w, 216, ra, 16, hostHot)
     Kit.text("Host a game", 18, r.x + 20, hy + 14 - lift, Kit.INK, ra)
-    local reach = official and "Listed in Multiplayer, anyone can join"
+    local reach = school and ("42 students only, as their login (" .. School.login() .. ")")
+        or official and "Listed in Multiplayer, anyone can join"
         or ("Friends join " .. (menu.lanAddress and (menu.lanAddress .. ":6789") or "- no network found"))
     Kit.text(reach, 12, r.x + r.w - 20, hy + 19 - lift, Kit.INK, 0.5 * ra, "right")
     local where = find(elements, "where")
@@ -273,6 +285,12 @@ function Play.draw(menu, elements, p)
     Kit.text("Password, empty for an open game", 11, pass.x, pass.y - 17 + (cy - l.gridY) - lift, Kit.INK, 0.45 * ra)
     Kit.field("hostPassword", pass.x, pass.y + (cy - l.gridY) - lift, pass.w, pass.h, string.rep("*", #menu.settings.hostPassword), "No password",
         menu.editing == "hostPassword", menu.focus == "hostPassword", ra, menu:editState("hostPassword", menu.settings.hostPassword))
+    local only = find(elements, "host42")
+    if only then
+        Kit.button("host42", only.x, only.y + (cy - l.gridY) - lift, only.w, only.h, "42 only", {
+            hot = menu.focus == "host42", primary = school, size = 14, align = "center", alpha = ra, arrow = false
+        })
+    end
     local host = find(elements, "host")
     Kit.button("host", host.x, host.y + (cy - l.gridY) - lift, host.w, host.h, "Host " .. rules.name:lower() .. (official and " online" or ""), {
         hot = menu.focus == "host", size = 16, align = "center", alpha = ra, arrow = false

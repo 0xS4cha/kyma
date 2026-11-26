@@ -85,6 +85,7 @@ function Settings.defaults()
         tournamentServer = 1,
         browseSource = 1,
         hostWhere = 1,
+        host42 = false,
         killHeal = false,
         statFps = 1,
         statFrame = 1,

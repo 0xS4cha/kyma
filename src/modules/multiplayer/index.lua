@@ -7,6 +7,7 @@ local Lan = require("src.modules.multiplayer.lan")
 local Browser = require("src.modules.multiplayer.browser")
 local Address = require("src.net.address")
 local Identity = require("src.net.identity")
+local School = require("src.net.school")
 local NetStats = require("src.net.netstats")
 
 GM.Multiplayer = {}
@@ -234,7 +235,8 @@ function GM.Multiplayer:announce()
         name = self.name .. " - " .. ((require("src.config.game").modes[room.mode or ""] or {}).name or "Duel")
             .. " - " .. require("src.maps.index").get(room.map).name,
         address = self.lanAddress,
-        locked = room.lk == true
+        locked = room.lk == true,
+        school = room.s42 == true
     })
 end
 
@@ -314,7 +316,7 @@ function GM.Multiplayer:Poll()
             self.connected = true
             Logger:info("multiplayer", "Connected to " .. tostring(event.peer))
             local settings = GM.Menu and GM.Menu.settings or {}
-            self:Send("hello", { name = self.name, version = NetConfig.version, token = Identity.token(), look = { h = settings.head, a = settings.accent }, kit = settings.kitWeapon and require("src.modules.menu.settings").kit(settings) or nil })
+            self:Send("hello", { name = self.name, version = NetConfig.version, token = Identity.token(), school = School.detect(), look = { h = settings.head, a = settings.accent }, kit = settings.kitWeapon and require("src.modules.menu.settings").kit(settings) or nil })
         elseif event.type == "receive" then
             self.stats:received(#event.data)
             local kind, data = Protocol.Decode(event.data)

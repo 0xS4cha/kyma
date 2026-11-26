@@ -155,6 +155,9 @@ function GM.Session:Start(options)
     options = options or {}
     local mp = GM.Multiplayer
     local name = options.name and options.name ~= "" and options.name or "Player"
+    -- a 42 game names everyone after their login, the server does the same
+    local login = require("src.net.school").login()
+    if options.school and login then name = login end
     self.active = true
     self.status = "connecting"
     self.room = nil
@@ -180,7 +183,8 @@ function GM.Session:Start(options)
         mp:Join(options.address, name, queue)
     elseif options.mode == "hostServer" then
         mp:HostOn(options.address or mp:OfficialAddress(), name, {
-            mode = options.game or "duel", map = options.map, rules = options.rules, title = options.title, password = options.password
+            mode = options.game or "duel", map = options.map, rules = options.rules, title = options.title, password = options.password,
+            school = options.school or nil
         })
     else
         local queue = { mode = options.game or "duel", map = options.map, spectate = options.spectate or nil, rules = options.rules }
@@ -188,6 +192,7 @@ function GM.Session:Start(options)
         if options.mode == "host" then
             queue.host = true
             queue.password = options.password
+            queue.school = options.school or nil
         end
         mp:PlayLocal(name, options.mode == "host", queue)
     end

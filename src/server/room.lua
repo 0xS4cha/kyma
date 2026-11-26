@@ -31,6 +31,7 @@ function Room:init(id, options)
     self.hosted = options.hosted == true
     self.title = options.title
     self.password = options.password
+    self.school = options.school == true
     if self.practice then
         local count = self.rules.players - (options.watch and 0 or 1)
         for k = 1, count do
@@ -116,7 +117,7 @@ function Room:Listing()
     local phase = self.world.phase
     return {
         id = self.id, t = self.title, m = self.mode, map = self.map, p = self:Count(), x = self:Max(),
-        w = self:Watchers(), lk = self:Locked() or nil, ph = self.world.over and "over" or phase
+        w = self:Watchers(), lk = self:Locked() or nil, s42 = self.school or nil, ph = self.world.over and "over" or phase
     }
 end
 
@@ -158,7 +159,7 @@ function Room:Info()
     return {
         id = self.id, state = self.state, players = players, practice = self.practice, matched = self.matched or nil, tl = self.label or (self.hosted and self.title) or nil,
         mode = self.mode, map = self.map, max = self:Max(), watchers = self:Watchers(), ru = Loadout.pack(self.world.options),
-        lk = self:Locked() or nil
+        lk = self:Locked() or nil, s42 = self.school or nil
     }
 end
 

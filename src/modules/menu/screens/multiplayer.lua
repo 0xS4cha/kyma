@@ -5,6 +5,7 @@ local Config = require("src.config.game")
 local Maps = require("src.maps.index")
 local Settings = require("src.modules.menu.settings")
 local NetConfig = require("src.net.config")
+local School = require("src.net.school")
 
 local Multiplayer = {}
 
@@ -82,13 +83,17 @@ local function join(menu, address, label, options)
     menu:saveSettings()
     menu:Play({
         mode = "connect", address = address, label = label, spectate = options.spectate,
-        room = options.room, password = options.room and menu.settings.password or nil
+        room = options.room, password = options.room and menu.settings.password or nil, school = options.school
     })
 end
 
 --- @param menu table
 --- @param game table
 local function pick(menu, game)
+    if game.school and not School.login() then
+        menu.notice = game.name .. " is only for 42 students"
+        return
+    end
     if game.locked and menu.settings.password == "" then
         menu.editing = "password"
         menu.focus = "password"
@@ -96,7 +101,7 @@ local function pick(menu, game)
         return
     end
     local full = game.max > 0 and game.players >= game.max
-    join(menu, game.address, (full and "Watching " or "Joining ") .. game.name, { room = game.room, spectate = full or nil })
+    join(menu, game.address, (full and "Watching " or "Joining ") .. game.name, { room = game.room, spectate = full or nil, school = game.school or nil })
 end
 
 --- Opens the extraction mode on the official server.
@@ -270,8 +275,12 @@ function Multiplayer.draw(menu, elements, p)
             love.graphics.rectangle("fill", x, y, element.w, element.h, 10, 10)
             Kit.dot(x + 20, y + element.h / 2, 5, full and Kit.AMBER or Kit.GREEN, e)
             local nw = Kit.text(game.name, 16, x + 36 + hot * 4, y + 7, Kit.INK, e)
+            local tx = x + 46 + nw + hot * 4
+            if game.school then
+                tx = tx + Kit.text("42 only", 11, tx, y + 10, Kit.RED, e) + 10
+            end
             if game.locked then
-                Kit.text("Password", 11, x + 46 + nw + hot * 4, y + 10, Kit.AMBER, e)
+                Kit.text("Password", 11, tx, y + 10, Kit.AMBER, e)
             end
             Kit.text(describe(game), 12, x + 36 + hot * 4, y + 28, Kit.INK, 0.45 * e)
             local count = game.max > 0 and string.format("%d / %d", game.players, game.max) or tostring(game.players)
