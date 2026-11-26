@@ -19,6 +19,7 @@ local SUITES = {
     "tests.settings_test",
     "tests.map_systems_test",
     "tests.modes_test",
+    "tests.elimination_test",
     "tests.maps_test",
     "tests.melee_test",
     "tests.gungame_test",

@@ -505,7 +505,7 @@ function Hud:drawBoard(session)
     card(x, y, w, h, a, 18)
     text(world.rules.name, 20, x + 22, y + 18, INK, a)
     text("First to " .. world.rules.scoreLimit, 13, x + w - 22, y + 22, INK, 0.5 * a, "right")
-    text(world.rules.ladder and "Level" or "Kills", 12, x + w - 22, y + 52, INK, 0.45 * a, "right")
+    text(world.rules.ladder and "Level" or (world.rules.elim and not world.rules.teams) and "Rounds" or "Kills", 12, x + w - 22, y + 52, INK, 0.45 * a, "right")
     for k, entry in ipairs(list) do
         local ry = y + 70 + (k - 1) * rowH
         if entry.me then
@@ -560,7 +560,7 @@ local function drawStandings(session, x, y, w, t, a)
     local h = 70 + #list * rowH
     card(x, y, w, h, a, 18)
     text("Standings", 18, x + 22, y + 18, INK, a)
-    text(world.rules.ladder and "Level" or "Kills", 12, x + w - 22, y + 22, INK, 0.45 * a, "right")
+    text(world.rules.ladder and "Level" or (world.rules.elim and not world.rules.teams) and "Rounds" or "Kills", 12, x + w - 22, y + 22, INK, 0.45 * a, "right")
     for k, entry in ipairs(list) do
         local e = easeOutCubic((t - 0.35 - (k - 1) * 0.08) / 0.4) * a
         if e > 0 then
@@ -1280,9 +1280,12 @@ function Hud:drawDeath(session)
     end
     local seconds = me.dead / Config.tickRate
     local progress = 1 - me.dead / Config.respawnTicks
-    if session.world.round and session.world.phase == "playing" then
+    local rules = session.world.rules
+    if (session.world.round or rules.elim) and session.world.phase == "playing" then
         text("Out until the next round", 16, 0, y + 80, INK, 0.65 * a, "center", W)
-        text("Your team plays on without you", 13, 0, y + 108, INK, 0.45 * a, "center", W)
+        if rules.teams then
+            text("Your team plays on without you", 13, 0, y + 108, INK, 0.45 * a, "center", W)
+        end
     elseif me.dead > 0 then
         ring(W / 2, y + 112, 26, progress, 5, INK, a)
         text(tostring(math.ceil(seconds)), 22, W / 2 - 40, y + 99, INK, a, "center", 80)
