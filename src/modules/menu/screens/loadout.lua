@@ -42,7 +42,7 @@ end
 
 function Screen.build(menu)
     local l = layout()
-    local back = menu.loadoutTarget == "preset" and "rules" or (menu.paused and "pause" or "root")
+    local back = menu.loadoutTarget == "preset" and "play" or (menu.paused and "pause" or "root")
     local list = { Common.backElement(menu, function() menu:switch(back, -1) end) }
     local weaponKey, modKey, gadgetKey = keys(menu)
     local tileW = math.floor((l.w - 44 - (COLS - 1) * 10) / COLS)
@@ -194,7 +194,7 @@ function Screen.draw(menu, elements, p)
 end
 
 function Screen.back(menu)
-    menu:switch(menu.loadoutTarget == "preset" and "rules" or (menu.paused and "pause" or "root"), -1)
+    menu:switch(menu.loadoutTarget == "preset" and "play" or (menu.paused and "pause" or "root"), -1)
 end
 
 return Screen
