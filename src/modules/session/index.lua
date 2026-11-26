@@ -1373,15 +1373,6 @@ function GM.Session:MousePressed(x, y, button)
     end
 end
 
-function GM.Session:WheelMoved(_, y)
-    if not self.active or self:paused() then return end
-    if y > 0 then
-        self.camera:zoom(1.1)
-    elseif y < 0 then
-        self.camera:zoom(1 / 1.1)
-    end
-end
-
 function GM.Session:KeyPressed(key, scancode)
     if not self.active or self:paused() then return end
     if TournamentView.active(self) and not self.chat.open then
