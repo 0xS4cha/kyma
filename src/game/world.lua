@@ -221,7 +221,7 @@ end
 --- @param command table
 --- @return table? violation
 function World:apply(player, command)
-    local previous = { x = player.x, y = player.y }
+    local previous = { x = player.x, y = player.y, dead = player.dead > 0 }
     if Player.step(player, command, self.arena, self.dt) then
         local violation = AntiCheat.validate(player, previous, self)
         if violation then return violation end
