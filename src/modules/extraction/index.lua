@@ -67,6 +67,7 @@ function GM.Extraction:Initialize()
         self.state = "raid"
         self.showInventory, self.showMap, self.paused = false, false, false
         self.killer, self.banner = nil, nil
+        self.introAt, self.diedAt = love.timer.getTime(), nil
         self.effects = Effects.new()
         self.postfx = PostFX.new()
         self.camera.scale = GameConfig.camera.scale
@@ -141,6 +142,7 @@ function GM.Extraction:Initialize()
     mp:On("xend", function(data)
         if not self.active then return end
         self.ending = data
+        self.summaryAt = nil
         self.state = "summary"
         self.raid = nil
         self:capture(false)
@@ -475,22 +477,43 @@ end
 
 function GM.Extraction:drawSummary()
     local W, H = love.graphics.getDimensions()
+    local lg = love.graphics
     local e = self.ending or {}
     love.graphics.clear(Kit.PAPER)
-    local titles = { extracted = "Extracted", died = "Killed in action", left = "Back from the wilds" }
+    self.summaryAt = self.summaryAt or love.timer.getTime()
+    local t = math.min(1, (love.timer.getTime() - self.summaryAt) * 2.5)
+    local titles = { extracted = "EXTRACTED", died = "KILLED IN ACTION", left = "BACK FROM THE WILDS" }
     local colors = { extracted = Kit.GREEN, died = Kit.RED, left = Kit.INK }
-    Kit.card(W / 2 - 300, H / 2 - 180, 600, 360, 1, 18)
-    Kit.text(titles[e.r] or "Raid over", 34, 0, H / 2 - 150, colors[e.r] or Kit.INK, 1, "center", W)
-    local lines = {}
-    if e.r == "died" then lines[#lines + 1] = "Killed by " .. tostring(e.k or "the wilds") .. ". Everything you carried is lost." end
-    if e.r == "extracted" then lines[#lines + 1] = "You made it out with " .. (e.v or 0) .. " items. They are in your loadout." end
-    if e.r == "left" then lines[#lines + 1] = "Your character survived your absence and came back." end
-    lines[#lines + 1] = string.format("Time in the world: %d:%02d", math.floor((e.time or 0) / 60), (e.time or 0) % 60)
-    lines[#lines + 1] = string.format("Players killed: %d   Monsters killed: %d", e.kills or 0, e.monsters or 0)
-    for k, line in ipairs(lines) do
-        Kit.text(line, 16, W / 2 - 270, H / 2 - 80 + (k - 1) * 30, Kit.INK, 0.8, "center", 540)
+    local color = colors[e.r] or Kit.INK
+    local cw, ch = 640, 400
+    local cx, cy = W / 2 - cw / 2, H / 2 - ch / 2 + (1 - t) * 20
+    Kit.card(cx, cy, cw, ch, t, 18)
+    Kit.color(color, t)
+    lg.rectangle("fill", cx, cy + 28, 5, 64, 2.5, 2.5)
+    Kit.text("Raid over", 13, cx + 36, cy + 30, Kit.INK, 0.5 * t)
+    Kit.text(titles[e.r] or "RAID OVER", 36, cx + 36, cy + 46, color, t)
+    local line
+    if e.r == "died" then line = "Killed by " .. tostring(e.k or "the wilds") .. ". Everything you carried is lost." end
+    if e.r == "extracted" then line = "You made it out with " .. (e.v or 0) .. " items. They are in your loadout." end
+    if e.r == "left" then line = "Your character survived your absence and came back." end
+    if line then Kit.text(line, 15, cx + 36, cy + 104, Kit.INK, 0.7 * t) end
+    local tiles = {
+        { string.format("%d:%02d", math.floor((e.time or 0) / 60), (e.time or 0) % 60), "Time in the world" },
+        { tostring(e.v or 0), "Items brought back" },
+        { tostring(e.kills or 0), "Players killed" },
+        { tostring(e.monsters or 0), "Monsters killed" }
+    }
+    if e.r ~= "extracted" then tiles[2] = { "0", "Items brought back" } end
+    local tw = (cw - 72 - 3 * 12) / 4
+    for k, tile in ipairs(tiles) do
+        local tx = cx + 36 + (k - 1) * (tw + 12)
+        local a = math.min(1, math.max(0, t * 2 - k * 0.2))
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.05 * a)
+        lg.rectangle("fill", tx, cy + 150, tw, 104, 12, 12)
+        Kit.text(tile[1], 30, tx, cy + 168, Kit.INK, a, "center", tw)
+        Kit.text(tile[2], 12, tx, cy + 216, Kit.INK, 0.5 * a, "center", tw)
     end
-    Kit.button("ext:summary", W / 2 - 130, H / 2 + 100, 260, 52, "Back to the hub", { primary = true, align = "center", hint = "Enter" })
+    Kit.button("ext:summary", W / 2 - 130, cy + ch - 92, 260, 52, "Back to the hub", { primary = true, align = "center", hint = "Enter", alpha = t })
 end
 
 function GM.Extraction:Draw()

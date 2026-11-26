@@ -148,7 +148,91 @@ function Hud.minimap(ext)
     Kit.text("N", 11, nx - 10, ny - 7, { 1, 1, 1 }, 1, "center", 20)
     arrow(cx, cy, -pi / 2, 9)
     local chunk = Worldgen.chunkAt(raid.def, me.x, me.y)
-    Kit.text(Worldgen.BIOMES[chunk.biome].name .. "  ·  danger " .. chunk.tier, 12, x, y + size + 12, Kit.INK, 0.75, "center", size)
+    local name = Worldgen.BIOMES[chunk.biome].name
+    local nw = Kit.font(12):getWidth(name)
+    local total = nw + 14 + 4 * 14
+    local lx = x + (size - total) / 2
+    Kit.text(name, 12, lx, y + size + 12, Kit.INK, 0.75)
+    Hud.danger(lx + nw + 14, y + size + 15, chunk.tier, 1)
+end
+
+--- Danger as four pips, red the deeper you are.
+function Hud.danger(x, y, tier, alpha)
+    for k = 1, 4 do
+        if k <= tier then Kit.color(Kit.RED, (0.45 + 0.15 * k) * alpha) else lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.15 * alpha) end
+        lg.rectangle("fill", x + (k - 1) * 14, y, 10, 10, 2, 2)
+    end
+end
+
+local function wrap(a)
+    return (a + pi) % (2 * pi) - pi
+end
+
+local CARDINALS = { { 0, "N" }, { 45, "NE" }, { 90, "E" }, { 135, "SE" }, { 180, "S" }, { 225, "SW" }, { 270, "W" }, { 315, "NW" } }
+
+--- A heading tape across the top: where you face, the cardinal points, and the
+--- extractions and events on the bearing where they lie.
+function Hud.compass(ext, nearest, nearestD)
+    local raid, camera = ext.raid, ext.camera
+    local W = lg.getWidth()
+    local w, h = 560, 40
+    local x, y = W / 2 - w / 2, 14
+    local span = math.rad(80)
+    local perRad = (w / 2) / span
+    local rotation = camera:rotation()
+    Kit.card(x, y, w, h, 0.94, 12)
+    lg.setScissor(x + 8, y, w - 16, h + 30)
+    -- the screen angle of a world direction, 0 straight ahead
+    local function at(screen)
+        local d = wrap(screen + pi / 2)
+        if math.abs(d) > span then return nil end
+        return W / 2 + d * perRad, 1 - math.abs(d) / span
+    end
+    for deg = 0, 345, 15 do
+        local world = math.rad(deg) - pi / 2
+        local sx, fade = at(world + rotation)
+        if sx then
+            local cardinal
+            for _, c in ipairs(CARDINALS) do if c[1] == deg then cardinal = c[2] end end
+            if cardinal then
+                local big = #cardinal == 1
+                Kit.text(cardinal, big and 15 or 12, sx - 20, y + (big and 11 or 13), deg == 0 and Kit.RED or Kit.INK, (big and 0.95 or 0.6) * (0.35 + 0.65 * fade), "center", 40)
+            else
+                lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.3 * (0.3 + 0.7 * fade))
+                lg.rectangle("fill", sx - 0.5, y + h - 12, 1, 7)
+            end
+        end
+    end
+    local function mark(wx, wy, color, size)
+        local a = Hud.bearing(ext, wx, wy)
+        local sx, fade = at(a)
+        if not sx then return end
+        lg.setColor(color[1], color[2], color[3], 0.5 + 0.5 * fade)
+        lg.polygon("fill", sx, y + 3, sx + size, y + 3 + size, sx, y + 3 + size * 2, sx - size, y + 3 + size)
+    end
+    for _, ev in ipairs(raid.events) do mark(ev.x, ev.y, EVENT_COLORS[ev.k] or Kit.AMBER, 5) end
+    -- the three closest extractions only, like the arrows on the edges
+    local me = raid:view()
+    local list = {}
+    for _, e in ipairs(raid.extracts) do list[#list + 1] = { e = e, d = (e.x - me.x) ^ 2 + (e.y - me.y) ^ 2 } end
+    table.sort(list, function(a, b) return a.d < b.d end)
+    for k = 1, math.min(3, #list) do
+        local e = list[k].e
+        mark(e.x, e.y, (e.r and e.r > 0) and Kit.AMBER or Kit.GREEN, e == nearest and 7 or 5)
+    end
+    lg.setScissor()
+    -- where you face
+    Kit.color(Kit.RED, 1)
+    lg.polygon("fill", W / 2 - 6, y + h, W / 2 + 6, y + h, W / 2, y + h - 7)
+    local heading = floor(math.deg(-rotation) % 360 + 0.5) % 360
+    Kit.text(string.format("%03d", heading), 11, W / 2 - 20, y + h + 3, Kit.INK, 0.55, "center", 40)
+    if nearest then
+        local text = nearest.n .. "  ·  " .. floor(nearestD / 10) .. " m"
+        local tw = Kit.font(13):getWidth(text)
+        Kit.color(Kit.GREEN, 1)
+        lg.circle("fill", W / 2 - tw / 2 - 10, y + h + 27, 4)
+        Kit.text(text, 13, W / 2 - tw / 2, y + h + 19, Kit.INK, 0.85)
+    end
 end
 
 --- Screen angle and distance of a world point from the player.
@@ -165,21 +249,27 @@ Hud.bearing = bearing
 local function edgeMarkers(ext)
     local raid = ext.raid
     local W, H = lg.getDimensions()
-    local margin = 70
+    -- kept clear of the compass at the top and the panels at the bottom
+    local margin, top, bottom = 70, 140, 170
     local function marker(wx, wy, color, label)
         local a, d, sx, sy, px, py = bearing(ext, wx, wy)
-        if sx > margin and sx < W - margin and sy > margin and sy < H - margin then return end
+        if sx > margin and sx < W - margin and sy > top and sy < H - bottom then return end
         local ca, sa = cos(a), sin(a)
         local t = math.huge
         if ca > 0 then t = math.min(t, (W - margin - px) / ca) elseif ca < 0 then t = math.min(t, (margin - px) / ca) end
-        if sa > 0 then t = math.min(t, (H - margin - py) / sa) elseif sa < 0 then t = math.min(t, (margin - py) / sa) end
+        if sa > 0 then t = math.min(t, (H - bottom - py) / sa) elseif sa < 0 then t = math.min(t, (top - py) / sa) end
         local ex, ey = px + ca * t, py + sa * t
-        lg.setColor(color[1], color[2], color[3], 0.95)
-        pointer(ex, ey, a, 16)
         local text = label .. "  " .. floor(d / 10) .. " m"
         local tw = Kit.font(12):getWidth(text) + 14
         local lx = math.max(8, math.min(W - tw - 8, ex - ca * 30 - tw / 2))
-        local ly = math.max(8, math.min(H - 28, ey - sa * 30 - 10))
+        local ly = math.max(top - 30, math.min(H - bottom + 6, ey - sa * 30 - 10))
+        -- not under the minimap in the top right corner
+        if lx + tw > W - 250 and ly < 270 then
+            ly = 270
+            if ey < 270 then ey = 290 end
+        end
+        lg.setColor(color[1], color[2], color[3], 0.95)
+        pointer(ex, ey, a, 16)
         Kit.card(lx, ly, tw, 22, 0.92, 8)
         Kit.text(text, 12, lx + 7, ly + 3, color, 1)
     end
@@ -245,28 +335,50 @@ local function bar(x, y, w, h, value, color, label)
     if label then Kit.text(label, 12, x + 8, y + h / 2 - 8, { 1, 1, 1 }, 1) end
 end
 
---- @param ext table
-function Hud.draw(ext)
-    local raid = ext.raid
-    local W, H = lg.getDimensions()
-    local me = raid.me
-    local own = raid.own or {}
-    local view = raid.inventory
-    local now = love.timer.getTime()
+local HP_SEGMENTS = 10
 
-    -- Health and armor
-    local x, y = 24, H - 108
-    Kit.card(x - 8, y - 12, 300, 96, 0.92, 14)
-    bar(x, y, 280, 22, me.hp / GameConfig.health, me.hp > 35 and Kit.GREEN or Kit.RED, floor(max(0, me.hp)) .. " HP")
+--- Health as a big number and a segmented bar, armor durability under it,
+--- statuses as chips above. Low health pulses the screen edges red.
+function Hud.vitals(ext, view, own, now)
+    local me = ext.raid.me
+    local W, H = lg.getDimensions()
+    local x, y, w = 24, H - 118, 320
+    local hp = max(0, me.hp)
+    local share = hp / GameConfig.health
+    local low = me.hp > 0 and me.hp <= 35
+    if low then
+        local pulse = 0.5 + 0.5 * sin(now * 5)
+        Hud.edgeGlow(Kit.RED, 0.18 + 0.14 * pulse)
+    end
+    Kit.card(x - 8, y - 12, w, 106, 0.94, 14)
+    local color = low and Kit.RED or Kit.INK
+    local nw = Kit.text(tostring(math.ceil(hp)), 34, x + 2, y - 6, color, 1)
+    Kit.text("HP", 12, x + 8 + nw, y + 14, Kit.INK, 0.5)
+    local bx, bw = x + nw + 40, w - nw - 56
+    local seg = (bw - (HP_SEGMENTS - 1) * 3) / HP_SEGMENTS
+    for k = 1, HP_SEGMENTS do
+        local fill = Kit.clamp(share * HP_SEGMENTS - (k - 1), 0, 1)
+        local sx = bx + (k - 1) * (seg + 3)
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.1)
+        lg.rectangle("fill", sx, y + 8, seg, 14, 3, 3)
+        if fill > 0 then
+            Kit.color(low and Kit.RED or Kit.GREEN, 0.95)
+            lg.rectangle("fill", sx, y + 8, seg * fill, 14, 3, 3)
+        end
+    end
     if view then
         for k, slot in ipairs({ "vest", "helmet" }) do
             local inst = view.g[slot]
+            local ax = x + (k - 1) * 154
             if not inst then
-                Kit.text("No " .. slot, 11, x + (k - 1) * 142, y + 34, Kit.INK, 0.35)
+                Kit.text("No " .. slot, 11, ax, y + 52, Kit.INK, 0.35)
             else
                 local stats = Items.armorStats(inst)
-                bar(x + (k - 1) * 142, y + 30, 138, 12, (inst.u or 0) / stats.durability, Kit.ALLY)
-                Kit.text(Items.name(inst), 11, x + (k - 1) * 142, y + 44, Kit.INK, 0.6)
+                local r = Items.rarity(inst)
+                Kit.color(r.color, 1)
+                lg.rectangle("fill", ax, y + 40, 3, 28, 1.5, 1.5)
+                Kit.text(Items.name(inst), 11, ax + 9, y + 38, Kit.INK, 0.7)
+                bar(ax + 9, y + 56, 136, 8, (inst.u or 0) / stats.durability, Kit.ALLY)
             end
         end
     end
@@ -278,46 +390,117 @@ function Hud.draw(ext)
     if fx.h then statuses[#statuses + 1] = { "Stim " .. math.ceil(fx.h / 60), Kit.RED } end
     if fx.f then statuses[#statuses + 1] = { "Fortified " .. math.ceil(fx.f / 60), Kit.ALLY } end
     if fx.r then statuses[#statuses + 1] = { "Rush " .. math.ceil(fx.r / 60), Kit.AMBER } end
-    local sx = x
+    local sx = x - 8
     for _, status in ipairs(statuses) do
-        local w = Kit.font(12):getWidth(status[1]) + 16
-        Kit.color(status[2], 0.85)
-        lg.rectangle("fill", sx, y - 36, w, 20, 10, 10)
-        Kit.text(status[1], 12, sx, y - 33, { 1, 1, 1 }, 1, "center", w)
-        sx = sx + w + 6
+        local sw = Kit.font(12):getWidth(status[1]) + 18
+        Kit.color(status[2], 0.9)
+        lg.rectangle("fill", sx, y - 42, sw, 22, 11, 11)
+        Kit.text(status[1], 12, sx, y - 38, { 1, 1, 1 }, 1, "center", sw)
+        sx = sx + sw + 6
     end
+end
 
-    -- Weapon and quick slots
-    if view then
-        local bx = W - 380
-        local by = H - 120
-        Kit.card(bx - 8, by - 12, 364, 108, 0.92, 14)
-        for k, hand in ipairs({ "primary", "secondary" }) do
-            local inst = view.g[hand]
-            local hx = bx + (k - 1) * 176
-            local active = view.hd == hand
-            lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], active and 0.1 or 0.04)
-            lg.rectangle("fill", hx, by, 168, 50, 8, 8)
-            if inst then Icons.draw(inst, hx + 4, by + 4, 120, 42, active and 1 or 0.55) end
-            Kit.keycap(Keys.label("weapon" .. k), hx + 140, by + 14, active and 1 or 0.5, 12)
-        end
-        if me.def then
-            local text = me.reload > 0 and "Reloading" or (me.ammo .. " / " .. me.reserve)
-            Kit.text(text, 22, bx, by + 56, me.ammo == 0 and Kit.RED or Kit.INK, 1)
+--- The weapon in hand with its rarity, the ammo in big digits, a reload bar,
+--- the other weapon and the quick slots.
+function Hud.weapon(ext, view)
+    local me = ext.raid.me
+    local W, H = lg.getDimensions()
+    local bx, by = W - 404, H - 130
+    Kit.card(bx - 8, by - 12, 388, 118, 0.94, 14)
+    local hands = { "primary", "secondary" }
+    local held = view.hd == "secondary" and 2 or 1
+    local inst = view.g[hands[held]]
+    local other = view.g[hands[3 - held]]
+    if inst then
+        local r = Items.rarity(inst)
+        Kit.color(r.color, 1)
+        lg.rectangle("fill", bx, by + 2, 3, 46, 1.5, 1.5)
+        Icons.draw(inst, bx + 10, by, 120, 50, 1)
+        Kit.text(Items.name(inst), 13, bx + 140, by + 4, Kit.INK, 0.9)
+        Kit.text(r.name, 11, bx + 140, by + 22, r.color, 1)
+    else
+        Kit.text("Fists", 16, bx + 10, by + 14, Kit.INK, 0.7)
+    end
+    Kit.keycap(Keys.label("weapon" .. held), bx + 140, by + 38, 0.8, 10)
+    -- the other weapon, small, with its key
+    local ox = bx + 262
+    lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.05)
+    lg.rectangle("fill", ox, by, 110, 48, 8, 8)
+    if other then Icons.draw(other, ox + 4, by + 2, 80, 44, 0.45) end
+    Kit.keycap(Keys.label("weapon" .. (3 - held)), ox + 86, by + 14, 0.5, 10)
+    if me.def then
+        if me.reload > 0 then
+            local total = me.def.reloadTicks or 60
+            Kit.text("Reloading", 15, bx + 10, by + 62, Kit.AMBER, 1)
+            bar(bx + 10, by + 86, 130, 6, 1 - me.reload / total, Kit.AMBER)
         else
-            Kit.text("Fists", 18, bx, by + 58, Kit.INK, 0.7)
-        end
-        local places = raid.places
-        for k = 1, Config.quickSlots do
-            local qx = bx + 160 + (k - 1) * 48
-            lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.06)
-            lg.rectangle("fill", qx, by + 56, 42, 42, 6, 6)
-            local uid = view.g.quick[k]
-            local loc = places and uid and uid ~= 0 and Inventory.locate(places, uid)
-            if loc then Icons.draw(loc.inst, qx, by + 56, 42, 42) end
-            Kit.keycap(Keys.label("quick" .. k), qx + 2, by + 80, 0.8, 10)
+            local aw = Kit.text(tostring(me.ammo), 34, bx + 8, by + 52, me.ammo == 0 and Kit.RED or Kit.INK, 1)
+            Kit.text("/ " .. me.reserve, 15, bx + 14 + aw, by + 70, Kit.INK, 0.5)
         end
     end
+    local places = ext.raid.places
+    for k = 1, Config.quickSlots do
+        local qx = bx + 182 + (k - 1) * 48
+        lg.setColor(Kit.INK[1], Kit.INK[2], Kit.INK[3], 0.06)
+        lg.rectangle("fill", qx, by + 56, 42, 42, 6, 6)
+        local uid = view.g.quick[k]
+        local loc = places and uid and uid ~= 0 and Inventory.locate(places, uid)
+        if loc then Icons.draw(loc.inst, qx, by + 56, 42, 42) end
+        Kit.keycap(Keys.label("quick" .. k), qx + 2, by + 80, 0.8, 10)
+    end
+end
+
+--- A soft glow on the screen edges.
+function Hud.edgeGlow(color, alpha)
+    local W, H = lg.getDimensions()
+    local steps, depth = 10, 90
+    for k = 1, steps do
+        local d = depth * k / steps
+        lg.setColor(color[1], color[2], color[3], alpha * (1 - k / steps) * 0.35)
+        lg.setLineWidth(depth / steps + 1)
+        lg.rectangle("line", d / 2, d / 2, W - d, H - d)
+    end
+    lg.setLineWidth(1)
+end
+
+--- The title card when you arrive in the world: where you are and how deep.
+function Hud.intro(ext, now)
+    local start = ext.introAt
+    if not start then return end
+    local t = now - start
+    if t > 4.5 then ext.introAt = nil return end
+    local raid = ext.raid
+    local W, H = lg.getDimensions()
+    local a = min(1, t * 2.5) * min(1, (4.5 - t) * 1.5)
+    local rise = (1 - min(1, t * 2)) * 16
+    local chunk = Worldgen.chunkAt(raid.def, raid.me.x, raid.me.y)
+    local y = H * 0.36 + rise
+    Kit.text("THE WILDS", 13, 0, y, Kit.RED, a, "center", W)
+    Kit.color(Kit.RED, a)
+    local line = 140 * min(1, t * 1.5)
+    lg.rectangle("fill", W / 2 - line / 2, y + 22, line, 2)
+    Kit.text(Worldgen.BIOMES[chunk.biome].name, 44, 0, y + 32, Kit.INK, a, "center", W)
+    local label = "Danger"
+    local lw = Kit.font(12):getWidth(label)
+    local total = lw + 12 + 4 * 14
+    Kit.text(label, 12, W / 2 - total / 2, y + 92, Kit.INK, 0.6 * a)
+    Hud.danger(W / 2 - total / 2 + lw + 12, y + 95, chunk.tier, a)
+    Kit.text("Loot what you can, then reach an extraction", 14, 0, y + 118, Kit.INK, 0.6 * a, "center", W)
+end
+
+--- @param ext table
+function Hud.draw(ext)
+    local raid = ext.raid
+    local W, H = lg.getDimensions()
+    local me = raid.me
+    local own = raid.own or {}
+    local view = raid.inventory
+    local now = love.timer.getTime()
+
+    -- Health and armor
+    Hud.vitals(ext, view, own, now)
+    -- Weapon and quick slots
+    if view then Hud.weapon(ext, view) end
 
     -- Using an item
     if own.ut then
@@ -327,13 +510,25 @@ function Hud.draw(ext)
         Kit.text("Using " .. (ItemConfig.all[id] and ItemConfig.all[id].name or ""), 14, 0, H * 0.62 + 18, Kit.INK, 0.8, "center", W)
     end
 
-    -- Extraction progress
+    -- Extraction progress: a ring that closes, the seconds left inside it
     if own.ex then
-        local w = 360
-        local t = own.ex / Config.extractTicks
-        Kit.card(W / 2 - w / 2 - 12, 90, w + 24, 64, 0.95, 14)
-        Kit.text(string.format("Extracting  %.1f s", (Config.extractTicks - own.ex) / 60), 18, 0, 100, Kit.GREEN, 1, "center", W)
-        bar(W / 2 - w / 2, 130, w, 12, t, Kit.GREEN)
+        local t = min(1, own.ex / Config.extractTicks)
+        local cx, cy, r = W / 2, H * 0.26, 46
+        local pulse = 0.5 + 0.5 * sin(now * 6)
+        lg.setColor(Kit.PAPER[1], Kit.PAPER[2], Kit.PAPER[3], 0.92)
+        lg.circle("fill", cx, cy, r + 12)
+        lg.setColor(Kit.GREEN[1], Kit.GREEN[2], Kit.GREEN[3], 0.15)
+        lg.setLineWidth(8)
+        lg.circle("line", cx, cy, r)
+        Kit.color(Kit.GREEN, 1)
+        lg.arc("line", "open", cx, cy, r, -pi / 2, -pi / 2 + t * 2 * pi, 64)
+        lg.setLineWidth(2)
+        lg.setColor(Kit.GREEN[1], Kit.GREEN[2], Kit.GREEN[3], 0.25 * pulse)
+        lg.circle("line", cx, cy, r + 12 + pulse * 6)
+        lg.setLineWidth(1)
+        Kit.text(string.format("%.1f", (Config.extractTicks - own.ex) / 60), 26, cx - r, cy - 18, Kit.GREEN, 1, "center", r * 2)
+        Kit.text("EXTRACTING", 12, 0, cy + r + 18, Kit.GREEN, 1, "center", W)
+        Kit.text("Stay in the zone", 12, 0, cy + r + 36, Kit.INK, 0.55, "center", W)
     end
 
     -- Prompt
@@ -361,15 +556,7 @@ function Hud.draw(ext)
         local d = math.sqrt((e.x - me.x) ^ 2 + (e.y - me.y) ^ 2)
         if (not e.r or e.r <= 0) and (not bestD or d < bestD) then best, bestD = e, d end
     end
-    if best then
-        local a = bearing(ext, best.x, best.y)
-        local cx, cy = W / 2, 34
-        Kit.card(cx - 140, cy - 22, 280, 46, 0.94, 12)
-        Kit.color(Kit.GREEN, 1)
-        pointer(cx - 112, cy + 1, a, 14)
-        Kit.text("Extraction", 11, cx - 92, cy - 16, Kit.INK, 0.5)
-        Kit.text(best.n .. "  ·  " .. floor(bestD / 10) .. " m", 15, cx - 92, cy - 2, Kit.INK, 0.95)
-    end
+    if not ext.showMap then Hud.compass(ext, best, bestD) end
     if not ext.showInventory and not ext.showMap then edgeMarkers(ext) end
 
     if not ext.showMap and not ext.showInventory then Hud.minimap(ext) end
@@ -406,9 +593,12 @@ function Hud.draw(ext)
     local banner = ext.banner
     if banner and now - banner.time < 6 then
         local a = min(1, (6 - (now - banner.time)) * 2)
-        Kit.card(W / 2 - 280, 160, 560, 70, 0.95 * a, 14)
-        Kit.text(banner.title, 22, 0, 172, banner.color or Kit.INK, a, "center", W)
-        Kit.text(banner.text or "", 14, 0, 202, Kit.INK, 0.7 * a, "center", W)
+        local slide = (1 - min(1, (now - banner.time) * 4)) * 30
+        Kit.card(W / 2 - 280, 120 - slide, 560, 70, 0.95 * a, 14)
+        Kit.color(banner.color or Kit.INK, a)
+        lg.rectangle("fill", W / 2 - 280, 120 - slide + 14, 4, 42, 2, 2)
+        Kit.text(banner.title:upper(), 20, 0, 132 - slide, banner.color or Kit.INK, a, "center", W)
+        Kit.text(banner.text or "", 14, 0, 160 - slide, Kit.INK, 0.7 * a, "center", W)
     end
     local ty = H * 0.3
     for k = #ext.toasts, 1, -1 do
@@ -438,12 +628,20 @@ function Hud.draw(ext)
     end
 
     if me.dead > 0 then
-        lg.setColor(0.05, 0.05, 0.06, 0.55)
+        ext.diedAt = ext.diedAt or now
+        local t = min(1, (now - ext.diedAt) * 1.5)
+        lg.setColor(0.05, 0.05, 0.06, 0.6 * t)
         lg.rectangle("fill", 0, 0, W, H)
-        Kit.text("You died", 40, 0, H / 2 - 60, Kit.RED, 1, "center", W)
-        Kit.text(ext.killer and ("Killed by " .. ext.killer) or "", 18, 0, H / 2, { 1, 1, 1 }, 0.9, "center", W)
-        Kit.text("Your gear stays on your body for others to loot.", 14, 0, H / 2 + 30, { 1, 1, 1 }, 0.7, "center", W)
+        Kit.color(Kit.RED, t)
+        lg.rectangle("fill", W / 2 - 160 * t, H / 2 - 74, 320 * t, 3)
+        Kit.text("KILLED IN ACTION", 40, 0, H / 2 - 60, Kit.RED, t, "center", W)
+        Kit.text(ext.killer and ("by " .. ext.killer) or "by the wilds", 18, 0, H / 2 - 6, { 1, 1, 1 }, 0.9 * t, "center", W)
+        Kit.text("Your gear stays on your body for others to loot.", 14, 0, H / 2 + 26, { 1, 1, 1 }, 0.6 * t, "center", W)
+    else
+        ext.diedAt = nil
     end
+
+    Hud.intro(ext, now)
 
     Kit.hint(Keys.label("inventory"), "Inventory", 24, 24, 0.7, 12)
     Kit.hint(Keys.label("map"), "Map", 24, 50, 0.7, 12)

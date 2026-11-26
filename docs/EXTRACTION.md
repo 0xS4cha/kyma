@@ -30,7 +30,9 @@ Every key below is a regular key binding (Settings > Key bindings), and every hi
 | Map (wheel to zoom) | `M` |
 | Pause (the world keeps running) | `Escape` |
 
-The compass at the top points to the nearest extraction, arrows on the screen edges show the three closest ones and the events, and the minimap turns with the camera (the red N marks north). A red arc around you shows where a hit came from.
+The compass tape at the top turns with you: it shows your heading, the cardinal points (N in red), the three closest extractions as green diamonds and the events in their colour, with the name and distance of the nearest extraction under it. Arrows on the screen edges show the same extractions and events, and the minimap turns with the camera (the red N marks north), with the area and its danger as four pips under it. A red arc around you shows where a hit came from.
+
+The HUD shows your health as a number and ten segments (the screen edges pulse red under 35 HP), your armor with its rarity and durability, the weapon in hand with its rarity and your ammo, and your quick slots. When you arrive, a title card names the area and its danger. Extracting closes a green ring with the seconds left, and the end of a raid shows its time, the items you brought back and your kills.
 
 Opening the inventory takes your hands: you can't move, turn, fire or dash while it is open, so find a safe spot first.
 
